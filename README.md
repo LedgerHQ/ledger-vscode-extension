@@ -33,6 +33,10 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+### 0.0.4
+
+Adds container terminal task to side bar items.
+
 ### 0.0.3
 
 Fixes workspace path in docker run task for Windows.

@@ -33,6 +33,13 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
       arguments: ["Run dev-tools image"],
     };
 
+    let openDevToolsTerminal = new TreeItem("Open dev-tools container terminal");
+    openDevToolsTerminal.command = {
+      command: "executeTask",
+      title: "Open dev-tools container terminal",
+      arguments: ["Open dev-tools container terminal"],
+    };
+
     let clean = new TreeItem("Clean build files");
     clean.command = {
       command: "executeTask",
@@ -82,7 +89,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
 
     let load = new TreeItem("App Loading", [loadApp, loadAppReqs]);
 
-    this.data = [selectTarget, runDevToolsImage, build, tests, load];
+    this.data = [selectTarget, runDevToolsImage, openDevToolsTerminal, build, tests, load];
 
     this.updateTargetLabel();
   }

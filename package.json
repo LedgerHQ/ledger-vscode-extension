@@ -3,6 +3,12 @@
   "displayName": "ledger-dev-tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
   "version": "0.0.1",
+  "publisher": "LedgerHQ",
+  "license": "Apache",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LedgerHQ/ledger-vscode-extension/"
+},
   "engines": {
     "vscode": "^1.79.0"
   },
@@ -42,10 +48,36 @@
         "ledger-tools": [
           {
             "id": "exampleView",
-                "name": "exampleView"
+            "name": ""
           }
         ]
-      }
+      },
+      "commands": [
+            {
+                "command": "executeTask",
+                "title": "Execute Build Task"
+            },
+            {
+                "command": "selectTarget",
+                "title": "Select the device you want to build your app for."
+            }
+        ],
+
+        "configuration": {
+            "title": "Ledger Developer Tools",
+            "properties": {
+              "ledgerDevTools.buildDirRelativePath": {
+                "type": "string",
+                "default": true,
+                "description": "Set the build directory relative path of your app."
+              },
+              "ledgerDevTools.dockerImage": {
+                "type": "string",
+                "default": "ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest",
+                "description": "Ledger developer tools Docker image."
+              }
+            }
+        }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

@@ -111,7 +111,8 @@ function runDevToolsImageTask(ws: vscode.WorkspaceFolder): vscode.Task {
     exec = `xhost + ; docker ps -a --format '{{.Names}}' | grep -q ${containerName} && (docker container stop ${containerName} && docker container rm ${containerName}) ; docker pull ${image} && docker run --user $(id -u):$(id -g) --privileged -e DISPLAY='host.docker.internal:0' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${workspacePath}:/app' -t -d --name ${containerName} ${image}`;
   } else {
     // Assume windows
-    exec = `if (docker ps -a --format '{{.Names}}' | Select-String -Quiet ${containerName}) { docker container stop ${containerName}; docker container rm ${containerName} }; docker pull ${image}; docker run --privileged -e DISPLAY='host.docker.internal:0' -v '${workspacePath}:/app' -t -d --name ${containerName} ${image}`;
+    const winWorkspacePath = workspacePath.substring(1); // Remove first '/' from windows workspace path URI. Otherwise it is not valid.
+    exec = `if (docker ps -a --format '{{.Names}}' | Select-String -Quiet ${containerName}) { docker container stop ${containerName}; docker container rm ${containerName} }; docker pull ${image}; docker run --privileged -e DISPLAY='host.docker.internal:0' -v '${winWorkspacePath}:/app' -t -d --name ${containerName} ${image}`;
   }
 
   return new vscode.Task(

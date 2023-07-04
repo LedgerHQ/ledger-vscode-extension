@@ -33,6 +33,10 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+### 0.0.3
+
+Fixes workspace path in docker run task for Windows.
+
 ### 0.0.2
 
 Add extension icon.

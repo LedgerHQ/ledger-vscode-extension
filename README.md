@@ -32,6 +32,11 @@ This extension contributes the following settings:
 * `ledgerDevTools.dockerImage`: Set the Ledger developer tools Docker image.
 
 ## Release Notes
+
+### 0.0.2
+
+Add extension icon.
+
 ### 0.0.1
 
 Initial release of the extension.

@@ -2,9 +2,10 @@
   "name": "ledger-dev-tools",
   "displayName": "ledger-dev-tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "LedgerHQ",
   "license": "Apache",
+  "icon": "resources/ledger-square.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/LedgerHQ/ledger-vscode-extension/"
@@ -40,7 +41,7 @@
           {
             "id": "ledger-tools",
             "title": "Ledger Developer Tools",
-            "icon": "resources/ledger-square.svg"
+            "icon": "resources/ledger-square.png"
           }
         ]
       },

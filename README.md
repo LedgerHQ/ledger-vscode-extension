@@ -33,6 +33,10 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+### 0.0.5
+
+Add multi-folder workspace support. User can now choose which app to build from a quickpick menu.
+
 ### 0.0.4
 
 Adds container terminal task to side bar items.

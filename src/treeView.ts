@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { getSelectedTarget } from "./targetSelector";
+import { getSelectedApp } from "./appSelector";
 
 export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
   data: TreeItem[];
@@ -23,6 +24,13 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     selectTarget.command = {
       command: "selectTarget",
       title: "Select build target",
+      arguments: [],
+    };
+
+    let selectApp = new TreeItem("Select app");
+    selectApp.command = {
+      command: "showAppList",
+      title: "Select app",
       arguments: [],
     };
 
@@ -89,7 +97,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
 
     let load = new TreeItem("App Loading", [loadApp, loadAppReqs]);
 
-    this.data = [selectTarget, runDevToolsImage, openDevToolsTerminal, build, tests, load];
+    this.data = [selectTarget, selectApp, runDevToolsImage, openDevToolsTerminal, build, tests, load];
 
     this.updateTargetLabel();
   }
@@ -116,9 +124,16 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
   }
 
   updateTargetLabel(): void {
+    const currentApp = getSelectedApp();
     let buildItem = this.data.find((item) => item.id && item.id === "buildItems");
-    if (buildItem) {
-      buildItem.label = `Build [${getSelectedTarget()}]`;
+    if (currentApp) {
+      if (buildItem) {
+        buildItem.label = `Build [${currentApp.appName} for ${getSelectedTarget()}]`;
+      }
+    } else {
+      if (buildItem) {
+        buildItem.label = `Build [! NO APP SELECTED !]`;
+      }
     }
     this.refresh();
   }

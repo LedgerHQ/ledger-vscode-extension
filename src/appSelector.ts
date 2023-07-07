@@ -34,7 +34,7 @@ export function findAppsInWorkspace(): App[] | undefined {
         const buildDirPath = path.dirname(makefile);
         const fileContent = fs.readFileSync(makefile, "utf-8");
         if (fileContent.includes(APP_DETECTION_STRING)) {
-            appList.push({ appName: appName, appFolder: appFolder, containerName: containerName, buildDirPath: buildDirPath });
+          appList.push({ appName: appName, appFolder: appFolder, containerName: containerName, buildDirPath: buildDirPath });
         }
       });
     });

@@ -20,20 +20,21 @@ let selectedApp: App | undefined;
 
 export function findAppsInWorkspace(): App[] | undefined {
   const workspaceFolders = vscode.workspace.workspaceFolders;
+  appList = [];
 
   if (workspaceFolders) {
     workspaceFolders.forEach((folder) => {
       const appFolder = folder;
       const appName = path.basename(appFolder.uri.fsPath);
       const containerName = `${appName}-container`;
-      const searchPattern = path.join(folder.uri.fsPath, `**/${APP_DETECTION_FILE}`);
+      const searchPattern = path.join(folder.uri.fsPath, `**/${APP_DETECTION_FILE}`).replace(/\\/g,'/');
       const makefiles = fg.sync(searchPattern, { onlyFiles: true, deep: 2 });
 
       makefiles.forEach((makefile) => {
         const buildDirPath = path.dirname(makefile);
         const fileContent = fs.readFileSync(makefile, "utf-8");
         if (fileContent.includes(APP_DETECTION_STRING)) {
-          appList.push({ appName: appName, appFolder: appFolder, containerName: containerName, buildDirPath: buildDirPath });
+            appList.push({ appName: appName, appFolder: appFolder, containerName: containerName, buildDirPath: buildDirPath });
         }
       });
     });

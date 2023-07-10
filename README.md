@@ -33,6 +33,10 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+### 0.0.6
+
+Fixes app detection for Windows.
+
 ### 0.0.5
 
 Add multi-folder workspace support. User can now choose which app to build from a quickpick menu.

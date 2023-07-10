@@ -33,6 +33,15 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+### 0.1.0
+
+* Code refactoring.
+* New tasks :
+  * Run app in Speculos,
+  * Kill Speculos,
+  * On device functional tests,
+  * Device quick onboarding.
+
 ### 0.0.6
 
 Fixes app detection for Windows.

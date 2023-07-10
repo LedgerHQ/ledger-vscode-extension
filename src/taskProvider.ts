@@ -8,33 +8,71 @@ import { getSelectedApp, App } from "./appSelector";
 // Access the configuration object
 const conf = vscode.workspace.getConfiguration("ledgerDevTools");
 const image = conf.get<string>("dockerImage");
+const onboardPin = conf.get<string>("onboardingPin");
+const onboardSeed = conf.get<string>("onboardingSeed");
+
 export const taskType = "L";
 
 // Udev rules (for Linux app loading requirements)
 const udevRulesFile = "20-ledger.ledgerblue.rules";
 const udevRules = `SUBSYSTEMS=="usb", ATTRS{idVendor}=="2c97", ATTRS{idProduct}=="0006|6000|6001|6002|6003|6004|6005|6006|6007|6008|6009|600a|600b|600c|600d|600e|600f|6010|6011|6012|6013|6014|6015|6016|6017|6018|6019|601a|601b|601c|601d|601e|601f", TAG+="uaccess", TAG+="udev-acl"`;
 
-type TaskBuilder = () => vscode.Task | undefined;
+type ExecBuilder = () => string;
+
+export interface TaskSpec {
+  group?: string;
+  name: string;
+  builder: ExecBuilder;
+  dependsOn?: ExecBuilder;
+}
 
 export class TaskProvider implements vscode.TaskProvider {
   // Referenced in package.json::taskDefinitions
 
   private tasks: vscode.Task[] = [];
   private currentApp: App | undefined;
-  private providerTaskBuilders: TaskBuilder[] = [
-    this.runDevToolsImageTask,
-    this.openTerminalTask,
-    this.buildDebugTask,
-    this.buildTask,
-    this.cleanTask,
-    this.functionalTestsTask,
-    this.functionalTestsDisplayTask,
-    this.functionalTestsRequirementsTask,
-    this.appLoadTask,
-    this.installLoadRequirementsTask,
-    this.killSpeculosTask,
-    this.runInSpeculosTask,
+  private taskSpecs: TaskSpec[] = [
+    { group: "Docker Operations", name: "Run dev-tools image", builder: this.runDevToolsImageExec },
+    { group: "Docker Operations", name: "Open dev-tools container terminal", builder: this.openTerminalExec },
+
+    { group: "Build", name: "Build app", builder: this.buildExec },
+    { group: "Build", name: "Build app [debug]", builder: this.buildDebugExec },
+    { group: "Build", name: "Clean build files", builder: this.cleanExec },
+
+    { group: "Tests", name: "Run app with Speculos", builder: this.runInSpeculosExec },
+    { group: "Tests", name: "Kill Speculos", builder: this.killSpeculosExec },
+    {
+      group: "Tests",
+      name: "Run functional tests",
+      builder: this.functionalTestsExec,
+      dependsOn: this.functionalTestsRequirementsExec,
+    },
+    {
+      group: "Tests",
+      name: "Run functional tests (with display)",
+      builder: this.functionalTestsDisplayExec,
+      dependsOn: this.functionalTestsRequirementsExec,
+    },
+    {
+      group: "Tests",
+      name: "Run functional tests (with display) - on device",
+      builder: this.functionalTestsDisplayOnDeviceExec,
+      dependsOn: this.functionalTestsRequirementsExec,
+    },
+    {
+      group: "Device Operations",
+      name: "Load app on device",
+      builder: this.appLoadExec,
+      dependsOn: this.appLoadRequirementsExec,
+    },
+    {
+      group: "Device Operations",
+      name: "Quick device onboarding",
+      builder: this.deviceOnboardingExec,
+      dependsOn: this.appLoadRequirementsExec,
+    },
   ];
+
   private buildDir: string;
   private workspacePath: string;
   private containerName: string;
@@ -73,7 +111,7 @@ export class TaskProvider implements vscode.TaskProvider {
     return this.tasks.find((task) => task.name === taskName);
   }
 
-  private runDevToolsImageTask(): vscode.Task | undefined {
+  private runDevToolsImageExec(): string {
     let exec = "";
     // Checks if a container with the name  ${this.containerName} exists, and if it does, it is stopped and removed before a new container is created using the same name and other specified configuration parameters
     if (platform === "linux") {
@@ -88,121 +126,50 @@ export class TaskProvider implements vscode.TaskProvider {
       exec = `if (docker ps -a --format '{{.Names}}' | Select-String -Quiet  ${this.containerName}) { docker container stop  ${this.containerName}; docker container rm  ${this.containerName} }; docker pull ${image}; docker run --privileged -e DISPLAY='host.docker.internal:0' -v '${winWorkspacePath}:/app' -t -d --name  ${this.containerName} ${image}`;
     }
 
-    let task = undefined;
-    if (this.currentApp) {
-      task = new vscode.Task(
-        { type: taskType, task: "Run dev-tools image" },
-        this.currentApp.appFolder,
-        "Run dev-tools image",
-        taskType,
-        new vscode.ShellExecution(exec)
-      );
-    }
-    return task;
+    return exec;
   }
 
-  private buildTask(): vscode.Task | undefined {
+  private buildExec(): string {
     const exec = `docker exec -it  ${this.containerName} bash -c 'export BOLOS_SDK=$(echo ${getSelectedSDK()}) && make -j'`;
     // Builds the app in release mode using the make command, inside the docker container.
-    let task = undefined;
-    if (this.currentApp) {
-      task = new vscode.Task(
-        { type: taskType, task: "Build app", dependsOn: "Clean" },
-        this.currentApp.appFolder,
-        "Build app",
-        taskType,
-        new vscode.ShellExecution(exec)
-      );
-    }
-    return task;
+    return exec;
   }
 
-  private buildDebugTask(): vscode.Task | undefined {
+  private buildDebugExec(): string {
     // Builds the app with debug mode enabled using the make command, inside the docker container.
     const exec = `docker exec -it  ${
       this.containerName
     } bash -c 'export BOLOS_SDK=$(echo ${getSelectedSDK()}) && make -j DEBUG=1'`;
-    let task = undefined;
-    if (this.currentApp) {
-      task = new vscode.Task(
-        { type: taskType, task: "Build app [debug]" },
-        this.currentApp.appFolder,
-        "Build app [debug]",
-        taskType,
-        new vscode.ShellExecution(exec)
-      );
-    }
-    return task;
+    return exec;
   }
 
-  private cleanTask(): vscode.Task | undefined {
+  private cleanExec(): string {
     // Cleans all app build files (for all device models).
     const exec = `docker exec -it  ${this.containerName} bash -c 'make clean'`;
-    let task = undefined;
-    if (this.currentApp) {
-      task = new vscode.Task(
-        { type: taskType, task: "Clean" },
-        this.currentApp.appFolder,
-        "Clean build files",
-        taskType,
-        new vscode.ShellExecution(exec)
-      );
-    }
-    return task;
+    return exec;
   }
 
-  private openTerminalTask(): vscode.Task | undefined {
+  private openTerminalExec(): string {
     const exec = `docker exec -it  ${this.containerName} bash`;
-    let task = undefined;
-    if (this.currentApp) {
-      task = new vscode.Task(
-        { type: taskType, task: "Terminal" },
-        this.currentApp.appFolder,
-        "Open dev-tools container terminal",
-        taskType,
-        new vscode.ShellExecution(exec)
-      );
-    }
-    return task;
+    return exec;
   }
 
-  private runInSpeculosTask(): vscode.Task | undefined {
+  private runInSpeculosExec(): string {
     // Runs the app on the speculos emulator for the selected device model, in the docker container.
     const exec = `docker exec -it  ${
       this.containerName
     } bash -c 'speculos --model ${getSelectedSpeculosModel()} build/${getSelectedSpeculosModel()}/bin/app.elf'`;
-    let task = undefined;
-    if (this.currentApp) {
-      task = new vscode.Task(
-        { type: taskType, task: "Speculos" },
-        this.currentApp.appFolder,
-        "Test app with Speculos",
-        taskType,
-        new vscode.ShellExecution(exec)
-      );
-    }
-    return task;
+    return exec;
   }
 
-  private killSpeculosTask(): vscode.Task | undefined {
+  private killSpeculosExec(): string {
     // Kills speculos emulator in the docker container.
     const exec = `docker exec -it  ${this.containerName} bash -c 'pkill -f speculos'`;
-    let task = undefined;
-    if (this.currentApp) {
-      task = new vscode.Task(
-        { type: taskType, task: "Speculos" },
-        this.currentApp.appFolder,
-        "Kill Speculos",
-        taskType,
-        new vscode.ShellExecution(exec)
-      );
-    }
-    return task;
+    return exec;
   }
 
-  private getAppLoadRequirementsExec(): string {
+  private appLoadRequirementsExec(): string {
     let exec = "";
-
     if (platform === "linux") {
       // Linux
       // Copies the ledger udev rule file to the /etc/udev/rules.d/ directory if it does not exist, then reloads the rules and triggers udev.
@@ -219,106 +186,93 @@ export class TaskProvider implements vscode.TaskProvider {
     return exec;
   }
 
-  private installLoadRequirementsTask(): vscode.Task | undefined {
-    const exec = this.getAppLoadRequirementsExec();
-    let task = undefined;
-    if (this.currentApp) {
-      task = new vscode.Task(
-        { type: taskType, task: "Load Requirements" },
-        this.currentApp.appFolder,
-        "Install app loading requirements",
-        taskType,
-        new vscode.ShellExecution(exec)
-      );
-    }
-    return task;
-  }
-
-  private appLoadTask(): vscode.Task | undefined {
-    let exec = this.getAppLoadRequirementsExec() + ";";
+  private appLoadExec(): string {
+    let exec = "";
     if (platform === "linux") {
       // Linux
       // Executes make load in the container to load the app on a physical device.
-      exec += `docker exec -it  ${this.containerName} bash -c 'export BOLOS_SDK=$(echo ${getSelectedSDK()}) && make load'`;
+      exec = `docker exec -it  ${this.containerName} bash -c 'export BOLOS_SDK=$(echo ${getSelectedSDK()}) && make load'`;
     } else if (platform === "darwin") {
       // macOS
       // Side loads the app APDU file using ledgerblue runScript.
-      exec += `source ledger/bin/activate && python3 -m ledgerblue.runScript --scp --fileName ${this.buildDir}/bin/app.apdu --elfFile ${this.buildDir}/bin/app.elf`;
+      exec = `source ledger/bin/activate && python3 -m ledgerblue.runScript --scp --fileName ${this.buildDir}/bin/app.apdu --elfFile ${this.buildDir}/bin/app.elf`;
     } else {
       // Assume windows
       // Side loads the app APDU file using ledgerblue runScript.
-      exec += `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.runScript --scp --fileName ${this.buildDir}/bin/app.apdu --elfFile ${this.buildDir}/bin/app.elf'`;
+      exec = `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.runScript --scp --fileName ${this.buildDir}/bin/app.apdu --elfFile ${this.buildDir}/bin/app.elf'`;
     }
-
-    let task = undefined;
-    if (this.currentApp) {
-      task = new vscode.Task(
-        { type: taskType, task: "Load" },
-        this.currentApp.appFolder,
-        "Load app on device",
-        taskType,
-        new vscode.ShellExecution(exec)
-      );
-    }
-    return task;
+    return exec;
   }
 
-  private functionalTestsTask(): vscode.Task | undefined {
+  private deviceOnboardingExec(): string {
+    let exec = "";
+    if (platform === "linux") {
+      // Linux
+      // Executes make load in the container to load the app on a physical device.
+      exec = `docker exec -it ${
+        this.containerName
+      } bash -c 'export BOLOS_SDK=$(echo ${getSelectedSDK()}) && python3 -m ledgerblue.hostOnboard --apdu --id 0 --pin ${onboardPin} --prefix \"\" --passphrase \"\" --words \"${onboardSeed}\"'`;
+    } else if (platform === "darwin") {
+      // macOS
+      // Side loads the app APDU file using ledgerblue runScript.
+      exec = `source ledger/bin/activate && python3 -m ledgerblue.hostOnboard --apdu --id 0 --pin ${onboardPin} --prefix \"\" --passphrase \"\" --words \"${onboardSeed}\"`;
+    } else {
+      // Assume windows
+      // Side loads the app APDU file using ledgerblue runScript.
+      exec = `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.hostOnboard --apdu --id 0 --pin ${onboardPin} --prefix \"\" --passphrase \"\" --words \"${onboardSeed}\"'`;
+    }
+    return exec;
+  }
+
+  private functionalTestsExec(): string {
     // Runs functional tests inside the docker container (with Qt display disabled).
     const exec = `docker exec -it  ${
       this.containerName
     } bash -c 'pytest tests/ --tb=short -v --device ${getSelectedSpeculosModel()}'`;
-    let task = undefined;
-    if (this.currentApp) {
-      task = new vscode.Task(
-        { type: taskType, task: "Tests" },
-        this.currentApp.appFolder,
-        "Run functional tests",
-        taskType,
-        new vscode.ShellExecution(exec)
-      );
-    }
-    return task;
+    return exec;
   }
 
-  private functionalTestsDisplayTask(): vscode.Task | undefined {
+  private functionalTestsDisplayExec(): string {
     // Runs functional tests inside the docker container (with Qt display enabled).
     const exec = `docker exec -it  ${
       this.containerName
     } bash -c 'pytest tests/ --tb=short -v --device ${getSelectedSpeculosModel()} --display'`;
-    let task = undefined;
-    if (this.currentApp) {
-      task = new vscode.Task(
-        { type: taskType, task: "Tests Display" },
-        this.currentApp.appFolder,
-        "Run functional tests (with display)",
-        taskType,
-        new vscode.ShellExecution(exec)
-      );
-    }
-    return task;
+    return exec;
   }
 
-  private functionalTestsRequirementsTask(): vscode.Task | undefined {
+  private functionalTestsDisplayOnDeviceExec(): string {
+    // Runs functional tests inside the docker container (with Qt display enabled) on real device.
+    const exec = `docker exec -it ${
+      this.containerName
+    } bash -c 'pytest tests/ --tb=short -v --device ${getSelectedSpeculosModel()} --display --backend ledgerwallet'`;
+    return exec;
+  }
+
+  private functionalTestsRequirementsExec(): string {
     // Installs functional tests python requirements in the docker container.
     const exec = `docker exec -it -u 0  ${this.containerName} bash -c 'apk add gcc musl-dev python3-dev && pip install -r tests/requirements.txt'`;
-    let task = undefined;
-    if (this.currentApp) {
-      task = new vscode.Task(
-        { type: taskType, task: "Tests Requirements" },
-        this.currentApp.appFolder,
-        "Install tests requirements",
-        taskType,
-        new vscode.ShellExecution(exec)
-      );
-    }
-    return task;
+    return exec;
+  }
+
+  getTaskSpecs(): TaskSpec[] {
+    return this.taskSpecs;
   }
 
   private pushAllTasks(): void {
-    this.providerTaskBuilders.forEach((method) => {
-      const task = method.call(this);
-      if (task) {
+    this.taskSpecs.forEach((item) => {
+      if (this.currentApp) {
+        let dependExec = "";
+        if (item.dependsOn) {
+          dependExec = item.dependsOn.call(this) + ";";
+        }
+        const exec = dependExec + item.builder.call(this);
+        const task = new vscode.Task(
+          { type: taskType, task: item.name },
+          this.currentApp.appFolder,
+          item.name,
+          taskType,
+          new vscode.ShellExecution(exec)
+        );
         task.group = vscode.TaskGroup.Build;
         this.tasks.push(task);
       }

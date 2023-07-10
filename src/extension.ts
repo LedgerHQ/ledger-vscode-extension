@@ -23,7 +23,7 @@ export function activate(context: vscode.ExtensionContext) {
   let statusBarManager = new StatusBarManager();
   statusBarManager.autoUpdateDevImageItem();
 
-  let treeProvider = new TreeDataProvider();
+  let treeProvider = new TreeDataProvider(taskProvider.getTaskSpecs());
   vscode.window.registerTreeDataProvider("exampleView", treeProvider);
 
   context.subscriptions.push(
@@ -48,6 +48,14 @@ export function activate(context: vscode.ExtensionContext) {
     const taskName = event.execution.task.name;
     if (taskName.startsWith("Run dev-tools image")) {
       statusBarManager.updateDevImageItem(DevImageStatus.syncing);
+    }
+    if (taskName.startsWith("Quick device onboarding")) {
+      const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+      const seedValue = conf.get<string>("onboardingSeed");
+      const defaultSeed = conf.inspect<string>("onboardingSeed")?.defaultValue;
+      if (seedValue === defaultSeed) {
+        vscode.window.showWarningMessage("Do not use default onboarding seed with real funds !");
+      }
     }
   });
 

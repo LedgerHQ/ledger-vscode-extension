@@ -1,24 +1,13 @@
 import * as vscode from "vscode";
 import { getSelectedTarget } from "./targetSelector";
 import { getSelectedApp } from "./appSelector";
+import { TaskSpec } from "./taskProvider";
 
 export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
   data: TreeItem[];
 
-  constructor() {
-    let buildAppDebug = new TreeItem("Build app [debug]");
-    buildAppDebug.command = {
-      command: "executeTask",
-      title: "Build app [debug]",
-      arguments: ["Build app [debug]"],
-    };
-
-    let buildApp = new TreeItem("Build app");
-    buildApp.command = {
-      command: "executeTask",
-      title: "Build app",
-      arguments: ["Build app"],
-    };
+  constructor(taskSpecs: TaskSpec[]) {
+    this.data = [];
 
     let selectTarget = new TreeItem("Select build target");
     selectTarget.command = {
@@ -26,6 +15,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
       title: "Select build target",
       arguments: [],
     };
+    this.data.push(selectTarget);
 
     let selectApp = new TreeItem("Select app");
     selectApp.command = {
@@ -33,83 +23,10 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
       title: "Select app",
       arguments: [],
     };
+    this.data.push(selectApp);
 
-    let runDevToolsImage = new TreeItem("Run dev-tools Docker image");
-    runDevToolsImage.command = {
-      command: "executeTask",
-      title: "Run dev-tools image",
-      arguments: ["Run dev-tools image"],
-    };
-
-    let openDevToolsTerminal = new TreeItem("Open dev-tools container terminal");
-    openDevToolsTerminal.command = {
-      command: "executeTask",
-      title: "Open dev-tools container terminal",
-      arguments: ["Open dev-tools container terminal"],
-    };
-
-    let clean = new TreeItem("Clean build files");
-    clean.command = {
-      command: "executeTask",
-      title: "Clean build files",
-      arguments: ["Clean build files"],
-    };
-
-    let build = new TreeItem("Build", [buildApp, buildAppDebug, clean]);
-    build.id = "buildItems";
-
-    let runTests = new TreeItem("Run functional tests");
-    runTests.command = {
-      command: "executeTask",
-      title: "Run functional tests",
-      arguments: ["Run functional tests"],
-    };
-
-    let runTestsDisplay = new TreeItem("Run functional tests (with display)");
-    runTestsDisplay.command = {
-      command: "executeTask",
-      title: "Run functional tests (with display)",
-      arguments: ["Run functional tests (with display)"],
-    };
-
-    let installTestsReqs = new TreeItem("Install tests requirements");
-    installTestsReqs.command = {
-      command: "executeTask",
-      title: "Install tests requirements",
-      arguments: ["Install tests requirements"],
-    };
-
-    let tests = new TreeItem("Tests", [runTests, runTestsDisplay, installTestsReqs]);
-
-    let loadApp = new TreeItem("Load app on device");
-    loadApp.command = {
-      command: "executeTask",
-      title: "Load app on device",
-      arguments: ["Load app on device"],
-    };
-
-    let loadAppReqs = new TreeItem("Install app loading requirements");
-    loadAppReqs.command = {
-      command: "executeTask",
-      title: "Install app loading requirements",
-      arguments: ["Install app loading requirements"],
-    };
-
-    let load = new TreeItem("App Loading", [loadApp, loadAppReqs]);
-
-    this.data = [selectTarget, selectApp, runDevToolsImage, openDevToolsTerminal, build, tests, load];
-
+    this.addAllTasksToTree(taskSpecs);
     this.updateTargetLabel();
-  }
-
-  private _onDidChangeTreeData: vscode.EventEmitter<TreeItem | undefined | null | void> = new vscode.EventEmitter<
-    TreeItem | undefined | null | void
-  >();
-
-  readonly onDidChangeTreeData: vscode.Event<TreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
-
-  refresh(): void {
-    this._onDidChangeTreeData.fire();
   }
 
   getTreeItem(element: TreeItem): vscode.TreeItem | Thenable<vscode.TreeItem> {
@@ -123,9 +40,44 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     return element.children;
   }
 
+  private addTaskToTree(spec: TaskSpec): void {
+    let taskItem = new TreeItem(spec.name);
+    taskItem.command = {
+      command: "executeTask",
+      title: spec.name,
+      arguments: [spec.name],
+    };
+    if (spec.group) {
+      let rootItem = this.data.find((item) => item.label === spec.group);
+      if (!rootItem) {
+        rootItem = new TreeItem(spec.group);
+        this.data.push(rootItem);
+      }
+      rootItem.addChild(taskItem);
+    } else {
+      this.data.push(taskItem);
+    }
+  }
+
+  private addAllTasksToTree(taskSpecs: TaskSpec[]): void {
+    taskSpecs.forEach((spec) => {
+      this.addTaskToTree(spec);
+    });
+  }
+
+  private _onDidChangeTreeData: vscode.EventEmitter<TreeItem | undefined | null | void> = new vscode.EventEmitter<
+    TreeItem | undefined | null | void
+  >();
+
+  readonly onDidChangeTreeData: vscode.Event<TreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
+
+  refresh(): void {
+    this._onDidChangeTreeData.fire();
+  }
+
   updateTargetLabel(): void {
     const currentApp = getSelectedApp();
-    let buildItem = this.data.find((item) => item.id && item.id === "buildItems");
+    let buildItem = this.data.find((item) => item.label && item.label.toString().startsWith("Build"));
     if (currentApp) {
       if (buildItem) {
         buildItem.label = `Build [${currentApp.appName} for ${getSelectedTarget()}]`;
@@ -145,5 +97,13 @@ export class TreeItem extends vscode.TreeItem {
   constructor(label: string, children?: TreeItem[]) {
     super(label, children === undefined ? vscode.TreeItemCollapsibleState.None : vscode.TreeItemCollapsibleState.Expanded);
     this.children = children;
+  }
+
+  addChild(child: TreeItem) {
+    if (!this.children) {
+      this.children = [];
+    }
+    this.children.push(child);
+    super.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
   }
 }

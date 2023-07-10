@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "ledger-dev-tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "0.0.6",
+  "version": "0.1.0",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",
@@ -75,6 +75,16 @@
                 "type": "string",
                 "default": "ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest",
                 "description": "Ledger developer tools Docker image."
+              },
+              "ledgerDevTools.onboardingPin": {
+                "type": "string",
+                "default": "1234",
+                "description": "Device quick onboarding default PIN."
+              },
+              "ledgerDevTools.onboardingSeed": {
+                "type": "string",
+                "default": "glory promote mansion idle axis finger extra february uncover one trip resource lawn turtle enact monster seven myth punch hobby comfort wild raise skin",
+                "markdownDescription": "Device quick onboarding default 24-word Seed phrase."
               }
             }
         }

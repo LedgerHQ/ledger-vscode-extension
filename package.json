@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "ledger-dev-tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",
@@ -60,11 +60,15 @@
             },
             {
                 "command": "selectTarget",
-                "title": "Select the device you want to build your app for."
+                "title": "Select device",
+                "category": "Ledger",
+                "tooltip": "Select the device you want to build your app for."
             },
             {
                 "command": "showAppList",
-                "title": "Select the app you want to build."
+                "title": "Select app",
+                "category": "Ledger",
+                "tooltip": "Select the app you want to build."
             }
         ],
 

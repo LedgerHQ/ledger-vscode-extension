@@ -32,30 +32,30 @@ export class TaskProvider implements vscode.TaskProvider {
   private tasks: vscode.Task[] = [];
   private currentApp: App | undefined;
   private taskSpecs: TaskSpec[] = [
-    { group: "Docker Operations", name: "Run dev-tools image", builder: this.runDevToolsImageExec },
-    { group: "Docker Operations", name: "Open dev-tools container terminal", builder: this.openTerminalExec },
+    { group: "Docker Container", name: "Update Container", builder: this.runDevToolsImageExec },
+    { group: "Docker Container", name: "Open terminal", builder: this.openTerminalExec },
 
-    { group: "Build", name: "Build app", builder: this.buildExec },
-    { group: "Build", name: "Build app [debug]", builder: this.buildDebugExec },
+    { group: "Build", name: "Build", builder: this.buildExec },
+    { group: "Build", name: "Build [debug]", builder: this.buildDebugExec },
     { group: "Build", name: "Clean build files", builder: this.cleanExec },
 
-    { group: "Tests", name: "Run app with Speculos", builder: this.runInSpeculosExec },
-    { group: "Tests", name: "Kill Speculos", builder: this.killSpeculosExec },
+    { group: "Functional Tests", name: "Run with Speculos", builder: this.runInSpeculosExec },
+    { group: "Functional Tests", name: "Kill Speculos", builder: this.killSpeculosExec },
     {
-      group: "Tests",
-      name: "Run functional tests",
+      group: "Functional Tests",
+      name: "Run tests",
       builder: this.functionalTestsExec,
       dependsOn: this.functionalTestsRequirementsExec,
     },
     {
-      group: "Tests",
-      name: "Run functional tests (with display)",
+      group: "Functional Tests",
+      name: "Run tests (with display)",
       builder: this.functionalTestsDisplayExec,
       dependsOn: this.functionalTestsRequirementsExec,
     },
     {
-      group: "Tests",
-      name: "Run functional tests (with display) - on device",
+      group: "Functional Tests",
+      name: "Run tests (with display) - on device",
       builder: this.functionalTestsDisplayOnDeviceExec,
       dependsOn: this.functionalTestsRequirementsExec,
     },
@@ -111,19 +111,29 @@ export class TaskProvider implements vscode.TaskProvider {
     return this.tasks.find((task) => task.name === taskName);
   }
 
+  public executeTaskByName(taskName: string) {
+    const task = this.getTaskByName(taskName);
+    if (task) {
+      vscode.tasks.executeTask(task);
+    }
+  }
+
   private runDevToolsImageExec(): string {
     let exec = "";
-    // Checks if a container with the name  ${this.containerName} exists, and if it does, it is stopped and removed before a new container is created using the same name and other specified configuration parameters
-    if (platform === "linux") {
-      // Linux
-      exec = `docker ps -a --format '{{.Names}}' | grep -q  ${this.containerName} && (docker container stop  ${this.containerName} && docker container rm  ${this.containerName}) ; docker pull ${image} && docker run --user $(id -u):$(id -g) --privileged -e DISPLAY=$DISPLAY -v '/dev/bus/usb:/dev/bus/usb' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' -t -d --name  ${this.containerName} ${image}`;
-    } else if (platform === "darwin") {
-      // macOS
-      exec = `xhost + ; docker ps -a --format '{{.Names}}' | grep -q  ${this.containerName} && (docker container stop  ${this.containerName} && docker container rm  ${this.containerName}) ; docker pull ${image} && docker run --user $(id -u):$(id -g) --privileged -e DISPLAY='host.docker.internal:0' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' -t -d --name  ${this.containerName} ${image}`;
-    } else {
-      // Assume windows
-      const winWorkspacePath = this.workspacePath.substring(1); // Remove first '/' from windows workspace path URI. Otherwise it is not valid.
-      exec = `if (docker ps -a --format '{{.Names}}' | Select-String -Quiet  ${this.containerName}) { docker container stop  ${this.containerName}; docker container rm  ${this.containerName} }; docker pull ${image}; docker run --privileged -e DISPLAY='host.docker.internal:0' -v '${winWorkspacePath}:/app' -t -d --name  ${this.containerName} ${image}`;
+
+    if (this.currentApp) {
+      // Checks if a container with the name  ${this.containerName} exists, and if it does, it is stopped and removed before a new container is created using the same name and other specified configuration parameters
+      if (platform === "linux") {
+        // Linux
+        exec = `docker ps -a --format '{{.Names}}' | grep -q  ${this.containerName} && (docker container stop  ${this.containerName} && docker container rm  ${this.containerName}) ; docker pull ${image} && docker run --user $(id -u):$(id -g) --privileged -e DISPLAY=$DISPLAY -v '/dev/bus/usb:/dev/bus/usb' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' -t -d --name  ${this.containerName} ${image}`;
+      } else if (platform === "darwin") {
+        // macOS
+        exec = `xhost + ; docker ps -a --format '{{.Names}}' | grep -q  ${this.containerName} && (docker container stop  ${this.containerName} && docker container rm  ${this.containerName}) ; docker pull ${image} && docker run --user $(id -u):$(id -g) --privileged -e DISPLAY='host.docker.internal:0' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' -t -d --name  ${this.containerName} ${image}`;
+      } else {
+        // Assume windows
+        const winWorkspacePath = this.workspacePath.substring(1); // Remove first '/' from windows workspace path URI. Otherwise it is not valid.
+        exec = `if (docker ps -a --format '{{.Names}}' | Select-String -Quiet  ${this.containerName}) { docker container stop  ${this.containerName}; docker container rm  ${this.containerName} }; docker pull ${image}; docker run --privileged -e DISPLAY='host.docker.internal:0' -v '${winWorkspacePath}:/app' -t -d --name  ${this.containerName} ${image}`;
+      }
     }
 
     return exec;

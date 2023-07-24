@@ -1,21 +1,15 @@
 import * as vscode from "vscode";
+import * as path from "path";
 import { getSelectedTarget } from "./targetSelector";
 import { getSelectedApp } from "./appSelector";
 import { TaskSpec } from "./taskProvider";
+import { DevImageStatus } from "./containerManager";
 
 export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
   data: TreeItem[];
 
   constructor(taskSpecs: TaskSpec[]) {
     this.data = [];
-
-    let selectTarget = new TreeItem("Select build target");
-    selectTarget.command = {
-      command: "selectTarget",
-      title: "Select build target",
-      arguments: [],
-    };
-    this.data.push(selectTarget);
 
     let selectApp = new TreeItem("Select app");
     selectApp.command = {
@@ -24,6 +18,14 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
       arguments: [],
     };
     this.data.push(selectApp);
+
+    let selectTarget = new TreeItem("Select build target");
+    selectTarget.command = {
+      command: "selectTarget",
+      title: "Select build target",
+      arguments: [],
+    };
+    this.data.push(selectTarget);
 
     this.addAllTasksToTree(taskSpecs);
     this.updateTargetLabel();
@@ -51,6 +53,30 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
       let rootItem = this.data.find((item) => item.label === spec.group);
       if (!rootItem) {
         rootItem = new TreeItem(spec.group);
+        if (rootItem.label?.toString().startsWith("Docker Container")) {
+          rootItem.iconPath = {
+            light: path.join(__filename, "..", "..", "resources", "docker-light.png"),
+            dark: path.join(__filename, "..", "..", "resources", "docker-dark.png"),
+          };
+        }
+        if (rootItem.label?.toString().startsWith("Build")) {
+          rootItem.iconPath = {
+            light: path.join(__filename, "..", "..", "resources", "tool-light.png"),
+            dark: path.join(__filename, "..", "..", "resources", "tool-dark.png"),
+          };
+        }
+        if (rootItem.label?.toString().startsWith("Functional")) {
+          rootItem.iconPath = {
+            light: path.join(__filename, "..", "..", "resources", "test-light.png"),
+            dark: path.join(__filename, "..", "..", "resources", "test-dark.png"),
+          };
+        }
+        if (rootItem.label?.toString().startsWith("Device")) {
+          rootItem.iconPath = {
+            light: path.join(__filename, "..", "..", "resources", "device-light.png"),
+            dark: path.join(__filename, "..", "..", "resources", "device-dark.png"),
+          };
+        }
         this.data.push(rootItem);
       }
       rootItem.addChild(taskItem);
@@ -73,6 +99,34 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
+  }
+
+  // updateContainerStatus function that takes DevImageStatus as argument to set the "Docker Operations" TreeItem
+  updateContainerLabel(status: DevImageStatus): void {
+    const currentApp = getSelectedApp();
+    let itemPrefix: string = "Docker Container";
+    let itemSuffix: string = "";
+    if (currentApp) {
+      let containerItem = this.data.find((item) => item.label && item.label.toString().startsWith("Docker Container"));
+      if (containerItem) {
+        switch (status) {
+          case DevImageStatus.running:
+            itemSuffix = "running";
+            break;
+          case DevImageStatus.syncing:
+            itemSuffix = "syncing";
+            break;
+          case DevImageStatus.stopped:
+            itemSuffix = "stopped";
+            break;
+          default:
+            itemSuffix = "stopped";
+            break;
+        }
+        containerItem.label = `${itemPrefix} [${itemSuffix}]`;
+      }
+    }
+    this.refresh();
   }
 
   updateTargetLabel(): void {

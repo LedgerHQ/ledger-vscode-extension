@@ -5,6 +5,7 @@ import * as fg from "fast-glob";
 import { StatusBarManager } from "./statusBar";
 import { TreeDataProvider } from "./treeView";
 import { TaskProvider } from "./taskProvider";
+import { ContainerManager } from "./containerManager";
 const APP_DETECTION_FILE: string = "Makefile";
 const APP_DETECTION_STRING: string = "include $(BOLOS_SDK)/Makefile.defines";
 
@@ -44,9 +45,9 @@ export function findAppsInWorkspace(): App[] | undefined {
 }
 
 export async function showAppSelectorMenu(
-  statusManager: StatusBarManager,
   treeDataProvider: TreeDataProvider,
-  taskProvider: TaskProvider
+  taskProvider: TaskProvider,
+  containerManager: ContainerManager
 ) {
   const appNames = appList.map((app) => app.appName);
   const result = await vscode.window.showQuickPick(appNames, {
@@ -56,7 +57,7 @@ export async function showAppSelectorMenu(
     },
   });
   taskProvider.generateTasks();
-  statusManager.autoUpdateDevImageItem();
+  containerManager.manageContainer();
   treeDataProvider.updateTargetLabel();
   return result;
 }

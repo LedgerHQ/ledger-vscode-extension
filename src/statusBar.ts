@@ -1,15 +1,9 @@
 "use strict";
 
 import * as vscode from "vscode";
-import { execSync } from "child_process";
 import { getSelectedTarget } from "./targetSelector";
 import { getSelectedApp } from "./appSelector";
-
-export enum DevImageStatus {
-  running = "sync",
-  syncing = "sync~spin",
-  stopped = "notebook-stop",
-}
+import { ContainerManager, DevImageStatus } from "./containerManager";
 
 const imageToolTip = "Click to update image and respawn container.";
 
@@ -29,7 +23,7 @@ export class StatusBarManager {
     const runDevImageCommand: vscode.Command = {
       command: "executeTask",
       title: "Execute Task",
-      arguments: ["Run dev-tools image"],
+      arguments: ["Update Container"],
     };
     this.devImageItem.command = runDevImageCommand;
     this.updateDevImageItem(DevImageStatus.stopped);
@@ -67,32 +61,6 @@ export class StatusBarManager {
       this.devImageItem.show();
     } else {
       this.devImageItem.hide();
-    }
-  }
-
-  public autoUpdateDevImageItem(): void {
-    this.updateDevImageItem(this.getContainerStatus());
-  }
-
-  private getContainerStatus(): DevImageStatus {
-    try {
-      const currentApp = getSelectedApp();
-      if (currentApp) {
-        const containerName = currentApp.containerName;
-        const command = `docker inspect -f '{{ .State.Status }}' ${containerName}`;
-        const containerStatus = execSync(command).toString().trim();
-        if (containerStatus === "running") {
-          return DevImageStatus.running;
-        } else if (containerStatus === "starting" || containerStatus === "restarting") {
-          return DevImageStatus.syncing;
-        } else {
-          return DevImageStatus.stopped;
-        }
-      } else {
-        return DevImageStatus.stopped;
-      }
-    } catch (error: any) {
-      return DevImageStatus.stopped;
     }
   }
 }

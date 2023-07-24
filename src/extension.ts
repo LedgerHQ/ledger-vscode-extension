@@ -4,7 +4,8 @@ import * as vscode from "vscode";
 import { TaskProvider, taskType } from "./taskProvider";
 import { TreeDataProvider } from "./treeView";
 import { showTargetSelectorMenu } from "./targetSelector";
-import { StatusBarManager, DevImageStatus } from "./statusBar";
+import { StatusBarManager } from "./statusBar";
+import { ContainerManager, DevImageStatus } from "./containerManager";
 import { findAppsInWorkspace, getSelectedApp, setSelectedApp, showAppSelectorMenu } from "./appSelector";
 
 console.log("Ledger: Loading extension");
@@ -20,11 +21,12 @@ export function activate(context: vscode.ExtensionContext) {
   let taskProvider = new TaskProvider();
   context.subscriptions.push(vscode.tasks.registerTaskProvider(taskType, taskProvider));
 
-  let statusBarManager = new StatusBarManager();
-  statusBarManager.autoUpdateDevImageItem();
-
   let treeProvider = new TreeDataProvider(taskProvider.getTaskSpecs());
   vscode.window.registerTreeDataProvider("exampleView", treeProvider);
+
+  let statusBarManager = new StatusBarManager();
+  let containerManager = new ContainerManager(taskProvider, statusBarManager, treeProvider);
+  containerManager.manageContainer();
 
   context.subscriptions.push(
     vscode.commands.registerCommand("selectTarget", () => {
@@ -40,14 +42,15 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("showAppList", () => {
-      showAppSelectorMenu(statusBarManager, treeProvider, taskProvider);
+      showAppSelectorMenu(treeProvider, taskProvider, containerManager);
     })
   );
 
   vscode.tasks.onDidStartTask((event) => {
     const taskName = event.execution.task.name;
-    if (taskName.startsWith("Run dev-tools image")) {
+    if (taskName.startsWith("Update Container")) {
       statusBarManager.updateDevImageItem(DevImageStatus.syncing);
+      treeProvider.updateContainerLabel(DevImageStatus.syncing);
     }
     if (taskName.startsWith("Quick device onboarding")) {
       const conf = vscode.workspace.getConfiguration("ledgerDevTools");
@@ -61,8 +64,8 @@ export function activate(context: vscode.ExtensionContext) {
 
   vscode.tasks.onDidEndTask((event) => {
     const taskName = event.execution.task.name;
-    if (taskName.startsWith("Run dev-tools image")) {
-      statusBarManager.autoUpdateDevImageItem();
+    if (taskName.startsWith("Update Container")) {
+      containerManager.manageContainer();
     }
   });
 
@@ -72,6 +75,7 @@ export function activate(context: vscode.ExtensionContext) {
       if (!getSelectedApp()) {
         setSelectedApp(appList[0]);
       }
+      containerManager.manageContainer();
     }
   });
 

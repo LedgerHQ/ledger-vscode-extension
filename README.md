@@ -1,37 +1,62 @@
 # ledger-vscode-extension
 
-VSCode extension aimed at making it quick and easy to build and test applications for [Ledger](https://www.ledger.com/) devices.
+Provide a quick and easy way to build and test applications for [Ledger](https://www.ledger.com/) devices.
+
+The extension uses Ledger's own [docker image](https://github.com/LedgerHQ/ledger-app-builder/blob/master/dev-tools/Dockerfile) to allow developers to setup a build and test environement in a few minutes.
+
+* Build your app for all Ledger devices : Nano S, Nano S Plus, Nano X, Stax.
+* Stay up to date with the latest SDK.
+* Run tests on the device emulator ([Speculos](https://github.com/LedgerHQ/speculos)) or on a real device.
+* Supports multiple apps folders in the same workspace, each folder having its own Docker container.
+* See what's executed by the extension in VS Code's terminal panels.
 
 ## Features
 
 ### Tasks
 
-This extension will automatically add tasks to help you build, test and load your app on a physical device.
+Automatically add tasks to help you build, test and load your app on a physical device. 
+These tasks are accessible through the build task menu keyboard shortcut to avoid clicking around.
+
+<img src="https://github.com/LedgerHQ/ledger-vscode-extension/blob/main/resources/tasks.gif?raw=true" width="70%" height="70%"/>
 
 ### Sidebar
 
-The extension's tasks are all accessible through an easy to use sidebar menu.
+The tasks are all accessible through an easy to use sidebar menu.
+
+<img src="https://github.com/LedgerHQ/ledger-vscode-extension/blob/main/resources/sidebar.gif?raw=true" width="70%" height="70%"/>
 
 ### Status Bar
 
-The extension will show you which device you are currently building your app for. It will also show you the status of the Ledger developer tools Docker image.
+Status bar items to quickly identify :
+
+* Which device you are currently building your app for.
+* The status of the Ledger developer tools Docker image.
+
+<img src="https://github.com/LedgerHQ/ledger-vscode-extension/blob/main/resources/statusbar.gif?raw=true" width="70%" height="70%"/>
 
 ## Requirements
 
-Explain how to install X Server for Windows and macOS.
+* [Docker](https://www.docker.com/) should be installed and running.
+* On macOS and Windows, make sure an X Window System server is installed and running (see [XQuartz](https://www.xquartz.org/) for mac and [VcXsrv](https://sourceforge.net/projec) for windows) otherwise, some testing tasks will not work. **Make sure client connections are allowed**.
 
 ## Extension Settings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
 This extension contributes the following settings:
 
-* `ledgerDevTools.buildDirRelativePath`: Set the build directory relative path of your app.
+* `ledgerDevTools.onboardingPin`: Set the device quick onboarding PIN code.
+* `ledgerDevTools.onboardingSeed`: Set the device quick onboarding 24-word Seed phrase.
 * `ledgerDevTools.dockerImage`: Set the Ledger developer tools Docker image.
 
 ## Release Notes
+
+## 0.1.2
+
+* Fix infinite container spawning loop bug.
+
+## 0.1.1
+
+* Add icons to side bar root items.
+* Add auto run of docker containers.
 
 ### 0.1.0
 

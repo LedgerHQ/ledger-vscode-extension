@@ -160,7 +160,7 @@ export class TaskProvider implements vscode.TaskProvider {
   }
 
   private openTerminalExec(): string {
-    const exec = `docker exec -it  ${this.containerName} bash`;
+    const exec = `docker exec -it -u 0 ${this.containerName} bash`;
     return exec;
   }
 
@@ -260,7 +260,7 @@ export class TaskProvider implements vscode.TaskProvider {
 
   private functionalTestsRequirementsExec(): string {
     // Installs functional tests python requirements in the docker container.
-    const exec = `docker exec -it -u 0  ${this.containerName} bash -c 'apk add gcc musl-dev python3-dev && pip install -r tests/requirements.txt'`;
+    const exec = `docker exec -it -u 0  ${this.containerName} bash -c 'pip install -r tests/requirements.txt'`;
     return exec;
   }
 

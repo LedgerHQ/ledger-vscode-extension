@@ -5,12 +5,6 @@ import { platform } from "node:process";
 import { getSelectedSDK, getSelectedSpeculosModel } from "./targetSelector";
 import { getSelectedApp, App } from "./appSelector";
 
-// Access the configuration object
-const conf = vscode.workspace.getConfiguration("ledgerDevTools");
-const image = conf.get<string>("dockerImage");
-const onboardPin = conf.get<string>("onboardingPin");
-const onboardSeed = conf.get<string>("onboardingSeed");
-
 export const taskType = "L";
 
 // Udev rules (for Linux app loading requirements)
@@ -22,54 +16,77 @@ type ExecBuilder = () => string;
 export interface TaskSpec {
   group?: string;
   name: string;
+  toolTip?: string;
   builder: ExecBuilder;
   dependsOn?: ExecBuilder;
 }
 
 export class TaskProvider implements vscode.TaskProvider {
-  // Referenced in package.json::taskDefinitions
-
+  private image: string;
+  private onboardPin: string;
+  private onboardSeed: string;
+  private additionalDeps?: string;
   private tasks: vscode.Task[] = [];
-  private currentApp: App | undefined;
+  private currentApp?: App;
   private taskSpecs: TaskSpec[] = [
-    { group: "Docker Container", name: "Update Container", builder: this.runDevToolsImageExec },
-    { group: "Docker Container", name: "Open terminal", builder: this.openTerminalExec },
+    {
+      group: "Docker Container",
+      name: "Update Container",
+      builder: this.runDevToolsImageExec,
+      toolTip: "Update docker container (pull image and restart container)",
+    },
+    { group: "Docker Container", name: "Open terminal", builder: this.openTerminalExec, toolTip: "Open terminal in container" },
 
-    { group: "Build", name: "Build", builder: this.buildExec },
-    { group: "Build", name: "Build [debug]", builder: this.buildDebugExec },
-    { group: "Build", name: "Clean build files", builder: this.cleanExec },
+    { group: "Build", name: "Build", builder: this.buildExec, toolTip: "Build app in release mode" },
+    { group: "Build", name: "Build [debug]", builder: this.buildDebugExec, toolTip: "Build app in debug mode" },
+    { group: "Build", name: "Clean build files", builder: this.cleanExec, toolTip: "Clean app build files" },
 
-    { group: "Functional Tests", name: "Run with Speculos", builder: this.runInSpeculosExec },
-    { group: "Functional Tests", name: "Kill Speculos", builder: this.killSpeculosExec },
+    {
+      group: "Functional Tests",
+      name: "Run with Speculos",
+      builder: this.runInSpeculosExec,
+      toolTip: "Run app with Speculos emulator",
+    },
+    {
+      group: "Functional Tests",
+      name: "Kill Speculos",
+      builder: this.killSpeculosExec,
+      toolTip: "Kill Speculos emulator instance",
+    },
     {
       group: "Functional Tests",
       name: "Run tests",
       builder: this.functionalTestsExec,
       dependsOn: this.functionalTestsRequirementsExec,
+      toolTip: "Run Python functional tests (with Qt display disabled)",
     },
     {
       group: "Functional Tests",
       name: "Run tests (with display)",
       builder: this.functionalTestsDisplayExec,
       dependsOn: this.functionalTestsRequirementsExec,
+      toolTip: "Run Python functional tests (with Qt display enabled)",
     },
     {
       group: "Functional Tests",
       name: "Run tests (with display) - on device",
       builder: this.functionalTestsDisplayOnDeviceExec,
       dependsOn: this.functionalTestsRequirementsExec,
+      toolTip: "Run Python functional tests (with Qt display enabled) on real device",
     },
     {
       group: "Device Operations",
       name: "Load app on device",
       builder: this.appLoadExec,
       dependsOn: this.appLoadRequirementsExec,
+      toolTip: "Load app on a physical device",
     },
     {
       group: "Device Operations",
       name: "Quick device onboarding",
       builder: this.deviceOnboardingExec,
       dependsOn: this.appLoadRequirementsExec,
+      toolTip: "Onboard a physical device with a seed and PIN code",
     },
   ];
 
@@ -81,6 +98,15 @@ export class TaskProvider implements vscode.TaskProvider {
     this.containerName = "";
     this.workspacePath = "";
     this.buildDir = "";
+    this.currentApp = getSelectedApp();
+    const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+    this.image = conf.get<string>("dockerImage") || "";
+    this.onboardPin = conf.get<string>("onboardingPin") || "";
+    this.onboardSeed = conf.get<string>("onboardingSeed") || "";
+    const allDeps = conf.get<Record<string, string>>("additionalDepsPerApp");
+    if (this.currentApp && allDeps && allDeps[this.currentApp.appName]) {
+      this.additionalDeps = allDeps[this.currentApp.appName];
+    }
     this.generateTasks();
   }
 
@@ -89,8 +115,18 @@ export class TaskProvider implements vscode.TaskProvider {
     this.containerName = "";
     this.workspacePath = "";
     this.buildDir = "";
+    const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+    this.image = conf.get<string>("dockerImage") || "";
+    this.onboardPin = conf.get<string>("onboardingPin") || "";
+    this.onboardSeed = conf.get<string>("onboardingSeed") || "";
     this.currentApp = getSelectedApp();
     if (this.currentApp) {
+      const allDeps = conf.get<Record<string, string>>("additionalDepsPerApp");
+      if (allDeps && allDeps[this.currentApp.appName]) {
+        this.additionalDeps = allDeps[this.currentApp.appName];
+      } else {
+        this.additionalDeps = undefined;
+      }
       this.containerName = this.currentApp.containerName;
       this.buildDir = this.currentApp.buildDirPath;
       this.workspacePath = this.currentApp.appFolder.uri.path;
@@ -125,14 +161,14 @@ export class TaskProvider implements vscode.TaskProvider {
       // Checks if a container with the name  ${this.containerName} exists, and if it does, it is stopped and removed before a new container is created using the same name and other specified configuration parameters
       if (platform === "linux") {
         // Linux
-        exec = `docker ps -a --format '{{.Names}}' | grep -q  ${this.containerName} && (docker container stop  ${this.containerName} && docker container rm  ${this.containerName}) ; docker pull ${image} && docker run --user $(id -u):$(id -g) --privileged -e DISPLAY=$DISPLAY -v '/dev/bus/usb:/dev/bus/usb' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' -t -d --name  ${this.containerName} ${image}`;
+        exec = `docker ps -a --format '{{.Names}}' | grep -q  ${this.containerName} && (docker container stop  ${this.containerName} && docker container rm  ${this.containerName}) ; docker pull ${this.image} && docker run --user $(id -u):$(id -g) --privileged -e DISPLAY=$DISPLAY -v '/dev/bus/usb:/dev/bus/usb' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' -t -d --name  ${this.containerName} ${this.image}`;
       } else if (platform === "darwin") {
         // macOS
-        exec = `xhost + ; docker ps -a --format '{{.Names}}' | grep -q  ${this.containerName} && (docker container stop  ${this.containerName} && docker container rm  ${this.containerName}) ; docker pull ${image} && docker run --user $(id -u):$(id -g) --privileged -e DISPLAY='host.docker.internal:0' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' -t -d --name  ${this.containerName} ${image}`;
+        exec = `xhost + ; docker ps -a --format '{{.Names}}' | grep -q  ${this.containerName} && (docker container stop  ${this.containerName} && docker container rm  ${this.containerName}) ; docker pull ${this.image} && docker run --user $(id -u):$(id -g) --privileged -e DISPLAY='host.docker.internal:0' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' -t -d --name  ${this.containerName} ${this.image}`;
       } else {
         // Assume windows
         const winWorkspacePath = this.workspacePath.substring(1); // Remove first '/' from windows workspace path URI. Otherwise it is not valid.
-        exec = `if (docker ps -a --format '{{.Names}}' | Select-String -Quiet  ${this.containerName}) { docker container stop  ${this.containerName}; docker container rm  ${this.containerName} }; docker pull ${image}; docker run --privileged -e DISPLAY='host.docker.internal:0' -v '${winWorkspacePath}:/app' -t -d --name  ${this.containerName} ${image}`;
+        exec = `if (docker ps -a --format '{{.Names}}' | Select-String -Quiet  ${this.containerName}) { docker container stop  ${this.containerName}; docker container rm  ${this.containerName} }; docker pull ${this.image}; docker run --privileged -e DISPLAY='host.docker.internal:0' -v '${winWorkspacePath}:/app' -t -d --name  ${this.containerName} ${this.image}`;
       }
     }
 
@@ -221,15 +257,17 @@ export class TaskProvider implements vscode.TaskProvider {
       // Executes make load in the container to load the app on a physical device.
       exec = `docker exec -it ${
         this.containerName
-      } bash -c 'export BOLOS_SDK=$(echo ${getSelectedSDK()}) && python3 -m ledgerblue.hostOnboard --apdu --id 0 --pin ${onboardPin} --prefix \"\" --passphrase \"\" --words \"${onboardSeed}\"'`;
+      } bash -c 'export BOLOS_SDK=$(echo ${getSelectedSDK()}) && python3 -m ledgerblue.hostOnboard --apdu --id 0 --pin ${
+        this.onboardPin
+      } --prefix \"\" --passphrase \"\" --words \"${this.onboardSeed}\"'`;
     } else if (platform === "darwin") {
       // macOS
       // Side loads the app APDU file using ledgerblue runScript.
-      exec = `source ledger/bin/activate && python3 -m ledgerblue.hostOnboard --apdu --id 0 --pin ${onboardPin} --prefix \"\" --passphrase \"\" --words \"${onboardSeed}\"`;
+      exec = `source ledger/bin/activate && python3 -m ledgerblue.hostOnboard --apdu --id 0 --pin ${this.onboardPin} --prefix \"\" --passphrase \"\" --words \"${this.onboardSeed}\"`;
     } else {
       // Assume windows
       // Side loads the app APDU file using ledgerblue runScript.
-      exec = `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.hostOnboard --apdu --id 0 --pin ${onboardPin} --prefix \"\" --passphrase \"\" --words \"${onboardSeed}\"'`;
+      exec = `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.hostOnboard --apdu --id 0 --pin ${this.onboardPin} --prefix \"\" --passphrase \"\" --words \"${this.onboardSeed}\"'`;
     }
     return exec;
   }
@@ -259,8 +297,13 @@ export class TaskProvider implements vscode.TaskProvider {
   }
 
   private functionalTestsRequirementsExec(): string {
-    // Installs functional tests python requirements in the docker container.
-    const exec = `docker exec -it -u 0  ${this.containerName} bash -c 'pip install -r tests/requirements.txt'`;
+    // Use additionalDepsPerApp configuration to install additional dependencies for current app.
+    let addDepsExec = "";
+    if (this.additionalDeps) {
+      addDepsExec = `${this.additionalDeps} &&`;
+      console.log(`Ledger: Installing additional dependencies : ${addDepsExec}`);
+    }
+    const exec = `docker exec -it -u 0  ${this.containerName} bash -c '${addDepsExec} pip install -r tests/requirements.txt'`;
     return exec;
   }
 

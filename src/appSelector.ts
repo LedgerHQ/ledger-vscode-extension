@@ -2,7 +2,6 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import * as fg from "fast-glob";
-import { StatusBarManager } from "./statusBar";
 import { TreeDataProvider } from "./treeView";
 import { TaskProvider } from "./taskProvider";
 import { ContainerManager } from "./containerManager";
@@ -72,4 +71,43 @@ export function setSelectedApp(app: App) {
 
 export function getAppList() {
   return appList;
+}
+
+export function setAppTestsDependencies(taskProvider: TaskProvider) {
+  const currentApp = getSelectedApp();
+  const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+  let currentValue = "";
+  const additionalDepsPerApp = conf.get<Record<string, string>>("additionalDepsPerApp");
+  if (currentApp) {
+    if (additionalDepsPerApp && additionalDepsPerApp[currentApp.appName]) {
+      currentValue = additionalDepsPerApp[currentApp.appName];
+    }
+    // Let user input string in a popup and save it in the additionalDepsPerApp configuration
+    vscode.window
+      .showInputBox({
+        prompt: "Please enter additional test dependencies for this app",
+        value: currentValue,
+        ignoreFocusOut: true,
+      })
+      .then((value) => {
+        if (value) {
+          const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+          const additionalDepsPerApp = conf.get<Record<string, string>>("additionalDepsPerApp");
+          // Account for the fact that maybe the app is not yet in the configuration
+          if (additionalDepsPerApp && additionalDepsPerApp[currentApp.appName]) {
+            additionalDepsPerApp[currentApp.appName] = value;
+            conf.update("additionalDepsPerApp", additionalDepsPerApp, vscode.ConfigurationTarget.Global);
+            console.log(
+              `Ledger: additionalDepsPerApp configuration found (current value: ${additionalDepsPerApp[
+                currentApp.appName
+              ].toString()}), updating it with ${currentApp.appName}:${value}`
+            );
+          } else {
+            console.log(`Ledger: no additionalDepsPerApp configuration found, creating it with ${currentApp.appName}:${value}`);
+            conf.update("additionalDepsPerApp", { [currentApp.appName]: value }, vscode.ConfigurationTarget.Global);
+          }
+          //   taskProvider.generateTasks();
+        }
+      });
+  }
 }

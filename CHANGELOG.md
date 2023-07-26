@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.2]
 
+### Added
+
+    - Better tooltips for sidebar items.
+    - New command to add additional test dependencies in app docker container.
+
 ### Fixed
 
     - Fix infinite container spawning loop bug.

@@ -69,6 +69,12 @@
                 "title": "Select app",
                 "category": "Ledger",
                 "tooltip": "Select the app you want to build."
+            },
+            {
+                "command": "additionalDepsPerApp",
+                "title": "Add test dependencies",
+                "category": "Ledger",
+                "tooltip": "Add additional test dependencies to install for selected app."
             }
         ],
 
@@ -89,6 +95,12 @@
                 "type": "string",
                 "default": "glory promote mansion idle axis finger extra february uncover one trip resource lawn turtle enact monster seven myth punch hobby comfort wild raise skin",
                 "markdownDescription": "Device quick onboarding default 24-word Seed phrase."
+              },
+              "ledgerDevTools.additionalDepsPerApp": {
+                "type": "object",
+                "default": {"app-boilerplate": "apk add gcc musl-dev python3-dev"},
+                "scope": "application",
+                "description": "Additional dependencies to install for each app."
               }
             }
         }

@@ -12,6 +12,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     this.data = [];
 
     let selectApp = new TreeItem("Select app");
+    selectApp.tooltip = "Select app from workspace to build";
     selectApp.command = {
       command: "showAppList",
       title: "Select app",
@@ -20,6 +21,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     this.data.push(selectApp);
 
     let selectTarget = new TreeItem("Select build target");
+    selectTarget.tooltip = "Select device to build for";
     selectTarget.command = {
       command: "selectTarget",
       title: "Select build target",
@@ -29,6 +31,21 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
 
     this.addAllTasksToTree(taskSpecs);
     this.updateTargetLabel();
+
+    let testsRootItem = this.data.find((item) => item.label?.toString().startsWith("Functional"));
+    if (testsRootItem) {
+      // Add item to add new test requirements
+      let addTestDependenciesItem = new TreeItem("Add test dependencies");
+      addTestDependenciesItem.tooltip =
+        "Add Python test dependencies for current app (for instance 'apk add python3-protobuf'). This will be saved in your global configuration.";
+      addTestDependenciesItem.command = {
+        // Command that let's user input string saved for each app present in workspace
+        command: "addTestsDependencies",
+        title: "Add test dependencies",
+        arguments: [],
+      };
+      testsRootItem.addChild(addTestDependenciesItem);
+    }
   }
 
   getTreeItem(element: TreeItem): vscode.TreeItem | Thenable<vscode.TreeItem> {
@@ -44,6 +61,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
 
   private addTaskToTree(spec: TaskSpec): void {
     let taskItem = new TreeItem(spec.name);
+    taskItem.tooltip = spec.toolTip;
     taskItem.command = {
       command: "executeTask",
       title: spec.name,

@@ -6,7 +6,7 @@ import { TreeDataProvider } from "./treeView";
 import { showTargetSelectorMenu } from "./targetSelector";
 import { StatusBarManager } from "./statusBar";
 import { ContainerManager, DevImageStatus } from "./containerManager";
-import { findAppsInWorkspace, getSelectedApp, setSelectedApp, showAppSelectorMenu } from "./appSelector";
+import { findAppsInWorkspace, getSelectedApp, setSelectedApp, showAppSelectorMenu, setAppTestsDependencies } from "./appSelector";
 
 console.log("Ledger: Loading extension");
 
@@ -31,6 +31,12 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("selectTarget", () => {
       showTargetSelectorMenu(statusBarManager, taskProvider, treeProvider);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("addTestsDependencies", () => {
+      setAppTestsDependencies(taskProvider);
     })
   );
 
@@ -76,6 +82,12 @@ export function activate(context: vscode.ExtensionContext) {
         setSelectedApp(appList[0]);
       }
       containerManager.manageContainer();
+    }
+  });
+
+  vscode.workspace.onDidChangeConfiguration((event) => {
+    if (event.affectsConfiguration("ledgerDevTools")) {
+      taskProvider.generateTasks();
     }
   });
 

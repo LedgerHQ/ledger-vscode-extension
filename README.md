@@ -46,11 +46,14 @@ This extension contributes the following settings:
 * `ledgerDevTools.onboardingPin`: Set the device quick onboarding PIN code.
 * `ledgerDevTools.onboardingSeed`: Set the device quick onboarding 24-word Seed phrase.
 * `ledgerDevTools.dockerImage`: Set the Ledger developer tools Docker image.
+* `ledgerDevTools.additionalDepsPerApp`: Add dependencies for current app's functional tests (for instance 'apk add python3-protobuf').
 
 ## Release Notes
 
 ## 0.1.2
 
+* Better tooltips for sidebar items.
+* New command to add additional test dependencies in app docker container.
 * Fix infinite container spawning loop bug.
 
 ## 0.1.1

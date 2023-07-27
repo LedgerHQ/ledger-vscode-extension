@@ -25,12 +25,10 @@ export class ContainerManager {
   }
 
   private checkContainerExists(containerName: string): boolean {
-    const command = `docker ps -a --filter "name=${containerName}" --format '{{.Names}}'`;
+    const command = `docker ps -a --filter "name=${containerName}" --format "{{.Names}}"`;
     const execOptions: ExecSyncOptionsWithStringEncoding = { stdio: "pipe", encoding: "utf-8" };
     const output = execSync(command, execOptions).toString();
-    const containers = output.split("\n").filter(Boolean);
-    console.log(`Docker containers ${containers}`);
-    return containers.includes(containerName);
+    return output.includes(containerName);
   }
 
   manageContainer(): void {
@@ -44,7 +42,7 @@ export class ContainerManager {
           console.log(`Ledger: Container ${currentApp.containerName} not found, respawning it.`);
           this.taskProvider.executeTaskByName("Update Container");
         } else {
-          const command = `docker inspect -f '{{ .State.Status }}' ${containerName}`;
+          const command = `docker inspect -f "{{ .State.Status }}" ${containerName}`;
           const containerStatus = execSync(command).toString().trim();
           if (containerStatus === "running") {
             this.statusBarManager.updateDevImageItem(DevImageStatus.running);
@@ -53,6 +51,7 @@ export class ContainerManager {
             this.statusBarManager.updateDevImageItem(DevImageStatus.syncing);
             this.treeProvider.updateContainerLabel(DevImageStatus.syncing);
           } else {
+            console.log(`Ledger: Container ${currentApp.containerName} status is ${containerStatus}, respawning it.`);
             this.statusBarManager.updateDevImageItem(DevImageStatus.stopped);
             this.treeProvider.updateContainerLabel(DevImageStatus.stopped);
             this.taskProvider.executeTaskByName("Update Container");

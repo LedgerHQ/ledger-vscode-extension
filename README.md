@@ -2,7 +2,7 @@
 
 Provide a quick and easy way to build and test applications for [Ledger](https://www.ledger.com/) devices.
 
-The extension uses Ledger's own [docker image](https://github.com/LedgerHQ/ledger-app-builder/blob/master/dev-tools/Dockerfile) to allow developers to setup a build and test environement in a few minutes.
+The extension uses Ledger's own [Alpine based Docker image](https://github.com/LedgerHQ/ledger-app-builder/blob/master/dev-tools/Dockerfile) to allow developers to setup a build and test environement in a few minutes.
 
 * Build your app for all Ledger devices : Nano S, Nano S Plus, Nano X, Stax.
 * Stay up to date with the latest SDK.
@@ -49,6 +49,14 @@ This extension contributes the following settings:
 * `ledgerDevTools.additionalDepsPerApp`: Add dependencies for current app's functional tests (for instance 'apk add python3-protobuf').
 
 ## Release Notes
+
+## 0.1.4
+
+* Remove unfinished 'delete app from device' feature.
+
+## 0.1.3
+
+* Fix infinite container spawning loop bug on Windows (for real this time).
 
 ## 0.1.2
 

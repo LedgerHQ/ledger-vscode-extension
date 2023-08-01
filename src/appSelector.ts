@@ -7,9 +7,11 @@ import { TaskProvider } from "./taskProvider";
 import { ContainerManager } from "./containerManager";
 const APP_DETECTION_FILE: string = "Makefile";
 const APP_DETECTION_STRING: string = "include $(BOLOS_SDK)/Makefile.defines";
+const APP_NAME_MAKEFILE_VAR: string = "APPNAME";
 
 export interface App {
   appName: string;
+  appFolderName: string;
   appFolder: vscode.WorkspaceFolder;
   containerName: string;
   buildDirPath: string;
@@ -25,8 +27,8 @@ export function findAppsInWorkspace(): App[] | undefined {
   if (workspaceFolders) {
     workspaceFolders.forEach((folder) => {
       const appFolder = folder;
-      const appName = path.basename(appFolder.uri.fsPath);
-      const containerName = `${appName}-container`;
+      const appFolderName = path.basename(appFolder.uri.fsPath);
+      const containerName = `${appFolderName}-container`;
       const searchPattern = path.join(folder.uri.fsPath, `**/${APP_DETECTION_FILE}`).replace(/\\/g, "/");
       const makefiles = fg.sync(searchPattern, { onlyFiles: true, deep: 2 });
 
@@ -34,7 +36,21 @@ export function findAppsInWorkspace(): App[] | undefined {
         const buildDirPath = path.dirname(makefile);
         const fileContent = fs.readFileSync(makefile, "utf-8");
         if (fileContent.includes(APP_DETECTION_STRING)) {
-          appList.push({ appName: appName, appFolder: appFolder, containerName: containerName, buildDirPath: buildDirPath });
+          // Find the app name in the Makefile
+          const regex = new RegExp(`${APP_NAME_MAKEFILE_VAR}\\s*=\\s*(.*)`);
+          const match = fileContent.match(regex);
+          let appName = "unknown";
+          if (match) {
+            appName = match[1];
+          }
+          // Add the app to the list
+          appList.push({
+            appName: appName,
+            appFolderName: appFolderName,
+            appFolder: appFolder,
+            containerName: containerName,
+            buildDirPath: buildDirPath,
+          });
         }
       });
     });
@@ -48,11 +64,11 @@ export async function showAppSelectorMenu(
   taskProvider: TaskProvider,
   containerManager: ContainerManager
 ) {
-  const appNames = appList.map((app) => app.appName);
-  const result = await vscode.window.showQuickPick(appNames, {
+  const appFolderNames = appList.map((app) => app.appFolderName);
+  const result = await vscode.window.showQuickPick(appFolderNames, {
     placeHolder: "Please select an app",
     onDidSelectItem: (item) => {
-      selectedApp = appList.find((app) => app.appName === item);
+      selectedApp = appList.find((app) => app.appFolderName === item);
     },
   });
   taskProvider.generateTasks();
@@ -79,8 +95,8 @@ export function setAppTestsDependencies(taskProvider: TaskProvider) {
   let currentValue = "";
   const additionalDepsPerApp = conf.get<Record<string, string>>("additionalDepsPerApp");
   if (currentApp) {
-    if (additionalDepsPerApp && additionalDepsPerApp[currentApp.appName]) {
-      currentValue = additionalDepsPerApp[currentApp.appName];
+    if (additionalDepsPerApp && additionalDepsPerApp[currentApp.appFolderName]) {
+      currentValue = additionalDepsPerApp[currentApp.appFolderName];
     }
     // Let user input string in a popup and save it in the additionalDepsPerApp configuration
     vscode.window
@@ -94,19 +110,20 @@ export function setAppTestsDependencies(taskProvider: TaskProvider) {
           const conf = vscode.workspace.getConfiguration("ledgerDevTools");
           const additionalDepsPerApp = conf.get<Record<string, string>>("additionalDepsPerApp");
           // Account for the fact that maybe the app is not yet in the configuration
-          if (additionalDepsPerApp && additionalDepsPerApp[currentApp.appName]) {
-            additionalDepsPerApp[currentApp.appName] = value;
+          if (additionalDepsPerApp && additionalDepsPerApp[currentApp.appFolderName]) {
+            additionalDepsPerApp[currentApp.appFolderName] = value;
             conf.update("additionalDepsPerApp", additionalDepsPerApp, vscode.ConfigurationTarget.Global);
             console.log(
               `Ledger: additionalDepsPerApp configuration found (current value: ${additionalDepsPerApp[
-                currentApp.appName
-              ].toString()}), updating it with ${currentApp.appName}:${value}`
+                currentApp.appFolderName
+              ].toString()}), updating it with ${currentApp.appFolderName}:${value}`
             );
           } else {
-            console.log(`Ledger: no additionalDepsPerApp configuration found, creating it with ${currentApp.appName}:${value}`);
-            conf.update("additionalDepsPerApp", { [currentApp.appName]: value }, vscode.ConfigurationTarget.Global);
+            console.log(
+              `Ledger: no additionalDepsPerApp configuration found, creating it with ${currentApp.appFolderName}:${value}`
+            );
+            conf.update("additionalDepsPerApp", { [currentApp.appFolderName]: value }, vscode.ConfigurationTarget.Global);
           }
-          //   taskProvider.generateTasks();
         }
       });
   }

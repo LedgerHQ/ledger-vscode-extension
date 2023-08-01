@@ -2,7 +2,7 @@
 
 import * as vscode from "vscode";
 import { platform } from "node:process";
-import { getSelectedSDK, getSelectedSpeculosModel } from "./targetSelector";
+import { getSelectedSDK, getSelectedSpeculosModel, getSelectedTargetId } from "./targetSelector";
 import { getSelectedApp, App } from "./appSelector";
 
 export const taskType = "L";
@@ -36,11 +36,21 @@ export class TaskProvider implements vscode.TaskProvider {
       toolTip: "Update docker container (pull image and restart container)",
     },
     { group: "Docker Container", name: "Open terminal", builder: this.openTerminalExec, toolTip: "Open terminal in container" },
-
-    { group: "Build", name: "Build", builder: this.buildExec, toolTip: "Build app in release mode" },
-    { group: "Build", name: "Build [debug]", builder: this.buildDebugExec, toolTip: "Build app in debug mode" },
+    {
+      group: "Build",
+      name: "Build",
+      builder: this.buildExec,
+      toolTip: "Build app in release mode",
+      dependsOn: this.appSubmodulesInitExec,
+    },
+    {
+      group: "Build",
+      name: "Build [debug]",
+      builder: this.buildDebugExec,
+      toolTip: "Build app in debug mode",
+      dependsOn: this.appSubmodulesInitExec,
+    },
     { group: "Build", name: "Clean build files", builder: this.cleanExec, toolTip: "Clean app build files" },
-
     {
       group: "Functional Tests",
       name: "Run with Speculos",
@@ -83,6 +93,13 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Device Operations",
+      name: "Delete app from device",
+      builder: this.appDeleteExec,
+      dependsOn: this.appLoadRequirementsExec,
+      toolTip: "Delete app from a physical device",
+    },
+    {
+      group: "Device Operations",
       name: "Quick device onboarding",
       builder: this.deviceOnboardingExec,
       dependsOn: this.appLoadRequirementsExec,
@@ -93,8 +110,10 @@ export class TaskProvider implements vscode.TaskProvider {
   private buildDir: string;
   private workspacePath: string;
   private containerName: string;
+  private appName: string;
 
   constructor() {
+    this.appName = "";
     this.containerName = "";
     this.workspacePath = "";
     this.buildDir = "";
@@ -104,8 +123,8 @@ export class TaskProvider implements vscode.TaskProvider {
     this.onboardPin = conf.get<string>("onboardingPin") || "";
     this.onboardSeed = conf.get<string>("onboardingSeed") || "";
     const allDeps = conf.get<Record<string, string>>("additionalDepsPerApp");
-    if (this.currentApp && allDeps && allDeps[this.currentApp.appName]) {
-      this.additionalDeps = allDeps[this.currentApp.appName];
+    if (this.currentApp && allDeps && allDeps[this.currentApp.appFolderName]) {
+      this.additionalDeps = allDeps[this.currentApp.appFolderName];
     }
     this.generateTasks();
   }
@@ -122,11 +141,12 @@ export class TaskProvider implements vscode.TaskProvider {
     this.currentApp = getSelectedApp();
     if (this.currentApp) {
       const allDeps = conf.get<Record<string, string>>("additionalDepsPerApp");
-      if (allDeps && allDeps[this.currentApp.appName]) {
-        this.additionalDeps = allDeps[this.currentApp.appName];
+      if (allDeps && allDeps[this.currentApp.appFolderName]) {
+        this.additionalDeps = allDeps[this.currentApp.appFolderName];
       } else {
         this.additionalDeps = undefined;
       }
+      this.appName = this.currentApp.appName;
       this.containerName = this.currentApp.containerName;
       this.buildDir = this.currentApp.buildDirPath;
       this.workspacePath = this.currentApp.appFolder.uri.path;
@@ -175,17 +195,30 @@ export class TaskProvider implements vscode.TaskProvider {
     return exec;
   }
 
+  private buildDebugExec(): string {
+    // Builds the app with debug mode enabled using the make command, inside the docker container.
+    const exec = `docker exec -it  ${
+      this.containerName
+    } bash -c 'export BOLOS_SDK=$(echo ${getSelectedSDK()}) && make -j DEBUG=1'`;
+    return exec;
+  }
+
   private buildExec(): string {
     const exec = `docker exec -it  ${this.containerName} bash -c 'export BOLOS_SDK=$(echo ${getSelectedSDK()}) && make -j'`;
     // Builds the app in release mode using the make command, inside the docker container.
     return exec;
   }
 
-  private buildDebugExec(): string {
-    // Builds the app with debug mode enabled using the make command, inside the docker container.
-    const exec = `docker exec -it  ${
-      this.containerName
-    } bash -c 'export BOLOS_SDK=$(echo ${getSelectedSDK()}) && make -j DEBUG=1'`;
+  private appSubmodulesInitExec(): string {
+    let exec = "";
+    // Init app git submodules (if any).
+    if (platform === "win32") {
+      // Execute git command in cmd.exe on host, no docker
+      exec = `cmd.exe /C git submodule update --init --recursive`;
+    } else {
+      // Execute git command in bash on host, no docker
+      exec = `git submodule update --init --recursive`;
+    }
     return exec;
   }
 
@@ -246,6 +279,26 @@ export class TaskProvider implements vscode.TaskProvider {
       // Assume windows
       // Side loads the app APDU file using ledgerblue runScript.
       exec = `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.runScript --scp --fileName ${this.buildDir}/bin/app.apdu --elfFile ${this.buildDir}/bin/app.elf'`;
+    }
+    return exec;
+  }
+
+  private appDeleteExec(): string {
+    let exec = "";
+    if (platform === "linux") {
+      // Linux
+      exec = `docker exec -it  ${this.containerName} bash -c 'export BOLOS_SDK=$(echo ${getSelectedSDK()}) && make delete'`;
+    } else if (platform === "darwin") {
+      // macOS
+      // Delete the app using ledgerblue runScript.
+      exec = `source ledger/bin/activate && python3 -m ledgerblue.deleteApp --targetId ${getSelectedTargetId()} --appName ${
+        this.appName
+      }`;
+    } else {
+      // Assume windows
+      exec = `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.deleteApp --targetId ${getSelectedTargetId()} --appName ${
+        this.appName
+      }'`;
     }
     return exec;
   }

@@ -152,7 +152,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     let buildItem = this.data.find((item) => item.label && item.label.toString().startsWith("Build"));
     if (currentApp) {
       if (buildItem) {
-        buildItem.label = `Build [${currentApp.appName} for ${getSelectedTarget()}]`;
+        buildItem.label = `Build [${currentApp.appFolderName} for ${getSelectedTarget()}]`;
       }
     } else {
       if (buildItem) {

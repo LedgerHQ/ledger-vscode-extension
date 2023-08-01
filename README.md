@@ -50,6 +50,11 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+## 0.1.5
+
+* Add 'delete app from device' feature.
+* Do a 'git submodule update --init --recursive' before the build tasks.
+
 ## 0.1.4
 
 * Remove unfinished 'delete app from device' feature.

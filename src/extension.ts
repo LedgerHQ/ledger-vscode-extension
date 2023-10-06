@@ -71,7 +71,7 @@ export function activate(context: vscode.ExtensionContext) {
   vscode.tasks.onDidEndTask((event) => {
     const taskName = event.execution.task.name;
     if (taskName.startsWith("Update Container")) {
-      containerManager.manageContainer();
+      containerManager.checkUpdateRetries();
     }
   });
 

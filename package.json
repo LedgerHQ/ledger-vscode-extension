@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "ledger-dev-tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",
@@ -20,7 +20,7 @@
     "onStartupFinished"
   ],
   "main": "./dist/extension.js",
-  
+
   "contributes": {
     "taskDefinitions": [
         {
@@ -101,6 +101,16 @@
                 "default": {"app-boilerplate": "apk add gcc musl-dev python3-dev"},
                 "scope": "application",
                 "description": "Additional dependencies to install for each app."
+              },
+              "ledgerDevTools.keepContainerTerminal": {
+                "type": "boolean",
+                "default": true,
+                "markdownDescription": "Keep the Terminal window opened after a successful Container Update."
+              },
+              "ledgerDevTools.containerUpdateRetries": {
+                "type": "number",
+                "default": 5,
+                "markdownDescription": "Max number of Container Update retries."
               }
             }
         }

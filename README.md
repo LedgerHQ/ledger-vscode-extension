@@ -2,7 +2,7 @@
 
 Provide a quick and easy way to build and test applications for [Ledger](https://www.ledger.com/) devices.
 
-The extension uses Ledger's own [Alpine based Docker image](https://github.com/LedgerHQ/ledger-app-builder/blob/master/dev-tools/Dockerfile) to allow developers to setup a build and test environement in a few minutes.
+The extension uses Ledger's own [Alpine based Docker image](https://github.com/LedgerHQ/ledger-app-builder/blob/master/dev-tools/Dockerfile) to allow developers to setup a build and test environment in a few minutes.
 
 * Build your app for all Ledger devices : Nano S, Nano S Plus, Nano X, Stax.
 * Stay up to date with the latest SDK.
@@ -14,7 +14,7 @@ The extension uses Ledger's own [Alpine based Docker image](https://github.com/L
 
 ### Tasks
 
-Automatically add tasks to help you build, test and load your app on a physical device. 
+Automatically add tasks to help you build, test and load your app on a physical device.
 These tasks are accessible through the build task menu keyboard shortcut to avoid clicking around.
 
 <img src="https://github.com/LedgerHQ/ledger-vscode-extension/blob/main/resources/tasks.gif?raw=true" width="70%" height="70%"/>
@@ -47,8 +47,15 @@ This extension contributes the following settings:
 * `ledgerDevTools.onboardingSeed`: Set the device quick onboarding 24-word Seed phrase.
 * `ledgerDevTools.dockerImage`: Set the Ledger developer tools Docker image.
 * `ledgerDevTools.additionalDepsPerApp`: Add dependencies for current app's functional tests (for instance 'apk add python3-protobuf').
+* `ledgerDevTools.keepContainerTerminal`: Indicates to keep the Terminal window opened after a successful Container Update.
+* `ledgerDevTools.containerUpdateRetries`: Set the max number of Container Update retries.
 
 ## Release Notes
+
+## 0.1.6
+
+* Add setting parameter allowing to automatically close the terminal Window when the Container Update is successful.
+* Add setting parameter to set the max number of allowed Container Update retries avoiding the infinite loop.
 
 ## 0.1.5
 

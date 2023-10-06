@@ -237,7 +237,7 @@ export class TaskProvider implements vscode.TaskProvider {
     // Runs the app on the speculos emulator for the selected device model, in the docker container.
     const exec = `docker exec -it  ${
       this.containerName
-    } bash -c 'speculos --model ${getSelectedSpeculosModel()} bin/app.elf'`;
+    } bash -c 'speculos --model ${getSelectedSpeculosModel()} build/${getSelectedSpeculosModel()}/bin/app.elf'`;
     return exec;
   }
 

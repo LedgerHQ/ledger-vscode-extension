@@ -1,4 +1,5 @@
 "use strict";
+import * as vscode from "vscode";
 import { execSync } from "child_process";
 import { getSelectedApp } from "./appSelector";
 import { TaskProvider } from "./taskProvider";
@@ -16,12 +17,13 @@ export class ContainerManager {
   private statusBarManager: StatusBarManager;
   private taskProvider: TaskProvider;
   private treeProvider: TreeDataProvider;
+  private nbUpdate: number = 0;
 
   constructor(taskProvider: TaskProvider, statusBarManager: StatusBarManager, treeProvider: TreeDataProvider) {
     this.statusBarManager = statusBarManager;
     this.taskProvider = taskProvider;
     this.treeProvider = treeProvider;
-    this.manageContainer();
+    this.nbUpdate = 0
   }
 
   private checkContainerExists(containerName: string): boolean {
@@ -31,40 +33,72 @@ export class ContainerManager {
     return output.includes(containerName);
   }
 
-  manageContainer(): void {
+  private isContainerReady(): boolean {
     const currentApp = getSelectedApp();
     try {
       if (currentApp) {
         const containerName = currentApp.containerName;
-        if (!this.checkContainerExists(containerName)) {
-          this.statusBarManager.updateDevImageItem(DevImageStatus.stopped);
-          this.treeProvider.updateContainerLabel(DevImageStatus.stopped);
-          console.log(`Ledger: Container ${currentApp.containerName} not found, respawning it.`);
-          this.taskProvider.executeTaskByName("Update Container");
-        } else {
+
+        if (this.checkContainerExists(containerName)) {
           const command = `docker inspect -f "{{ .State.Status }}" ${containerName}`;
           const containerStatus = execSync(command).toString().trim();
+          console.log(`Ledger: Container ${containerName} status is ${containerStatus}`);
+
           if (containerStatus === "running") {
             this.statusBarManager.updateDevImageItem(DevImageStatus.running);
             this.treeProvider.updateContainerLabel(DevImageStatus.running);
-          } else if (containerStatus === "starting" || containerStatus === "restarting") {
+            const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+            if (conf.get<boolean>("keepContainerTerminal") == false) {
+                  vscode.window.activeTerminal?.hide()
+            }
+            return true;
+          }
+          if (containerStatus === "starting" || containerStatus === "restarting") {
             this.statusBarManager.updateDevImageItem(DevImageStatus.syncing);
             this.treeProvider.updateContainerLabel(DevImageStatus.syncing);
-          } else {
-            console.log(`Ledger: Container ${currentApp.containerName} status is ${containerStatus}, respawning it.`);
-            this.statusBarManager.updateDevImageItem(DevImageStatus.stopped);
-            this.treeProvider.updateContainerLabel(DevImageStatus.stopped);
-            this.taskProvider.executeTaskByName("Update Container");
+            return true;
           }
         }
-      } else {
-        this.statusBarManager.updateDevImageItem(DevImageStatus.stopped);
-        this.treeProvider.updateContainerLabel(DevImageStatus.stopped);
       }
+      return false;
+
     } catch (error: any) {
       console.log(`Docker error : ${error.message}`);
-      this.statusBarManager.updateDevImageItem(DevImageStatus.stopped);
-      this.treeProvider.updateContainerLabel(DevImageStatus.stopped);
+      return false;
     }
+  }
+
+  manageContainer(): void {
+    if (this.isContainerReady() == false) {
+      const currentApp = getSelectedApp();
+      if (currentApp) {
+        this.statusBarManager.updateDevImageItem(DevImageStatus.stopped);
+        this.treeProvider.updateContainerLabel(DevImageStatus.stopped);
+        console.log(`Ledger: Container ${currentApp.containerName} not found, respawning it.`);
+        this.taskProvider.executeTaskByName("Update Container");
+      }
+    }
+  }
+
+  checkUpdateRetries(): void {
+    if (this.isContainerReady() == true) {
+      this.nbUpdate = 0
+      return;
+    }
+
+    const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+    const maxRetries = conf.get<number>("containerUpdateRetries") || 5;
+
+    console.log(`Container Updates Retries: ${this.nbUpdate} / ${maxRetries}`);
+    if (this.nbUpdate++ < maxRetries) {
+      console.log(`Retrying...`);
+      this.manageContainer();
+      return
+    }
+    console.log(`Container cannot be updated!`);
+    vscode.window.showWarningMessage("Container cannot be updated!");
+    this.statusBarManager.updateDevImageItem(DevImageStatus.stopped);
+    this.treeProvider.updateContainerLabel(DevImageStatus.stopped);
+    this.nbUpdate = 0
   }
 }

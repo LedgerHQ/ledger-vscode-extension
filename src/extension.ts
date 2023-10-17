@@ -18,11 +18,11 @@ export function activate(context: vscode.ExtensionContext) {
     setSelectedApp(appList[0]);
   }
 
-  let taskProvider = new TaskProvider();
-  context.subscriptions.push(vscode.tasks.registerTaskProvider(taskType, taskProvider));
-
-  let treeProvider = new TreeDataProvider(taskProvider.getTaskSpecs());
+  let treeProvider = new TreeDataProvider();
   vscode.window.registerTreeDataProvider("exampleView", treeProvider);
+
+  let taskProvider = new TaskProvider(treeProvider);
+  context.subscriptions.push(vscode.tasks.registerTaskProvider(taskType, taskProvider));
 
   let statusBarManager = new StatusBarManager();
   let containerManager = new ContainerManager(taskProvider, statusBarManager, treeProvider);

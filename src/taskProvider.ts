@@ -2,8 +2,9 @@
 
 import * as vscode from "vscode";
 import { platform } from "node:process";
-import { getSelectedSDK, getSelectedSpeculosModel, getSelectedTargetId } from "./targetSelector";
-import { getSelectedApp, App } from "./appSelector";
+import { getSelectedSDK, getSelectedSpeculosModel, getSelectedTargetId, getSelectedSDKModel } from "./targetSelector";
+import { getSelectedApp, App, AppLanguage } from "./appSelector";
+import { TreeDataProvider } from "./treeView";
 
 export const taskType = "L";
 
@@ -12,107 +13,137 @@ const udevRulesFile = "20-ledger.ledgerblue.rules";
 const udevRules = `SUBSYSTEMS=="usb", ATTRS{idVendor}=="2c97", ATTRS{idProduct}=="0006|6000|6001|6002|6003|6004|6005|6006|6007|6008|6009|600a|600b|600c|600d|600e|600f|6010|6011|6012|6013|6014|6015|6016|6017|6018|6019|601a|601b|601c|601d|601e|601f", TAG+="uaccess", TAG+="udev-acl"`;
 
 type ExecBuilder = () => string;
+type TaskTargetLanguage = AppLanguage | "Both";
+type BuilderForLanguage = Partial<Record<TaskTargetLanguage, ExecBuilder>>;
 
 export interface TaskSpec {
   group?: string;
   name: string;
   toolTip?: string;
-  builder: ExecBuilder;
+  builders: BuilderForLanguage;
   dependsOn?: ExecBuilder;
+  enabled: boolean;
 }
 
 export class TaskProvider implements vscode.TaskProvider {
+  private treeProvider: TreeDataProvider;
   private image: string;
   private onboardPin: string;
   private onboardSeed: string;
   private additionalDeps?: string;
+  private buildDir: string;
+  private workspacePath: string;
+  private containerName: string;
+  private appName: string;
+  private appLanguage: AppLanguage;
+  private functionalTestsDir?: string;
   private tasks: vscode.Task[] = [];
   private currentApp?: App;
   private taskSpecs: TaskSpec[] = [
     {
       group: "Docker Container",
       name: "Update Container",
-      builder: this.runDevToolsImageExec,
+      builders: { ["Both"]: this.runDevToolsImageExec },
       toolTip: "Update docker container (pull image and restart container)",
+      enabled: true,
     },
-    { group: "Docker Container", name: "Open terminal", builder: this.openTerminalExec, toolTip: "Open terminal in container" },
+    {
+      group: "Docker Container",
+      name: "Open terminal",
+      builders: { ["Both"]: this.openTerminalExec },
+      toolTip: "Open terminal in container",
+      enabled: true,
+    },
     {
       group: "Build",
       name: "Build",
-      builder: this.buildExec,
+      builders: { ["C"]: this.cBuildExec, ["Rust"]: this.rustBuildExec },
       toolTip: "Build app in release mode",
       dependsOn: this.appSubmodulesInitExec,
+      enabled: true,
     },
     {
       group: "Build",
       name: "Build [debug]",
-      builder: this.buildDebugExec,
+      builders: { ["C"]: this.buildDebugExec },
       toolTip: "Build app in debug mode",
       dependsOn: this.appSubmodulesInitExec,
+      enabled: true,
     },
-    { group: "Build", name: "Clean build files", builder: this.cleanExec, toolTip: "Clean app build files" },
+    {
+      group: "Build",
+      name: "Clean build files",
+      builders: { ["C"]: this.cCleanExec, ["Rust"]: this.rustCleanExec },
+      toolTip: "Clean app build files",
+      enabled: true,
+    },
     {
       group: "Functional Tests",
       name: "Run with Speculos",
-      builder: this.runInSpeculosExec,
+      builders: { ["Both"]: this.runInSpeculosExec },
       toolTip: "Run app with Speculos emulator",
+      enabled: true,
     },
     {
       group: "Functional Tests",
       name: "Kill Speculos",
-      builder: this.killSpeculosExec,
+      builders: { ["Both"]: this.killSpeculosExec },
       toolTip: "Kill Speculos emulator instance",
+      enabled: true,
     },
     {
       group: "Functional Tests",
       name: "Run tests",
-      builder: this.functionalTestsExec,
+      builders: { ["Both"]: this.functionalTestsExec },
       dependsOn: this.functionalTestsRequirementsExec,
       toolTip: "Run Python functional tests (with Qt display disabled)",
+      enabled: true,
     },
     {
       group: "Functional Tests",
       name: "Run tests (with display)",
-      builder: this.functionalTestsDisplayExec,
+      builders: { ["Both"]: this.functionalTestsDisplayExec },
       dependsOn: this.functionalTestsRequirementsExec,
       toolTip: "Run Python functional tests (with Qt display enabled)",
+      enabled: true,
     },
     {
       group: "Functional Tests",
       name: "Run tests (with display) - on device",
-      builder: this.functionalTestsDisplayOnDeviceExec,
+      builders: { ["Both"]: this.functionalTestsDisplayOnDeviceExec },
       dependsOn: this.functionalTestsRequirementsExec,
       toolTip: "Run Python functional tests (with Qt display enabled) on real device",
+      enabled: true,
     },
     {
       group: "Device Operations",
       name: "Load app on device",
-      builder: this.appLoadExec,
+      builders: { ["C"]: this.appLoadExec },
       dependsOn: this.appLoadRequirementsExec,
       toolTip: "Load app on a physical device",
+      enabled: true,
     },
     {
       group: "Device Operations",
       name: "Delete app from device",
-      builder: this.appDeleteExec,
+      builders: { ["C"]: this.appDeleteExec },
       dependsOn: this.appLoadRequirementsExec,
       toolTip: "Delete app from a physical device",
+      enabled: true,
     },
     {
       group: "Device Operations",
       name: "Quick device onboarding",
-      builder: this.deviceOnboardingExec,
+      builders: { ["Both"]: this.deviceOnboardingExec },
       dependsOn: this.appLoadRequirementsExec,
       toolTip: "Onboard a physical device with a seed and PIN code",
+      enabled: true,
     },
   ];
 
-  private buildDir: string;
-  private workspacePath: string;
-  private containerName: string;
-  private appName: string;
-
-  constructor() {
+  constructor(treeProvider: TreeDataProvider) {
+    this.treeProvider = treeProvider;
+    this.appLanguage = "C";
     this.appName = "";
     this.containerName = "";
     this.workspacePath = "";
@@ -134,6 +165,7 @@ export class TaskProvider implements vscode.TaskProvider {
     this.containerName = "";
     this.workspacePath = "";
     this.buildDir = "";
+    this.functionalTestsDir = undefined;
     const conf = vscode.workspace.getConfiguration("ledgerDevTools");
     this.image = conf.get<string>("dockerImage") || "";
     this.onboardPin = conf.get<string>("onboardingPin") || "";
@@ -146,11 +178,15 @@ export class TaskProvider implements vscode.TaskProvider {
       } else {
         this.additionalDeps = undefined;
       }
+      this.functionalTestsDir = this.currentApp.functionalTestsDir;
       this.appName = this.currentApp.appName;
+      this.appLanguage = this.currentApp.language;
       this.containerName = this.currentApp.containerName;
       this.buildDir = this.currentApp.buildDirPath;
       this.workspacePath = this.currentApp.appFolder.uri.path;
+      this.checkDisabledTasks();
       this.pushAllTasks();
+      this.treeProvider.addAllTasksToTree(this.taskSpecs);
     }
   }
 
@@ -203,8 +239,18 @@ export class TaskProvider implements vscode.TaskProvider {
     return exec;
   }
 
-  private buildExec(): string {
+  private cBuildExec(): string {
     const exec = `docker exec -it  ${this.containerName} bash -c 'export BOLOS_SDK=$(echo ${getSelectedSDK()}) && make -j'`;
+    // Builds the app in release mode using the make command, inside the docker container.
+    return exec;
+  }
+
+  private rustBuildExec(): string {
+    const exec = `docker exec -it -u 0 ${
+      this.containerName
+    } bash -c 'cargo ledger build ${getSelectedSDKModel()} -- -Zunstable-options --out-dir build/${getSelectedSpeculosModel()}/bin && mv build/${getSelectedSpeculosModel()}/bin/${
+      this.appName
+    } build/${getSelectedSpeculosModel()}/bin/app.elf'`;
     // Builds the app in release mode using the make command, inside the docker container.
     return exec;
   }
@@ -222,9 +268,15 @@ export class TaskProvider implements vscode.TaskProvider {
     return exec;
   }
 
-  private cleanExec(): string {
+  private cCleanExec(): string {
     // Cleans all app build files (for all device models).
     const exec = `docker exec -it  ${this.containerName} bash -c 'make clean'`;
+    return exec;
+  }
+
+  private rustCleanExec(): string {
+    // Cleans all app build files (for all device models).
+    const exec = `docker exec -it -u 0 ${this.containerName} bash -c 'cargo clean ; rm -rf build'`;
     return exec;
   }
 
@@ -327,25 +379,25 @@ export class TaskProvider implements vscode.TaskProvider {
 
   private functionalTestsExec(): string {
     // Runs functional tests inside the docker container (with Qt display disabled).
-    const exec = `docker exec -it  ${
-      this.containerName
-    } bash -c 'pytest tests/ --tb=short -v --device ${getSelectedSpeculosModel()}'`;
+    const exec = `docker exec -it  ${this.containerName} bash -c 'pytest ${
+      this.functionalTestsDir
+    } --tb=short -v --device ${getSelectedSpeculosModel()}'`;
     return exec;
   }
 
   private functionalTestsDisplayExec(): string {
     // Runs functional tests inside the docker container (with Qt display enabled).
-    const exec = `docker exec -it  ${
-      this.containerName
-    } bash -c 'pytest tests/ --tb=short -v --device ${getSelectedSpeculosModel()} --display'`;
+    const exec = `docker exec -it  ${this.containerName} bash -c 'pytest ${
+      this.functionalTestsDir
+    } --tb=short -v --device ${getSelectedSpeculosModel()} --display'`;
     return exec;
   }
 
   private functionalTestsDisplayOnDeviceExec(): string {
     // Runs functional tests inside the docker container (with Qt display enabled) on real device.
-    const exec = `docker exec -it ${
-      this.containerName
-    } bash -c 'pytest tests/ --tb=short -v --device ${getSelectedSpeculosModel()} --display --backend ledgerwallet'`;
+    const exec = `docker exec -it ${this.containerName} bash -c 'pytest ${
+      this.functionalTestsDir
+    } --tb=short -v --device ${getSelectedSpeculosModel()} --display --backend ledgerwallet'`;
     return exec;
   }
 
@@ -356,22 +408,21 @@ export class TaskProvider implements vscode.TaskProvider {
       addDepsExec = `${this.additionalDeps} &&`;
       console.log(`Ledger: Installing additional dependencies : ${addDepsExec}`);
     }
-    const exec = `docker exec -it -u 0  ${this.containerName} bash -c '${addDepsExec} pip install -r tests/requirements.txt'`;
+    const reqFilePath = this.functionalTestsDir + "/requirements.txt";
+    const exec = `docker exec -it -u 0  ${this.containerName} bash -c '${addDepsExec} [ -f ${reqFilePath} ] && pip install -r ${reqFilePath}'`;
     return exec;
-  }
-
-  getTaskSpecs(): TaskSpec[] {
-    return this.taskSpecs;
   }
 
   private pushAllTasks(): void {
     this.taskSpecs.forEach((item) => {
-      if (this.currentApp) {
+      if (this.currentApp && item.enabled) {
+        console.log("Pushing task: " + item.name + " for app: " + this.currentApp.appName);
         let dependExec = "";
         if (item.dependsOn) {
           dependExec = item.dependsOn.call(this) + ";";
         }
-        const exec = dependExec + item.builder.call(this);
+        const languageExec = item.builders[this.appLanguage]?.call(this) || item.builders["Both"]?.call(this) || "";
+        const exec = dependExec + languageExec;
         const task = new vscode.Task(
           { type: taskType, task: item.name },
           this.currentApp.appFolder,
@@ -383,5 +434,28 @@ export class TaskProvider implements vscode.TaskProvider {
         this.tasks.push(task);
       }
     });
+  }
+
+  private checkDisabledTasks(): void {
+    if (this.currentApp) {
+      // Enable tasks that have either a builder for the language of the app or a
+      // builder for all languages ("Both").
+      this.taskSpecs.forEach((item) => {
+        if (item.builders[this.appLanguage] || item.builders["Both"]) {
+          item.enabled = true;
+        } else {
+          item.enabled = false;
+        }
+      });
+
+      // If functional tests are not available for the app, disable all functional tests tasks
+      if (this.currentApp.functionalTestsDir === undefined) {
+        this.taskSpecs.forEach((item) => {
+          if (item.group === "Functional Tests" && !item.name.includes("Speculos")) {
+            item.enabled = false;
+          }
+        });
+      }
+    }
   }
 }

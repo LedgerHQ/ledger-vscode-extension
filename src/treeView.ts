@@ -8,10 +8,11 @@ import { DevImageStatus } from "./containerManager";
 export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
   data: TreeItem[];
 
-  constructor(taskSpecs: TaskSpec[]) {
+  constructor() {
     this.data = [];
 
     let selectApp = new TreeItem("Select app");
+    selectApp.setDefault();
     selectApp.tooltip = "Select app from workspace to build";
     selectApp.command = {
       command: "showAppList",
@@ -21,6 +22,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     this.data.push(selectApp);
 
     let selectTarget = new TreeItem("Select build target");
+    selectTarget.setDefault();
     selectTarget.tooltip = "Select device to build for";
     selectTarget.command = {
       command: "selectTarget",
@@ -29,7 +31,6 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     };
     this.data.push(selectTarget);
 
-    this.addAllTasksToTree(taskSpecs);
     this.updateTargetLabel();
 
     let testsRootItem = this.data.find((item) => item.label?.toString().startsWith("Functional"));
@@ -103,9 +104,14 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     }
   }
 
-  private addAllTasksToTree(taskSpecs: TaskSpec[]): void {
+  addAllTasksToTree(taskSpecs: TaskSpec[]): void {
+    // Keep only default items
+    this.data = this.data.filter((item) => item.default);
     taskSpecs.forEach((spec) => {
-      this.addTaskToTree(spec);
+      // Add only enabled tasks
+      if (spec.enabled) {
+        this.addTaskToTree(spec);
+      }
     });
   }
 
@@ -165,10 +171,16 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
 
 export class TreeItem extends vscode.TreeItem {
   children: TreeItem[] | undefined;
+  default: boolean;
 
   constructor(label: string, children?: TreeItem[]) {
     super(label, children === undefined ? vscode.TreeItemCollapsibleState.None : vscode.TreeItemCollapsibleState.Expanded);
     this.children = children;
+    this.default = false;
+  }
+
+  setDefault() {
+    this.default = true;
   }
 
   addChild(child: TreeItem) {

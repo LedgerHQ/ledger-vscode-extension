@@ -64,7 +64,7 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Build",
-      name: "Build [debug]",
+      name: "Build with debug mode",
       builders: { ["C"]: this.buildDebugExec },
       toolTip: "Build app in debug mode",
       dependsOn: this.appSubmodulesInitExec,
@@ -101,7 +101,7 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Functional Tests",
-      name: "Run tests (with display)",
+      name: "Run tests with display",
       builders: { ["Both"]: this.functionalTestsDisplayExec },
       dependsOn: this.functionalTestsRequirementsExec,
       toolTip: "Run Python functional tests (with Qt display enabled)",
@@ -109,7 +109,7 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Functional Tests",
-      name: "Run tests (with display) - on device",
+      name: "Run tests with display - on device",
       builders: { ["Both"]: this.functionalTestsDisplayOnDeviceExec },
       dependsOn: this.functionalTestsRequirementsExec,
       toolTip: "Run Python functional tests (with Qt display enabled) on real device",

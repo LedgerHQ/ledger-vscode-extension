@@ -90,6 +90,6 @@ export async function showTargetSelectorMenu(
   });
   taskProvider.generateTasks();
   statusManager.updateTargetItem();
-  treeDataProvider.updateTargetLabel();
+  treeDataProvider.updateAppAndTargetLabels();
   return result;
 }

@@ -11,7 +11,7 @@ import { findAppsInWorkspace, getSelectedApp, setSelectedApp, showAppSelectorMen
 console.log("Ledger: Loading extension");
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log(`Ledger: activating extension in mode`);
+  console.log(`Ledger: activating extension`);
 
   const appList = findAppsInWorkspace();
   if (appList) {
@@ -19,14 +19,21 @@ export function activate(context: vscode.ExtensionContext) {
   }
 
   let treeProvider = new TreeDataProvider();
-  vscode.window.registerTreeDataProvider("exampleView", treeProvider);
+  vscode.window.registerTreeDataProvider("mainView", treeProvider);
 
   let taskProvider = new TaskProvider(treeProvider);
   context.subscriptions.push(vscode.tasks.registerTaskProvider(taskType, taskProvider));
 
   let statusBarManager = new StatusBarManager();
-  let containerManager = new ContainerManager(taskProvider, statusBarManager, treeProvider);
-  containerManager.manageContainer();
+
+  let containerManager = new ContainerManager(taskProvider);
+
+  context.subscriptions.push(
+    containerManager.onStatusEvent((data) => {
+      statusBarManager.updateDevImageItem(data);
+      treeProvider.updateContainerLabel(data);
+    })
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("selectTarget", () => {
@@ -55,8 +62,7 @@ export function activate(context: vscode.ExtensionContext) {
   vscode.tasks.onDidStartTask((event) => {
     const taskName = event.execution.task.name;
     if (taskName.startsWith("Update Container")) {
-      statusBarManager.updateDevImageItem(DevImageStatus.syncing);
-      treeProvider.updateContainerLabel(DevImageStatus.syncing);
+      containerManager.triggerStatusEvent(DevImageStatus.syncing);
     }
     if (taskName.startsWith("Quick device onboarding")) {
       const conf = vscode.workspace.getConfiguration("ledgerDevTools");
@@ -78,9 +84,13 @@ export function activate(context: vscode.ExtensionContext) {
   vscode.workspace.onDidChangeWorkspaceFolders(() => {
     const appList = findAppsInWorkspace();
     if (appList) {
-      if (!getSelectedApp()) {
+      const currentApp = getSelectedApp();
+      if (!currentApp || !appList.includes(currentApp)) {
         setSelectedApp(appList[0]);
       }
+      treeProvider.addDefaultTreeItems();
+      treeProvider.updateAppAndTargetLabels();
+      taskProvider.provideTasks();
       containerManager.manageContainer();
     }
   });
@@ -90,6 +100,8 @@ export function activate(context: vscode.ExtensionContext) {
       taskProvider.generateTasks();
     }
   });
+
+  containerManager.manageContainer();
 
   console.log(`Ledger: extension activated`);
   return 0;

@@ -113,7 +113,7 @@ export async function showAppSelectorMenu(
   });
   taskProvider.generateTasks();
   containerManager.manageContainer();
-  treeDataProvider.updateTargetLabel();
+  treeDataProvider.updateAppAndTargetLabels();
   return result;
 }
 

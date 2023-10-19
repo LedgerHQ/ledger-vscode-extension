@@ -5,6 +5,7 @@ Provide a quick and easy way to build and test applications for [Ledger](https:/
 The extension uses Ledger's own [Alpine based Docker image](https://github.com/LedgerHQ/ledger-app-builder/blob/master/dev-tools/Dockerfile) to allow developers to setup a build and test environment in a few minutes.
 
 * Build your app for all Ledger devices : Nano S, Nano S Plus, Nano X, Stax.
+* Supports C and Rust apps.
 * Stay up to date with the latest SDK.
 * Run tests on the device emulator ([Speculos](https://github.com/LedgerHQ/speculos)) or on a real device.
 * Supports multiple apps folders in the same workspace, each folder having its own Docker container.
@@ -51,6 +52,13 @@ This extension contributes the following settings:
 * `ledgerDevTools.containerUpdateRetries`: Set the max number of Container Update retries.
 
 ## Release Notes
+
+## 0.2.0
+
+* Add support for Rust apps (no sideloading yet).
+* Fix various display bugs.
+* Add welcome view when no app folder is detected in the workspace.
+* Dynamic tasks list : disable functional tests tasks when no `conftest.py` file is found or if task is not defined for app language.
 
 ## 0.1.6
 

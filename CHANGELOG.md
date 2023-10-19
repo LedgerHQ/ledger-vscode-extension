@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0]
+
+### Added
+
+* Add support for Rust apps (no sideloading yet).
+* Add welcome view when no app folder is detected in the workspace.
+* Dynamic tasks list : disable functional tests tasks when no `conftest.py` file is found or if task is not defined for app language.
+
+### Fixed
+
+* Fix various display bugs.
+
 ## [0.1.6]
 
 ### Added

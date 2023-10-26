@@ -30,6 +30,7 @@ export class TaskProvider implements vscode.TaskProvider {
   private image: string;
   private onboardPin: string;
   private onboardSeed: string;
+  private scpConfig: boolean;
   private additionalDeps?: string;
   private buildDir: string;
   private workspacePath: string;
@@ -148,6 +149,7 @@ export class TaskProvider implements vscode.TaskProvider {
       enabled: true,
     },
   ];
+  private keyvarEnv: string = (process.env.SCP_PRIVKEY as string);
 
   constructor(treeProvider: TreeDataProvider) {
     this.treeProvider = treeProvider;
@@ -161,6 +163,7 @@ export class TaskProvider implements vscode.TaskProvider {
     this.image = conf.get<string>("dockerImage") || "";
     this.onboardPin = conf.get<string>("onboardingPin") || "";
     this.onboardSeed = conf.get<string>("onboardingSeed") || "";
+    this.scpConfig = conf.get<boolean>("userScpPrivateKey") || false;
     const allDeps = conf.get<Record<string, string>>("additionalDepsPerApp");
     if (this.currentApp && allDeps && allDeps[this.currentApp.appFolderName]) {
       this.additionalDeps = allDeps[this.currentApp.appFolderName];
@@ -178,6 +181,7 @@ export class TaskProvider implements vscode.TaskProvider {
     this.image = conf.get<string>("dockerImage") || "";
     this.onboardPin = conf.get<string>("onboardingPin") || "";
     this.onboardSeed = conf.get<string>("onboardingSeed") || "";
+    this.scpConfig = conf.get<boolean>("userScpPrivateKey") || false;
     this.currentApp = getSelectedApp();
     if (this.currentApp) {
       const allDeps = conf.get<Record<string, string>>("additionalDepsPerApp");
@@ -327,36 +331,56 @@ export class TaskProvider implements vscode.TaskProvider {
 
   private appLoadExec(): string {
     let exec = "";
+    let keyconfig = "";
     if (platform === "linux") {
       // Linux
+      if (this.scpConfig === true) {
+        keyconfig = `-e SCP_PRIVKEY=${this.keyvarEnv}`;
+      }
       // Executes make load in the container to load the app on a physical device.
-      exec = `docker exec -it  ${this.containerName} bash -c 'export BOLOS_SDK=$(echo ${getSelectedSDK()}) && make load'`;
+      exec = `docker exec -it ${keyconfig} ${this.containerName} bash -c 'export BOLOS_SDK=$(echo ${getSelectedSDK()}) && make load'`;
     } else if (platform === "darwin") {
       // macOS
+      if (this.scpConfig === true) {
+        keyconfig = `--rootPrivateKey ${this.keyvarEnv}`;
+      }
       // Side loads the app APDU file using ledgerblue runScript.
-      exec = `source ledger/bin/activate && python3 -m ledgerblue.runScript --scp --fileName ${this.buildDir}/bin/app.apdu --elfFile ${this.buildDir}/bin/app.elf`;
+      exec = `source ledger/bin/activate && python3 -m ledgerblue.runScript ${keyconfig} --scp --fileName ${this.buildDir}/bin/app.apdu --elfFile ${this.buildDir}/bin/app.elf`;
     } else {
       // Assume windows
+      if (this.scpConfig === true) {
+        keyconfig = `--rootPrivateKey ${this.keyvarEnv}`;
+      }
       // Side loads the app APDU file using ledgerblue runScript.
-      exec = `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.runScript --scp --fileName ${this.buildDir}/bin/app.apdu --elfFile ${this.buildDir}/bin/app.elf'`;
+      exec = `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.runScript ${keyconfig} --scp --fileName ${this.buildDir}/bin/app.apdu --elfFile ${this.buildDir}/bin/app.elf'`;
     }
     return exec;
   }
 
   private appDeleteExec(): string {
     let exec = "";
+    let keyconfig = "";
     if (platform === "linux") {
       // Linux
-      exec = `docker exec -it  ${this.containerName} bash -c 'export BOLOS_SDK=$(echo ${getSelectedSDK()}) && make delete'`;
+      if (this.scpConfig === true) {
+        keyconfig = `-e SCP_PRIVKEY=${this.keyvarEnv}`;
+      }
+      exec = `docker exec -it ${keyconfig} ${this.containerName} bash -c 'export BOLOS_SDK=$(echo ${getSelectedSDK()}) && make delete'`;
     } else if (platform === "darwin") {
       // macOS
+      if (this.scpConfig === true) {
+        keyconfig = `--rootPrivateKey ${this.keyvarEnv}`;
+      }
       // Delete the app using ledgerblue runScript.
-      exec = `source ledger/bin/activate && python3 -m ledgerblue.deleteApp --targetId ${getSelectedTargetId()} --appName ${
+      exec = `source ledger/bin/activate && python3 -m ledgerblue.deleteApp ${keyconfig} --targetId ${getSelectedTargetId()} --appName ${
         this.appName
       }`;
     } else {
       // Assume windows
-      exec = `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.deleteApp --targetId ${getSelectedTargetId()} --appName ${
+      if (this.scpConfig === true) {
+        keyconfig = `--rootPrivateKey ${this.keyvarEnv}`;
+      }
+      exec = `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.deleteApp ${keyconfig} --targetId ${getSelectedTargetId()} --appName ${
         this.appName
       }'`;
     }

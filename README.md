@@ -50,8 +50,16 @@ This extension contributes the following settings:
 * `ledgerDevTools.additionalDepsPerApp`: Add dependencies for current app's functional tests (for instance 'apk add python3-protobuf').
 * `ledgerDevTools.keepContainerTerminal`: Indicates to keep the Terminal window opened after a successful Container Update.
 * `ledgerDevTools.containerUpdateRetries`: Set the max number of Container Update retries.
+* `ledgerDevTools.userScpPrivateKey`: Use the host's `SCP_PRIVKEY` environment variable when loading/deleting app on device. Cf. <https://developers.ledger.com/docs/embedded-app/pin-bypass>
+* `ledgerDevTools.defaultDevice`: Select the default Device
 
 ## Release Notes
+
+## 0.2.1
+
+* Add command in group `Functional Tests` to run tests with option `--golden_run`.
+* Add setting parameter to use the host's `SCP_PRIVKEY` environment variable when loading/deleting app on device.
+* Add setting parameter to set the default device.
 
 ## 0.2.0
 

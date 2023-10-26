@@ -109,6 +109,14 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Functional Tests",
+      name: "Generate golden tests snapshots displayed to the user",
+      builders: { ["Both"]: this.functionalTestsGoldenRunExec },
+      dependsOn: this.functionalTestsRequirementsExec,
+      toolTip: "Run Python functional tests with '--golden_run' option to generate golden snapshots. They are used during tests runs to check what should be displayed on the device screen",
+      enabled: true,
+    },
+    {
+      group: "Functional Tests",
       name: "Run tests with display - on device",
       builders: { ["Both"]: this.functionalTestsDisplayOnDeviceExec },
       dependsOn: this.functionalTestsRequirementsExec,
@@ -390,6 +398,14 @@ export class TaskProvider implements vscode.TaskProvider {
     const exec = `docker exec -it  ${this.containerName} bash -c 'pytest ${
       this.functionalTestsDir
     } --tb=short -v --device ${getSelectedSpeculosModel()} --display'`;
+    return exec;
+  }
+
+  private functionalTestsGoldenRunExec(): string {
+    // Runs functional tests inside the docker container (with Qt display disabled and '--golden_run' option).
+    const exec = `docker exec -it  ${this.containerName} bash -c 'pytest ${
+      this.functionalTestsDir
+    } --tb=short -v --device ${getSelectedSpeculosModel()} --golden_run'`;
     return exec;
   }
 

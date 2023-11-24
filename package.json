@@ -122,6 +122,12 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "Use the host's `SCP_PRIVKEY` environment variable when loading/deleting app on device. Cf. https://developers.ledger.com/docs/embedded-app/pin-bypass."
+        },
+        "ledgerDevTools.defaultDevice": {
+          "type": "string",
+          "default": "Nano S",
+          "enum": ["Nano S", "Nano S Plus", "Nano X", "Stax"],
+          "markdownDescription": "Select the default Device"
         }
       }
     }

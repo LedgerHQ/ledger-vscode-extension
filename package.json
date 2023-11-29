@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "ledger-dev-tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",
@@ -117,6 +117,17 @@
           "type": "number",
           "default": 5,
           "markdownDescription": "Max number of Container Update retries."
+        },
+        "ledgerDevTools.userScpPrivateKey": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Use the host's `SCP_PRIVKEY` environment variable when loading/deleting app on device. Cf. https://developers.ledger.com/docs/embedded-app/pin-bypass."
+        },
+        "ledgerDevTools.defaultDevice": {
+          "type": "string",
+          "default": "Nano S",
+          "enum": ["Nano S", "Nano S Plus", "Nano X", "Stax"],
+          "markdownDescription": "Select the default Device"
         }
       }
     }

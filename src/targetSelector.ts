@@ -40,29 +40,42 @@ const rustSDKModels: Record<string, string> = {
   [rustTargetsArray[2]]: "nanox",
 };
 
-let selectedTarget = cTargetsArray[0].toString();
-let selectedSDK = targetSDKs[cTargetsArray[0]];
-let selectedSpeculosModel = speculosModels[cTargetsArray[0]];
-let selectedSDKModel = sdkModels[cTargetsArray[0]];
-let selectedTargetId = targetIds[cTargetsArray[0]];
+const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+let selectedTarget = conf.get<string>("defaultDevice", "Nano S");
+let selectedSDK: string = "";
+let selectedSpeculosModel: string = "";
+let selectedSDKModel: string = "";
+let selectedTargetId: string = "";
 
 export function getSelectedTarget() {
+  const currentApp = getSelectedApp();
+  if (currentApp && currentApp.language === "Rust") {
+    if (selectedTarget === "Stax") {
+      // Fallback on Nano X, because Stax not yet supported
+      selectedTarget = "Nano X";
+      vscode.window.showWarningMessage("Rust App detected. Fallback to Nano X...");
+    }
+  }
   return selectedTarget;
 }
 
 export function getSelectedSDK() {
+  selectedSDK = targetSDKs[selectedTarget];
   return selectedSDK;
 }
 
 export function getSelectedSpeculosModel() {
+  selectedSpeculosModel = speculosModels[selectedTarget];
   return selectedSpeculosModel;
 }
 
 export function getSelectedSDKModel() {
+  selectedSDKModel = sdkModels[selectedTarget];
   return selectedSDKModel;
 }
 
 export function getSelectedTargetId() {
+  selectedTargetId = targetIds[selectedTarget];
   return selectedTargetId;
 }
 

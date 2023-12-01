@@ -1,7 +1,6 @@
 "use strict";
 
 import * as vscode from "vscode";
-import { getSelectedTarget } from "./targetSelector";
 import { getSelectedApp } from "./appSelector";
 import { ContainerManager, DevImageStatus } from "./containerManager";
 
@@ -11,12 +10,12 @@ export class StatusBarManager {
   private targetItem: vscode.StatusBarItem;
   private devImageItem: vscode.StatusBarItem;
 
-  constructor() {
+  constructor(target: string) {
     this.targetItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     this.targetItem.tooltip = "Click to select another device.";
     this.targetItem.command = "selectTarget";
     this.targetItem.backgroundColor = new vscode.ThemeColor("statusBarItem.prominentBackground");
-    this.updateTargetItem();
+    this.updateTargetItem(target);
 
     this.devImageItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     // Create a Command object with command and arguments
@@ -31,8 +30,8 @@ export class StatusBarManager {
     imageToolTip;
   }
 
-  public updateTargetItem() {
-    this.targetItem.text = `$(target) L : ${getSelectedTarget()}`;
+  public updateTargetItem(target: string) {
+    this.targetItem.text = `$(target) L : ${target}`;
     this.targetItem.show();
   }
 

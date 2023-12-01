@@ -6,6 +6,7 @@ import * as toml from "toml";
 import { TreeDataProvider } from "./treeView";
 import { TaskProvider } from "./taskProvider";
 import { ContainerManager } from "./containerManager";
+import { TargetSelector } from "./targetSelector";
 const APP_DETECTION_FILES: string[] = ["Makefile", "ledger_app.toml"];
 const C_APP_DETECTION_STRING: string = "include $(BOLOS_SDK)/Makefile.defines";
 const C_APP_NAME_MAKEFILE_VAR: string = "APPNAME";
@@ -102,7 +103,8 @@ export function findAppsInWorkspace(): App[] | undefined {
 export async function showAppSelectorMenu(
   treeDataProvider: TreeDataProvider,
   taskProvider: TaskProvider,
-  containerManager: ContainerManager
+  containerManager: ContainerManager,
+  targetSelector: TargetSelector
 ) {
   const appFolderNames = appList.map((app) => app.appFolderName);
   const result = await vscode.window.showQuickPick(appFolderNames, {
@@ -114,6 +116,7 @@ export async function showAppSelectorMenu(
   taskProvider.generateTasks();
   containerManager.manageContainer();
   treeDataProvider.updateAppAndTargetLabels();
+  targetSelector.updateTargetsInfos();
   return result;
 }
 

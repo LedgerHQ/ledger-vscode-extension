@@ -1,15 +1,17 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { getSelectedTarget } from "./targetSelector";
+import { TargetSelector } from "./targetSelector";
 import { getSelectedApp } from "./appSelector";
 import { TaskSpec } from "./taskProvider";
 import { DevImageStatus } from "./containerManager";
 
 export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
   private data: TreeItem[];
+  private targetSelector: TargetSelector;
 
-  constructor() {
+  constructor(targetSelector: TargetSelector) {
     this.data = [];
+    this.targetSelector = targetSelector;
     this.addDefaultTreeItems();
     this.updateAppAndTargetLabels();
   }
@@ -153,7 +155,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
         selectAppItem.label = `Select app [${currentApp.appFolderName}]`;
       }
       if (selectTargetItem) {
-        selectTargetItem.label = `Select build target [${getSelectedTarget()}]`;
+        selectTargetItem.label = `Select build target [${this.targetSelector.getSelectedTarget()}]`;
       }
     } else {
       // Remove all tree items. The welcome view will be displayed instead.

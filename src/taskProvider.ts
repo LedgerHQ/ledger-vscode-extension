@@ -110,10 +110,11 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Functional Tests",
-      name: "Generate golden tests snapshots displayed to the user",
+      name: "Generate golden tests snapshots",
       builders: { ["Both"]: this.functionalTestsGoldenRunExec },
       dependsOn: this.functionalTestsRequirementsExec,
-      toolTip: "Run Python functional tests with '--golden_run' option to generate golden snapshots. They are used during tests runs to check what should be displayed on the device screen",
+      toolTip:
+        "Run Python functional tests with '--golden_run' option to generate golden snapshots. They are used during tests runs to check what should be displayed on the device screen",
       enabled: true,
     },
     {

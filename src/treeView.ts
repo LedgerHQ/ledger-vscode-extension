@@ -115,6 +115,9 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
         arguments: [],
       };
       testsRootItem.addChild(addTestDependenciesItem);
+    } else if (testsRootItem && addTestDependenciesItem) {
+      // Move addTestDependenciesItem item to the end of the list
+      testsRootItem.children?.splice(testsRootItem.children?.indexOf(addTestDependenciesItem), 1);
     }
   }
 
@@ -149,13 +152,13 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
   public updateAppAndTargetLabels(): void {
     const currentApp = getSelectedApp();
     if (currentApp) {
-      let selectTargetItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select build target"));
+      let selectTargetItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select target"));
       let selectAppItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select app"));
       if (selectAppItem) {
         selectAppItem.label = `Select app [${currentApp.appFolderName}]`;
       }
       if (selectTargetItem) {
-        selectTargetItem.label = `Select build target [${this.targetSelector.getSelectedTarget()}]`;
+        selectTargetItem.label = `Select target [${this.targetSelector.getSelectedTarget()}]`;
       }
     } else {
       // Remove all tree items. The welcome view will be displayed instead.
@@ -167,7 +170,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
   public addDefaultTreeItems(): void {
     // Check select app and select target items don't already exist
     const selectAppItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select app"));
-    const selectTargetItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select build target"));
+    const selectTargetItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select target"));
 
     if (!selectAppItem) {
       let selectApp = new TreeItem("Select app");
@@ -183,12 +186,12 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     }
 
     if (!selectTargetItem) {
-      let selectTarget = new TreeItem("Select build target");
+      let selectTarget = new TreeItem("Select target");
       selectTarget.setDefault();
       selectTarget.tooltip = "Select device to build for";
       selectTarget.command = {
         command: "selectTarget",
-        title: "Select build target",
+        title: "Select target",
         arguments: [],
       };
       console.log("Ledger: Adding selectTarget to tree");

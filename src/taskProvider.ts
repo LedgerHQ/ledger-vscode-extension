@@ -81,14 +81,14 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Functional Tests",
-      name: "Run with Speculos",
+      name: "Run with emulator",
       builders: { ["Both"]: this.runInSpeculosExec },
       toolTip: "Run app with Speculos emulator",
       enabled: true,
     },
     {
       group: "Functional Tests",
-      name: "Kill Speculos",
+      name: "Kill emulator",
       builders: { ["Both"]: this.killSpeculosExec },
       toolTip: "Kill Speculos emulator instance",
       enabled: true,
@@ -111,19 +111,19 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Functional Tests",
-      name: "Generate golden tests snapshots",
-      builders: { ["Both"]: this.functionalTestsGoldenRunExec },
-      dependsOn: this.functionalTestsRequirementsExec,
-      toolTip:
-        "Run Python functional tests with '--golden_run' option to generate golden snapshots. They are used during tests runs to check what should be displayed on the device screen",
-      enabled: true,
-    },
-    {
-      group: "Functional Tests",
       name: "Run tests with display - on device",
       builders: { ["Both"]: this.functionalTestsDisplayOnDeviceExec },
       dependsOn: this.functionalTestsRequirementsExec,
       toolTip: "Run Python functional tests (with Qt display enabled) on real device",
+      enabled: true,
+    },
+    {
+      group: "Functional Tests",
+      name: "Generate golden snapshots",
+      builders: { ["Both"]: this.functionalTestsGoldenRunExec },
+      dependsOn: this.functionalTestsRequirementsExec,
+      toolTip:
+        "Run Python functional tests with '--golden_run' option to generate golden snapshots. They are used during tests runs to check what should be displayed on the device screen",
       enabled: true,
     },
     {

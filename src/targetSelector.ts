@@ -138,6 +138,10 @@ export class TargetSelector {
     return this.selectedSDKModel;
   }
 
+  public getSelectedBuildDir() {
+    return sdkModels[this.selectedTarget];
+  }
+
   public getSelectedTargetId() {
     return this.selectedTargetId;
   }

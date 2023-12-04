@@ -263,11 +263,12 @@ export class TaskProvider implements vscode.TaskProvider {
   }
 
   private rustBuildExec(): string {
+    let buildDirName = this.tS.getSelectedBuildDir();
     const exec = `docker exec -it -u 0 ${
       this.containerName
-    } bash -c 'cargo ledger build ${this.tS.getSelectedSDKModel()} -- -Zunstable-options --out-dir build/${this.tS.getSelectedSpeculosModel()}/bin && mv build/${this.tS.getSelectedSpeculosModel()}/bin/${
+    } bash -c 'cargo ledger build ${this.tS.getSelectedSDKModel()} -- -Zunstable-options --out-dir build/${buildDirName}/bin && mv build/${buildDirName}/bin/${
       this.appName
-    } build/${this.tS.getSelectedSpeculosModel()}/bin/app.elf'`;
+    } build/${buildDirName}/bin/app.elf'`;
     // Builds the app in release mode using the make command, inside the docker container.
     return exec;
   }
@@ -306,7 +307,7 @@ export class TaskProvider implements vscode.TaskProvider {
     // Runs the app on the speculos emulator for the selected device model, in the docker container.
     const exec = `docker exec -it  ${
       this.containerName
-    } bash -c 'speculos --model ${this.tS.getSelectedSpeculosModel()} build/${this.tS.getSelectedSpeculosModel()}/bin/app.elf'`;
+    } bash -c 'speculos --model ${this.tS.getSelectedSpeculosModel()} build/${this.tS.getSelectedBuildDir()}/bin/app.elf'`;
     return exec;
   }
 

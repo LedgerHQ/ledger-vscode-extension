@@ -8,10 +8,15 @@ import { StatusBarManager } from "./statusBar";
 import { ContainerManager, DevImageStatus } from "./containerManager";
 import { findAppsInWorkspace, getSelectedApp, setSelectedApp, showAppSelectorMenu, setAppTestsDependencies } from "./appSelector";
 
+let outputChannel: vscode.OutputChannel;
+const appDetectionFiles = ["Cargo.toml", "ledger_app.toml", "Makefile"];
+
 console.log("Ledger: Loading extension");
 
 export function activate(context: vscode.ExtensionContext) {
   console.log(`Ledger: activating extension`);
+
+  outputChannel = vscode.window.createOutputChannel("Ledger DevTools");
 
   const appList = findAppsInWorkspace();
   if (appList) {
@@ -83,7 +88,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  vscode.workspace.onDidChangeWorkspaceFolders(() => {
+  let findAppsAndUpdateExtension = () => {
     const appList = findAppsInWorkspace();
     if (appList) {
       const currentApp = getSelectedApp();
@@ -95,6 +100,17 @@ export function activate(context: vscode.ExtensionContext) {
       targetSelector.updateTargetsInfos();
       taskProvider.provideTasks();
       containerManager.manageContainer();
+    }
+  };
+
+  vscode.workspace.onDidChangeWorkspaceFolders(() => {
+    findAppsAndUpdateExtension();
+  });
+
+  vscode.workspace.onDidSaveTextDocument((event) => {
+    const fileName = event.fileName.split("/").pop();
+    if (fileName && appDetectionFiles.includes(fileName)) {
+      findAppsAndUpdateExtension();
     }
   });
 
@@ -116,6 +132,13 @@ export function activate(context: vscode.ExtensionContext) {
 
   console.log(`Ledger: extension activated`);
   return 0;
+}
+
+export function pushError(error: string) {
+  outputChannel.appendLine("Error : " + error);
+  outputChannel.show();
+  // Show error message to user
+  vscode.window.showErrorMessage("Ledger extension error : " + error);
 }
 
 export async function deactivate() {

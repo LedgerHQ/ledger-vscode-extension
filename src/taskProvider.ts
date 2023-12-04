@@ -39,6 +39,7 @@ export class TaskProvider implements vscode.TaskProvider {
   private appName: string;
   private appLanguage: AppLanguage;
   private functionalTestsDir?: string;
+  private packageName?: string;
   private tasks: vscode.Task[] = [];
   private currentApp?: App;
   private taskSpecs: TaskSpec[] = [
@@ -180,6 +181,7 @@ export class TaskProvider implements vscode.TaskProvider {
     this.workspacePath = "";
     this.buildDir = "";
     this.functionalTestsDir = undefined;
+    this.packageName = undefined;
     const conf = vscode.workspace.getConfiguration("ledgerDevTools");
     this.image = conf.get<string>("dockerImage") || "";
     this.onboardPin = conf.get<string>("onboardingPin") || "";
@@ -199,6 +201,7 @@ export class TaskProvider implements vscode.TaskProvider {
       this.containerName = this.currentApp.containerName;
       this.buildDir = this.currentApp.buildDirPath;
       this.workspacePath = this.currentApp.appFolder.uri.path;
+      this.packageName = this.currentApp.packageName;
       this.checkDisabledTasks();
       this.pushAllTasks();
       this.treeProvider.addAllTasksToTree(this.taskSpecs);
@@ -267,7 +270,7 @@ export class TaskProvider implements vscode.TaskProvider {
     const exec = `docker exec -it -u 0 ${
       this.containerName
     } bash -c 'cargo ledger build ${this.tgtSelector.getSelectedSDKModel()} -- -Zunstable-options --out-dir build/${buildDirName}/bin && mv build/${buildDirName}/bin/${
-      this.appName
+      this.packageName
     } build/${buildDirName}/bin/app.elf'`;
     // Builds the app in release mode using the make command, inside the docker container.
     return exec;

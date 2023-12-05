@@ -3,7 +3,7 @@
 import * as vscode from "vscode";
 import { TaskProvider, taskType } from "./taskProvider";
 import { TreeDataProvider } from "./treeView";
-import { showTargetSelectorMenu } from "./targetSelector";
+import { TargetSelector } from "./targetSelector";
 import { StatusBarManager } from "./statusBar";
 import { ContainerManager, DevImageStatus } from "./containerManager";
 import { findAppsInWorkspace, getSelectedApp, setSelectedApp, showAppSelectorMenu, setAppTestsDependencies } from "./appSelector";
@@ -18,13 +18,15 @@ export function activate(context: vscode.ExtensionContext) {
     setSelectedApp(appList[0]);
   }
 
-  let treeProvider = new TreeDataProvider();
+  let targetSelector = new TargetSelector();
+
+  let treeProvider = new TreeDataProvider(targetSelector);
   vscode.window.registerTreeDataProvider("mainView", treeProvider);
 
-  let taskProvider = new TaskProvider(treeProvider);
+  let taskProvider = new TaskProvider(treeProvider, targetSelector);
   context.subscriptions.push(vscode.tasks.registerTaskProvider(taskType, taskProvider));
 
-  let statusBarManager = new StatusBarManager();
+  let statusBarManager = new StatusBarManager(targetSelector.getSelectedTarget());
 
   let containerManager = new ContainerManager(taskProvider);
 
@@ -37,7 +39,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("selectTarget", () => {
-      showTargetSelectorMenu(statusBarManager, taskProvider, treeProvider);
+      targetSelector.showTargetSelectorMenu(statusBarManager, taskProvider, treeProvider);
     })
   );
 
@@ -55,7 +57,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("showAppList", () => {
-      showAppSelectorMenu(treeProvider, taskProvider, containerManager);
+      showAppSelectorMenu(treeProvider, taskProvider, containerManager, targetSelector);
     })
   );
 
@@ -90,6 +92,7 @@ export function activate(context: vscode.ExtensionContext) {
       }
       treeProvider.addDefaultTreeItems();
       treeProvider.updateAppAndTargetLabels();
+      targetSelector.updateTargetsInfos();
       taskProvider.provideTasks();
       containerManager.manageContainer();
     }
@@ -98,6 +101,14 @@ export function activate(context: vscode.ExtensionContext) {
   vscode.workspace.onDidChangeConfiguration((event) => {
     if (event.affectsConfiguration("ledgerDevTools")) {
       taskProvider.generateTasks();
+    }
+    if (event.affectsConfiguration("ledgerDevTools.defaultDevice")) {
+      targetSelector.setSelectedTarget(
+        vscode.workspace.getConfiguration("ledgerDevTools").get<string>("defaultDevice", "Nano S")
+      );
+      taskProvider.generateTasks();
+      statusBarManager.updateTargetItem(targetSelector.getSelectedTarget());
+      treeProvider.updateAppAndTargetLabels();
     }
   });
 

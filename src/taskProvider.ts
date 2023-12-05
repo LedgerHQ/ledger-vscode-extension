@@ -2,7 +2,7 @@
 
 import * as vscode from "vscode";
 import { platform } from "node:process";
-import { getSelectedSDK, getSelectedSpeculosModel, getSelectedTargetId, getSelectedSDKModel } from "./targetSelector";
+import { TargetSelector } from "./targetSelector";
 import { getSelectedApp, App, AppLanguage } from "./appSelector";
 import { TreeDataProvider } from "./treeView";
 
@@ -27,6 +27,7 @@ export interface TaskSpec {
 
 export class TaskProvider implements vscode.TaskProvider {
   private treeProvider: TreeDataProvider;
+  private tgtSelector: TargetSelector;
   private image: string;
   private onboardPin: string;
   private onboardSeed: string;
@@ -80,14 +81,14 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Functional Tests",
-      name: "Run with Speculos",
+      name: "Run with emulator",
       builders: { ["Both"]: this.runInSpeculosExec },
       toolTip: "Run app with Speculos emulator",
       enabled: true,
     },
     {
       group: "Functional Tests",
-      name: "Kill Speculos",
+      name: "Kill emulator",
       builders: { ["Both"]: this.killSpeculosExec },
       toolTip: "Kill Speculos emulator instance",
       enabled: true,
@@ -110,18 +111,19 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Functional Tests",
-      name: "Generate golden tests snapshots displayed to the user",
-      builders: { ["Both"]: this.functionalTestsGoldenRunExec },
-      dependsOn: this.functionalTestsRequirementsExec,
-      toolTip: "Run Python functional tests with '--golden_run' option to generate golden snapshots. They are used during tests runs to check what should be displayed on the device screen",
-      enabled: true,
-    },
-    {
-      group: "Functional Tests",
       name: "Run tests with display - on device",
       builders: { ["Both"]: this.functionalTestsDisplayOnDeviceExec },
       dependsOn: this.functionalTestsRequirementsExec,
       toolTip: "Run Python functional tests (with Qt display enabled) on real device",
+      enabled: true,
+    },
+    {
+      group: "Functional Tests",
+      name: "Generate golden snapshots",
+      builders: { ["Both"]: this.functionalTestsGoldenRunExec },
+      dependsOn: this.functionalTestsRequirementsExec,
+      toolTip:
+        "Run Python functional tests with '--golden_run' option to generate golden snapshots. They are used during tests runs to check what should be displayed on the device screen",
       enabled: true,
     },
     {
@@ -149,10 +151,11 @@ export class TaskProvider implements vscode.TaskProvider {
       enabled: true,
     },
   ];
-  private keyvarEnv: string = (process.env.SCP_PRIVKEY as string);
+  private keyvarEnv: string = process.env.SCP_PRIVKEY as string;
 
-  constructor(treeProvider: TreeDataProvider) {
+  constructor(treeProvider: TreeDataProvider, targetSelector: TargetSelector) {
     this.treeProvider = treeProvider;
+    this.tgtSelector = targetSelector;
     this.appLanguage = "C";
     this.appName = "";
     this.containerName = "";
@@ -247,22 +250,25 @@ export class TaskProvider implements vscode.TaskProvider {
     // Builds the app with debug mode enabled using the make command, inside the docker container.
     const exec = `docker exec -it  ${
       this.containerName
-    } bash -c 'export BOLOS_SDK=$(echo ${getSelectedSDK()}) && make -j DEBUG=1'`;
+    } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make -j DEBUG=1'`;
     return exec;
   }
 
   private cBuildExec(): string {
-    const exec = `docker exec -it  ${this.containerName} bash -c 'export BOLOS_SDK=$(echo ${getSelectedSDK()}) && make -j'`;
+    const exec = `docker exec -it  ${
+      this.containerName
+    } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make -j'`;
     // Builds the app in release mode using the make command, inside the docker container.
     return exec;
   }
 
   private rustBuildExec(): string {
+    let buildDirName = this.tgtSelector.getSelectedBuildDir();
     const exec = `docker exec -it -u 0 ${
       this.containerName
-    } bash -c 'cargo ledger build ${getSelectedSDKModel()} -- -Zunstable-options --out-dir build/${getSelectedSpeculosModel()}/bin && mv build/${getSelectedSpeculosModel()}/bin/${
+    } bash -c 'cargo ledger build ${this.tgtSelector.getSelectedSDKModel()} -- -Zunstable-options --out-dir build/${buildDirName}/bin && mv build/${buildDirName}/bin/${
       this.appName
-    } build/${getSelectedSpeculosModel()}/bin/app.elf'`;
+    } build/${buildDirName}/bin/app.elf'`;
     // Builds the app in release mode using the make command, inside the docker container.
     return exec;
   }
@@ -301,7 +307,7 @@ export class TaskProvider implements vscode.TaskProvider {
     // Runs the app on the speculos emulator for the selected device model, in the docker container.
     const exec = `docker exec -it  ${
       this.containerName
-    } bash -c 'speculos --model ${getSelectedSpeculosModel()} build/${getSelectedSpeculosModel()}/bin/app.elf'`;
+    } bash -c 'speculos --model ${this.tgtSelector.getSelectedSpeculosModel()} build/${this.tgtSelector.getSelectedBuildDir()}/bin/app.elf'`;
     return exec;
   }
 
@@ -338,7 +344,9 @@ export class TaskProvider implements vscode.TaskProvider {
         keyconfig = `-e SCP_PRIVKEY=${this.keyvarEnv}`;
       }
       // Executes make load in the container to load the app on a physical device.
-      exec = `docker exec -it ${keyconfig} ${this.containerName} bash -c 'export BOLOS_SDK=$(echo ${getSelectedSDK()}) && make load'`;
+      exec = `docker exec -it ${keyconfig} ${
+        this.containerName
+      } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make load'`;
     } else if (platform === "darwin") {
       // macOS
       if (this.scpConfig === true) {
@@ -365,14 +373,16 @@ export class TaskProvider implements vscode.TaskProvider {
       if (this.scpConfig === true) {
         keyconfig = `-e SCP_PRIVKEY=${this.keyvarEnv}`;
       }
-      exec = `docker exec -it ${keyconfig} ${this.containerName} bash -c 'export BOLOS_SDK=$(echo ${getSelectedSDK()}) && make delete'`;
+      exec = `docker exec -it ${keyconfig} ${
+        this.containerName
+      } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make delete'`;
     } else if (platform === "darwin") {
       // macOS
       if (this.scpConfig === true) {
         keyconfig = `--rootPrivateKey ${this.keyvarEnv}`;
       }
       // Delete the app using ledgerblue runScript.
-      exec = `source ledger/bin/activate && python3 -m ledgerblue.deleteApp ${keyconfig} --targetId ${getSelectedTargetId()} --appName ${
+      exec = `source ledger/bin/activate && python3 -m ledgerblue.deleteApp ${keyconfig} --targetId ${this.tgtSelector.getSelectedTargetId()} --appName ${
         this.appName
       }`;
     } else {
@@ -380,7 +390,7 @@ export class TaskProvider implements vscode.TaskProvider {
       if (this.scpConfig === true) {
         keyconfig = `--rootPrivateKey ${this.keyvarEnv}`;
       }
-      exec = `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.deleteApp ${keyconfig} --targetId ${getSelectedTargetId()} --appName ${
+      exec = `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.deleteApp ${keyconfig} --targetId ${this.tgtSelector.getSelectedTargetId()} --appName ${
         this.appName
       }'`;
     }
@@ -394,7 +404,7 @@ export class TaskProvider implements vscode.TaskProvider {
       // Executes make load in the container to load the app on a physical device.
       exec = `docker exec -it ${
         this.containerName
-      } bash -c 'export BOLOS_SDK=$(echo ${getSelectedSDK()}) && python3 -m ledgerblue.hostOnboard --apdu --id 0 --pin ${
+      } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && python3 -m ledgerblue.hostOnboard --apdu --id 0 --pin ${
         this.onboardPin
       } --prefix \"\" --passphrase \"\" --words \"${this.onboardSeed}\"'`;
     } else if (platform === "darwin") {
@@ -413,7 +423,7 @@ export class TaskProvider implements vscode.TaskProvider {
     // Runs functional tests inside the docker container (with Qt display disabled).
     const exec = `docker exec -it  ${this.containerName} bash -c 'pytest ${
       this.functionalTestsDir
-    } --tb=short -v --device ${getSelectedSpeculosModel()}'`;
+    } --tb=short -v --device ${this.tgtSelector.getSelectedSpeculosModel()}'`;
     return exec;
   }
 
@@ -421,7 +431,7 @@ export class TaskProvider implements vscode.TaskProvider {
     // Runs functional tests inside the docker container (with Qt display enabled).
     const exec = `docker exec -it  ${this.containerName} bash -c 'pytest ${
       this.functionalTestsDir
-    } --tb=short -v --device ${getSelectedSpeculosModel()} --display'`;
+    } --tb=short -v --device ${this.tgtSelector.getSelectedSpeculosModel()} --display'`;
     return exec;
   }
 
@@ -429,7 +439,7 @@ export class TaskProvider implements vscode.TaskProvider {
     // Runs functional tests inside the docker container (with Qt display disabled and '--golden_run' option).
     const exec = `docker exec -it  ${this.containerName} bash -c 'pytest ${
       this.functionalTestsDir
-    } --tb=short -v --device ${getSelectedSpeculosModel()} --golden_run'`;
+    } --tb=short -v --device ${this.tgtSelector.getSelectedSpeculosModel()} --golden_run'`;
     return exec;
   }
 
@@ -437,7 +447,7 @@ export class TaskProvider implements vscode.TaskProvider {
     // Runs functional tests inside the docker container (with Qt display enabled) on real device.
     const exec = `docker exec -it ${this.containerName} bash -c 'pytest ${
       this.functionalTestsDir
-    } --tb=short -v --device ${getSelectedSpeculosModel()} --display --backend ledgerwallet'`;
+    } --tb=short -v --device ${this.tgtSelector.getSelectedSpeculosModel()} --display --backend ledgerwallet'`;
     return exec;
   }
 

@@ -4,7 +4,12 @@ import { TaskProvider } from "./taskProvider";
 import { TreeDataProvider } from "./treeView";
 import { getSelectedApp } from "./appSelector";
 
-type LedgerDevice = "Nano S" | "Nano S Plus" | "Nano X" | "Stax";
+// Define valid devices
+const devices = ["Nano S", "Nano S Plus", "Nano X", "Stax"] as const;
+
+// Define the LedgerDevice type
+export type LedgerDevice = (typeof devices)[number];
+
 const cTargetsArray: LedgerDevice[] = ["Nano S", "Nano S Plus", "Nano X", "Stax"];
 const rustTargetsArray: LedgerDevice[] = ["Nano S", "Nano S Plus", "Nano X"];
 
@@ -40,69 +45,104 @@ const rustSDKModels: Record<string, string> = {
   [rustTargetsArray[2]]: "nanox",
 };
 
-const conf = vscode.workspace.getConfiguration("ledgerDevTools");
-let selectedTarget = conf.get<string>("defaultDevice", "Nano S");
-let selectedSDK: string = "";
-let selectedSpeculosModel: string = "";
-let selectedSDKModel: string = "";
-let selectedTargetId: string = "";
+export class TargetSelector {
+  private selectedTarget: string = "";
+  private selectedSDK: string = "";
+  private selectedSpeculosModel: string = "";
+  private selectedSDKModel: string = "";
+  private selectedTargetId: string = "";
+  private targetsArray: LedgerDevice[];
+  private sdkModelsArray: Record<string, string>;
 
-export function getSelectedTarget() {
-  const currentApp = getSelectedApp();
-  if (currentApp && currentApp.language === "Rust") {
-    if (selectedTarget === "Stax") {
-      // Fallback on Nano X, because Stax not yet supported
-      selectedTarget = "Nano X";
-      vscode.window.showWarningMessage("Rust App detected. Fallback to Nano X...");
+  constructor() {
+    const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+    const currentApp = getSelectedApp();
+    this.targetsArray = cTargetsArray;
+    this.sdkModelsArray = sdkModels;
+    if (currentApp && currentApp.language === "Rust") {
+      this.targetsArray = rustTargetsArray;
+      this.sdkModelsArray = rustSDKModels;
+    }
+    this.setSelectedTarget(conf.get<string>("defaultDevice", "Nano S"));
+  }
+
+  // Type guard function to check if a string is a valid device
+  private isValidDevice(value: string): value is LedgerDevice {
+    return devices.includes(value as LedgerDevice);
+  }
+
+  public setSelectedTarget(target: string) {
+    // Check if target string is one of those defined by the LedgerDevice type
+    if (!this.isValidDevice(target)) {
+      throw new Error(`Invalid device: ${target}`);
+    }
+
+    this.selectedTarget = target;
+
+    const currentApp = getSelectedApp();
+    if (currentApp && currentApp.language === "Rust") {
+      if (this.selectedTarget === "Stax") {
+        // Fallback on Nano X, because Stax not yet supported
+        this.selectedTarget = "Nano X";
+        vscode.window.showWarningMessage("Rust App detected. Fallback to Nano X...");
+      }
+    }
+
+    this.selectedSDK = targetSDKs[this.selectedTarget];
+    this.selectedSpeculosModel = speculosModels[this.selectedTarget];
+    this.selectedSDKModel = this.sdkModelsArray[this.selectedTarget];
+    this.selectedTargetId = targetIds[this.selectedTarget];
+  }
+
+  // Function that updates the targets infos based on the app language
+  public updateTargetsInfos() {
+    const currentApp = getSelectedApp();
+    this.targetsArray = cTargetsArray;
+    this.sdkModelsArray = sdkModels;
+    if (currentApp && currentApp.language === "Rust") {
+      this.targetsArray = rustTargetsArray;
+      this.sdkModelsArray = rustSDKModels;
     }
   }
-  return selectedTarget;
-}
 
-export function getSelectedSDK() {
-  selectedSDK = targetSDKs[selectedTarget];
-  return selectedSDK;
-}
-
-export function getSelectedSpeculosModel() {
-  selectedSpeculosModel = speculosModels[selectedTarget];
-  return selectedSpeculosModel;
-}
-
-export function getSelectedSDKModel() {
-  selectedSDKModel = sdkModels[selectedTarget];
-  return selectedSDKModel;
-}
-
-export function getSelectedTargetId() {
-  selectedTargetId = targetIds[selectedTarget];
-  return selectedTargetId;
-}
-
-export async function showTargetSelectorMenu(
-  statusManager: StatusBarManager,
-  taskProvider: TaskProvider,
-  treeDataProvider: TreeDataProvider
-) {
-  const currentApp = getSelectedApp();
-  let targetsArray = cTargetsArray;
-  let sdkModelsArray = sdkModels;
-  if (currentApp && currentApp.language === "Rust") {
-    targetsArray = rustTargetsArray;
-    sdkModelsArray = rustSDKModels;
+  public async showTargetSelectorMenu(
+    statusManager: StatusBarManager,
+    taskProvider: TaskProvider,
+    treeDataProvider: TreeDataProvider
+  ) {
+    const result = await vscode.window.showQuickPick(this.targetsArray, {
+      placeHolder: "Please select a target",
+      onDidSelectItem: (item) => {
+        this.setSelectedTarget(item.toString());
+      },
+    });
+    taskProvider.generateTasks();
+    statusManager.updateTargetItem(this.getSelectedTarget());
+    treeDataProvider.updateAppAndTargetLabels();
+    return result;
   }
-  const result = await vscode.window.showQuickPick(targetsArray, {
-    placeHolder: "Please select a target",
-    onDidSelectItem: (item) => {
-      selectedSDK = targetSDKs[item.toString()];
-      selectedTarget = item.toString();
-      selectedSpeculosModel = speculosModels[item.toString()];
-      selectedSDKModel = sdkModelsArray[item.toString()];
-      selectedTargetId = targetIds[item.toString()];
-    },
-  });
-  taskProvider.generateTasks();
-  statusManager.updateTargetItem();
-  treeDataProvider.updateAppAndTargetLabels();
-  return result;
+
+  public getSelectedTarget() {
+    return this.selectedTarget;
+  }
+
+  public getSelectedSDK() {
+    return this.selectedSDK;
+  }
+
+  public getSelectedSpeculosModel() {
+    return this.selectedSpeculosModel;
+  }
+
+  public getSelectedSDKModel() {
+    return this.selectedSDKModel;
+  }
+
+  public getSelectedBuildDir() {
+    return sdkModels[this.selectedTarget];
+  }
+
+  public getSelectedTargetId() {
+    return this.selectedTargetId;
+  }
 }

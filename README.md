@@ -55,6 +55,12 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+## 0.X.X
+
+* Rename tree view elements.
+* Fix target name bug for Rust apps.
+* Refactor code of TargetSelector, make it a real class.
+
 ## 0.2.1
 
 * Add command in group `Functional Tests` to run tests with option `--golden_run`.

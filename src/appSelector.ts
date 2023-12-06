@@ -27,28 +27,13 @@ export interface App {
   language: AppLanguage;
   functionalTestsDir?: string;
   // The new manifest format allows to specify the compatible devices
-  compatibleDevices?: LedgerDevice[];
+  compatibleDevices: LedgerDevice[];
   // If the app is a Rust app, the package name is parsed from the Cargo.toml
   packageName?: string;
 }
 
 let appList: App[] = [];
 let selectedApp: App | undefined;
-
-// function manifestDeviceToLedgerDevice(manifestDevice: string): LedgerDevice {
-//   switch (manifestDevice) {
-//     case "nanos":
-//       return "Nano S";
-//     case "nanox":
-//       return "Nano X";
-//     case "nanosplus":
-//       return "Nano S Plus";
-//     case "stax":
-//       return "Stax";
-//     default:
-//       throw new Error("Invalid device in manifest");
-//   }
-// }
 
 // Define a sorting function to sort glob results so that ledger_app.toml files are first
 const sortByLedgerAppToml = (a: string, b: string) => {
@@ -84,6 +69,7 @@ export function findAppsInWorkspace(): App[] | undefined {
         let appLanguage: AppLanguage = "C";
         let testsDir = undefined;
         let packageName = undefined;
+        let compatibleDevices: LedgerDevice[] = ["Nano S", "Nano S Plus", "Nano X", "Stax"];
         const fileContent = fs.readFileSync(file, "utf-8");
 
         try {
@@ -95,13 +81,17 @@ export function findAppsInWorkspace(): App[] | undefined {
               console.log("Ledger: Found legacy rust manifest");
               [buildDirPath, appName, packageName] = parseLegacyRustManifest(tomlContent, appFolder);
               testsDir = findFunctionalTestsWithoutManifest(appFolder);
+              compatibleDevices = ["Nano S", "Nano S Plus", "Nano X"];
               appLanguage = "Rust";
               found = true;
             }
             // New manifest
             else {
               console.log("Ledger: Found new manifest");
-              [appLanguage, buildDirPath, appName, packageName, testsDir] = parseManifest(tomlContent, appFolder);
+              [appLanguage, buildDirPath, appName, compatibleDevices, packageName, testsDir] = parseManifest(
+                tomlContent,
+                appFolder
+              );
               found = true;
             }
           } else {
@@ -147,6 +137,7 @@ export function findAppsInWorkspace(): App[] | undefined {
             buildDirPath: buildDirPath,
             language: appLanguage,
             functionalTestsDir: testsDir,
+            compatibleDevices: compatibleDevices,
             packageName: packageName,
           });
         }
@@ -229,6 +220,22 @@ export function setAppTestsDependencies(taskProvider: TaskProvider) {
   }
 }
 
+// Convert a manifest device to a LedgerDevice
+function manifestDeviceToLedgerDevice(manifestDevice: string): LedgerDevice {
+  switch (manifestDevice) {
+    case "nanos":
+      return "Nano S";
+    case "nanox":
+      return "Nano X";
+    case "nanos+":
+      return "Nano S Plus";
+    case "stax":
+      return "Stax";
+    default:
+      throw new Error("Invalid device in manifest");
+  }
+}
+
 // Get the app name from the Makefile (for C apps)
 function getAppNameFromMakefile(content: string): string {
   let appName: string;
@@ -249,55 +256,6 @@ function isValidLanguage(value: string): AppLanguage {
     throw new Error(`Invalid language: ${value} in manifest`);
   }
   return value as AppLanguage;
-}
-
-// Parse manifest. Returns app language, build dir path, app name, package name (for rust app), functional tests dir path (if any)
-function parseManifest(tomlContent: any, appFolder: any): [AppLanguage, string, string, string, string?] {
-  getNestedProperty(tomlContent, "app");
-  const language = getNestedProperty(tomlContent, "app.sdk");
-  const appLanguage = isValidLanguage(language);
-
-  let buildDirPath = getNestedProperty(tomlContent, "app.build_directory");
-  if (buildDirPath.startsWith("./")) {
-    buildDirPath = path.join(appFolder.uri.fsPath, buildDirPath);
-  }
-
-  // Check if pytest functional tests are present
-  let functionalTestsDir = undefined;
-  if (tomlContent["tests"] && tomlContent["tests"]["pytest_directory"]) {
-    functionalTestsDir = tomlContent["tests"]["pytest_directory"];
-    console.log("Functional tests dir: " + functionalTestsDir);
-  }
-
-  // If C app, get app name from Makefile
-  let appName = "unknown";
-  let packageName = "unknown";
-  if (appLanguage === "C") {
-    // Search for Makefile in build dir
-    const searchPattern = path.join(buildDirPath, `**/Makefile`).replace(/\\/g, "/");
-    const makefile = fg.sync(searchPattern, { onlyFiles: true, deep: 0 })[0];
-    if (!makefile) {
-      throw new Error("No Makefile found in build directory");
-    }
-    const makefileContent = fs.readFileSync(makefile, "utf-8");
-    appName = getAppNameFromMakefile(makefileContent);
-  }
-  // If Rust app, get app name and package name from Cargo.toml
-  else {
-    [appName, packageName] = parseCargoToml(path.join(buildDirPath, "Cargo.toml"));
-  }
-  return [appLanguage, buildDirPath, appName, packageName, functionalTestsDir];
-}
-
-// Parse legacy rust manifest and return build dir path, app name and package name
-function parseLegacyRustManifest(tomlContent: any, appFolder: any): [string, string, string] {
-  getNestedProperty(tomlContent, "rust-app");
-  let cargoTomlPath = getNestedProperty(tomlContent, "rust-app.manifest-path");
-  if (cargoTomlPath.startsWith("./")) {
-    cargoTomlPath = path.join(appFolder.uri.fsPath, cargoTomlPath);
-  }
-  let [appName, packageName] = parseCargoToml(cargoTomlPath);
-  return [cargoTomlPath, appName, packageName];
 }
 
 // Parse Cargo.toml and return app name and package name
@@ -329,4 +287,64 @@ function getNestedProperty(obj: any, path: string): string {
     throw new Error(`Wrong manifest format. Property "${path}" not found`);
   }
   return value;
+}
+
+// Parse manifest. Returns app language, build dir path, app name, devices, package name (for rust app), functional tests dir path (if any)
+function parseManifest(tomlContent: any, appFolder: any): [AppLanguage, string, string, LedgerDevice[], string?, string?] {
+  // Check that the manifest is valid
+  getNestedProperty(tomlContent, "app");
+
+  // Parse app language
+  const language = getNestedProperty(tomlContent, "app.sdk");
+  const appLanguage = isValidLanguage(language);
+
+  // Parse build dir path
+  let buildDirPath = getNestedProperty(tomlContent, "app.build_directory");
+  if (buildDirPath.startsWith("./")) {
+    buildDirPath = path.join(appFolder.uri.fsPath, buildDirPath);
+  }
+
+  // Parse compatible devices
+  const compatibleDevicesStr: string = getNestedProperty(tomlContent, "app.devices");
+  const compatibleDevices: LedgerDevice[] = compatibleDevicesStr
+    .toString()
+    .split(",")
+    .map((device: string) => manifestDeviceToLedgerDevice(device));
+
+  // Check if pytest functional tests are present
+  let functionalTestsDir = undefined;
+  if (tomlContent["tests"] && tomlContent["tests"]["pytest_directory"]) {
+    functionalTestsDir = tomlContent["tests"]["pytest_directory"];
+    console.log("Functional tests dir: " + functionalTestsDir);
+  }
+
+  // If C app, parse app name from Makefile
+  let appName = "unknown";
+  let packageName: string | undefined;
+  if (appLanguage === "C") {
+    // Search for Makefile in build dir
+    const searchPattern = path.join(buildDirPath, `**/Makefile`).replace(/\\/g, "/");
+    const makefile = fg.sync(searchPattern, { onlyFiles: true, deep: 0 })[0];
+    if (!makefile) {
+      throw new Error("No Makefile found in build directory");
+    }
+    const makefileContent = fs.readFileSync(makefile, "utf-8");
+    appName = getAppNameFromMakefile(makefileContent);
+  }
+  // If Rust app, parse app name and package name from Cargo.toml
+  else {
+    [appName, packageName] = parseCargoToml(path.join(buildDirPath, "Cargo.toml"));
+  }
+  return [appLanguage, buildDirPath, appName, compatibleDevices, packageName, functionalTestsDir];
+}
+
+// Parse legacy rust manifest and return build dir path, app name and package name
+function parseLegacyRustManifest(tomlContent: any, appFolder: any): [string, string, string] {
+  getNestedProperty(tomlContent, "rust-app");
+  let cargoTomlPath = getNestedProperty(tomlContent, "rust-app.manifest-path");
+  if (cargoTomlPath.startsWith("./")) {
+    cargoTomlPath = path.join(appFolder.uri.fsPath, cargoTomlPath);
+  }
+  let [appName, packageName] = parseCargoToml(cargoTomlPath);
+  return [cargoTomlPath, appName, packageName];
 }

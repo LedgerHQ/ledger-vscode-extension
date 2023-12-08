@@ -67,12 +67,12 @@ export class TargetSelector {
     this.selectedTarget = target;
 
     const currentApp = getSelectedApp();
-    if (currentApp && currentApp.language === "Rust") {
-      if (this.selectedTarget === "Stax") {
-        // Fallback on Nano X, because Stax not yet supported
-        this.selectedTarget = "Nano X";
-        vscode.window.showWarningMessage("Rust App detected. Fallback to Nano X...");
-      }
+    if (currentApp && !currentApp.compatibleDevices.includes(this.selectedTarget as LedgerDevice)) {
+      // Fallback to compatible device
+      this.selectedTarget = currentApp.compatibleDevices[0];
+      vscode.window.showWarningMessage(
+        `Incompatible device set for current app. Fallback to compatible device (${this.selectedTarget})`
+      );
     }
 
     this.selectedSDK = targetSDKs[this.selectedTarget];

@@ -253,7 +253,7 @@ function manifestDeviceToLedgerDevice(manifestDevice: string): LedgerDevice {
     case "stax":
       return "Stax";
     default:
-      throw new Error("Invalid device in manifest");
+      throw new Error("Invalid device in manifest : " + manifestDevice);
   }
 }
 

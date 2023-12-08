@@ -53,7 +53,7 @@ export function findAppsInWorkspace(): App[] | undefined {
   if (workspaceFolders) {
     workspaceFolders.forEach((folder) => {
       const appFolder = folder;
-      const appFolderName = path.basename(appFolder.uri.fsPath);
+      const appFolderName = folder.name;
       const containerName = `${appFolderName}-container`;
       const searchPatterns = APP_DETECTION_FILES.map((file) => path.join(folder.uri.fsPath, `**/${file}`).replace(/\\/g, "/"));
       const makefileOrToml = fg.sync(searchPatterns, { onlyFiles: true, deep: 2 });
@@ -84,6 +84,7 @@ export function findAppsInWorkspace(): App[] | undefined {
               compatibleDevices = ["Nano S", "Nano S Plus", "Nano X"];
               appLanguage = "Rust";
               found = true;
+              showManifestWarning(appFolderName, true);
             }
             // New manifest
             else {
@@ -105,6 +106,7 @@ export function findAppsInWorkspace(): App[] | undefined {
               appName = getAppNameFromMakefile(fileContent);
               found = true;
               testsDir = findFunctionalTestsWithoutManifest(appFolder);
+              showManifestWarning(appFolderName, false);
             }
           }
         } catch (error) {
@@ -217,6 +219,25 @@ export function setAppTestsDependencies(taskProvider: TaskProvider) {
           }
         }
       });
+  }
+}
+
+// Show warning if a detected app does not have a manifest or has a deprecated manifest.
+async function showManifestWarning(appFolderName: string, deprecated: boolean) {
+  let message = `App found in ${appFolderName} does not have a manifest.`;
+  let fix = "add a manifest to your app.";
+  if (deprecated) {
+    message = `App found in ${appFolderName} has a deprecated manifest.`;
+    fix = "update your manifest to the new format.";
+  }
+
+  const openDoc = await vscode.window.showWarningMessage(`${message} Please refer to the documentation to ${fix}`, "Show doc");
+
+  if (openDoc) {
+    vscode.commands.executeCommand(
+      "vscode.open",
+      vscode.Uri.parse("https://github.com/LedgerHQ/ledgered/blob/master/doc/utils/manifest.md")
+    );
   }
 }
 

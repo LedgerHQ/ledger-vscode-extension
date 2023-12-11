@@ -64,7 +64,8 @@ export function findAppsInWorkspace(): App[] | undefined {
 
       makefileOrToml.forEach((file) => {
         found = false;
-        let buildDirPath = path.dirname(file);
+        let buildDirPath = path.relative(appFolder.uri.fsPath, path.dirname(file));
+        buildDirPath = buildDirPath === "" ? "./" : buildDirPath;
         let appName = "unknown";
         let appLanguage: AppLanguage = "C";
         let testsDir = undefined;
@@ -124,12 +125,12 @@ export function findAppsInWorkspace(): App[] | undefined {
         if (found) {
           // Log all found fields
           console.log(
-            `Ledger: Found app ${appName} in folder ${appFolderName} with buildDirPath ${buildDirPath} and language ${appLanguage}`
+            `$$$$ Ledger: Found app ${appName} in folder ${appFolderName} with buildDirPath ${buildDirPath} and language ${appLanguage}`
           );
-          console.log("Normalized buildDirPath: " + path.join(buildDirPath, "/"));
-          console.log("Container name: " + containerName);
-          console.log("Tests dir: " + testsDir);
-          console.log("Package name: " + packageName);
+
+          console.log("$$$$ Container name: " + containerName);
+          console.log("$$$$ Tests dir: " + testsDir);
+          console.log("$$$$ Package name: " + packageName);
 
           appList.push({
             appName: appName,
@@ -321,9 +322,6 @@ function parseManifest(tomlContent: any, appFolder: any): [AppLanguage, string, 
 
   // Parse build dir path
   let buildDirPath = getNestedProperty(tomlContent, "app.build_directory");
-  if (buildDirPath.startsWith("./")) {
-    buildDirPath = path.join(appFolder.uri.fsPath, buildDirPath);
-  }
 
   // Parse compatible devices
   const compatibleDevicesStr: string = getNestedProperty(tomlContent, "app.devices");
@@ -342,9 +340,16 @@ function parseManifest(tomlContent: any, appFolder: any): [AppLanguage, string, 
   // If C app, parse app name from Makefile
   let appName = "unknown";
   let packageName: string | undefined;
+
+  // Get the build dir path on the host to search for the Makefile or Cargo.toml
+  let hostBuildDirPath = buildDirPath;
+  if (buildDirPath.startsWith("./")) {
+    hostBuildDirPath = path.join(appFolder.uri.fsPath, buildDirPath);
+  }
+
   if (appLanguage === "C") {
     // Search for Makefile in build dir
-    const searchPattern = path.join(buildDirPath, `**/Makefile`).replace(/\\/g, "/");
+    const searchPattern = path.join(hostBuildDirPath, `**/Makefile`).replace(/\\/g, "/");
     const makefile = fg.sync(searchPattern, { onlyFiles: true, deep: 0 })[0];
     if (!makefile) {
       throw new Error("No Makefile found in build directory");
@@ -354,7 +359,7 @@ function parseManifest(tomlContent: any, appFolder: any): [AppLanguage, string, 
   }
   // If Rust app, parse app name and package name from Cargo.toml
   else {
-    [appName, packageName] = parseCargoToml(path.join(buildDirPath, "Cargo.toml"));
+    [appName, packageName] = parseCargoToml(path.join(hostBuildDirPath, "Cargo.toml"));
   }
   return [appLanguage, buildDirPath, appName, compatibleDevices, packageName, functionalTestsDir];
 }
@@ -363,9 +368,10 @@ function parseManifest(tomlContent: any, appFolder: any): [AppLanguage, string, 
 function parseLegacyRustManifest(tomlContent: any, appFolder: any): [string, string, string] {
   getNestedProperty(tomlContent, "rust-app");
   let cargoTomlPath = getNestedProperty(tomlContent, "rust-app.manifest-path");
+  const buildDirPath = path.dirname(cargoTomlPath);
   if (cargoTomlPath.startsWith("./")) {
     cargoTomlPath = path.join(appFolder.uri.fsPath, cargoTomlPath);
   }
   let [appName, packageName] = parseCargoToml(cargoTomlPath);
-  return [cargoTomlPath, appName, packageName];
+  return [buildDirPath, appName, packageName];
 }

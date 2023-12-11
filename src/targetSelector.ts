@@ -129,7 +129,7 @@ export class TargetSelector {
     return this.selectedSDKModel;
   }
 
-  public getSelectedBuildDir() {
+  public getTargetBuildDirName() {
     return sdkModels[this.selectedTarget];
   }
 

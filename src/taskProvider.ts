@@ -366,7 +366,7 @@ export class TaskProvider implements vscode.TaskProvider {
     } else {
       // Assume windows
       // Side loads the app APDU file using ledgerblue runScript.
-      const binPath = path.join(hostBuildDirPath, "build", tgtBuildDir, "bin");
+      const binPath = path.join(hostBuildDirPath, "build", tgtBuildDir, "bin").replace(/\\/g, "/");
       exec = `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.runScript ${keyconfig} --scp --fileName ${binPath}/app.apdu --elfFile ${binPath}/app.elf'`;
     }
     return exec;

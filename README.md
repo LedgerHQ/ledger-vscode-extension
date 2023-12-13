@@ -55,6 +55,10 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+## 0.3.1
+
+* Clean debug logs.
+
 ## 0.3.0
 
 * Support for new manifest (keep support of legacy Rust manifest and Makefile only C apps)

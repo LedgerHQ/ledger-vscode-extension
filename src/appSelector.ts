@@ -79,7 +79,7 @@ export function findAppsInWorkspace(): App[] | undefined {
             const tomlContent = toml.parse(fileContent);
             // Legacy rust manifest
             if (tomlContent["rust-app"]) {
-              console.log("Ledger: Found legacy rust manifest");
+              console.log("Found deprecated rust manifest in " + appFolderName);
               [buildDirPath, appName, packageName] = parseLegacyRustManifest(tomlContent, appFolder);
               testsDir = findFunctionalTestsWithoutManifest(appFolder);
               compatibleDevices = ["Nano S", "Nano S Plus", "Nano X"];
@@ -89,7 +89,7 @@ export function findAppsInWorkspace(): App[] | undefined {
             }
             // New manifest
             else {
-              console.log("Ledger: Found new manifest");
+              console.log("Found manifest in " + appFolderName);
               [appLanguage, buildDirPath, appName, compatibleDevices, packageName, testsDir] = parseManifest(
                 tomlContent,
                 appFolder
@@ -97,7 +97,7 @@ export function findAppsInWorkspace(): App[] | undefined {
               found = true;
             }
           } else {
-            console.log("Ledger: Found Makefile");
+            console.log("Found Makefile in " + appFolderName);
             // Check from appList that an app with the same folder name does not already exist or
             // that the app is not blacklisted (from a previous failed detection)
             const existingApp =
@@ -125,13 +125,8 @@ export function findAppsInWorkspace(): App[] | undefined {
         if (found) {
           // Log all found fields
           console.log(
-            `$$$$ Ledger: Found app ${appName} in folder ${appFolderName} with buildDirPath ${buildDirPath} and language ${appLanguage}`
+            `Found app ${appName} in folder ${appFolderName} with buildDirPath ${buildDirPath} and language ${appLanguage}`
           );
-
-          console.log("$$$$ Container name: " + containerName);
-          console.log("$$$$ Tests dir: " + testsDir);
-          console.log("$$$$ Package name: " + packageName);
-
           appList.push({
             appName: appName,
             appFolderName: appFolderName,
@@ -334,7 +329,6 @@ function parseManifest(tomlContent: any, appFolder: any): [AppLanguage, string, 
   let functionalTestsDir = undefined;
   if (tomlContent["tests"] && tomlContent["tests"]["pytest_directory"]) {
     functionalTestsDir = tomlContent["tests"]["pytest_directory"];
-    console.log("Functional tests dir: " + functionalTestsDir);
   }
 
   // If C app, parse app name from Makefile

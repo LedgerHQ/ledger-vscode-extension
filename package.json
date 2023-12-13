@@ -126,7 +126,12 @@
         "ledgerDevTools.defaultDevice": {
           "type": "string",
           "default": "Nano S",
-          "enum": ["Nano S", "Nano S Plus", "Nano X", "Stax"],
+          "enum": [
+            "Nano S",
+            "Nano S Plus",
+            "Nano X",
+            "Stax"
+          ],
           "markdownDescription": "Select the default Device"
         }
       }

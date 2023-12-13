@@ -55,8 +55,9 @@ This extension contributes the following settings:
 
 ## Release Notes
 
-## 0.X.X
+## 0.3.0
 
+* Support for new manifest (keep support of legacy Rust manifest and Makefile only C apps)
 * Rename tree view elements.
 * Fix target name bug for Rust apps.
 * Refactor code of TargetSelector, make it a real class.

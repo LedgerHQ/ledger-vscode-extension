@@ -10,39 +10,32 @@ const devices = ["Nano S", "Nano S Plus", "Nano X", "Stax"] as const;
 // Define the LedgerDevice type
 export type LedgerDevice = (typeof devices)[number];
 
-const cTargetsArray: LedgerDevice[] = ["Nano S", "Nano S Plus", "Nano X", "Stax"];
-const rustTargetsArray: LedgerDevice[] = ["Nano S", "Nano S Plus", "Nano X"];
+const targetsArray: LedgerDevice[] = ["Nano S", "Nano S Plus", "Nano X", "Stax"];
 
 const targetSDKs: Record<string, string> = {
-  [cTargetsArray[0]]: "$NANOS_SDK",
-  [cTargetsArray[1]]: "$NANOSP_SDK",
-  [cTargetsArray[2]]: "$NANOX_SDK",
-  [cTargetsArray[3]]: "$STAX_SDK",
+  [targetsArray[0]]: "$NANOS_SDK",
+  [targetsArray[1]]: "$NANOSP_SDK",
+  [targetsArray[2]]: "$NANOX_SDK",
+  [targetsArray[3]]: "$STAX_SDK",
 };
 const speculosModels: Record<string, string> = {
-  [cTargetsArray[0]]: "nanos",
-  [cTargetsArray[1]]: "nanosp",
-  [cTargetsArray[2]]: "nanox",
-  [cTargetsArray[3]]: "stax",
+  [targetsArray[0]]: "nanos",
+  [targetsArray[1]]: "nanosp",
+  [targetsArray[2]]: "nanox",
+  [targetsArray[3]]: "stax",
 };
 const sdkModels: Record<string, string> = {
-  [cTargetsArray[0]]: "nanos",
-  [cTargetsArray[1]]: "nanos2",
-  [cTargetsArray[2]]: "nanox",
-  [cTargetsArray[3]]: "stax",
+  [targetsArray[0]]: "nanos",
+  [targetsArray[1]]: "nanos2",
+  [targetsArray[2]]: "nanox",
+  [targetsArray[3]]: "stax",
 };
 
 const targetIds: Record<string, string> = {
-  [cTargetsArray[0]]: "0x31100004", // ST31
-  [cTargetsArray[1]]: "0x33100004", // ST33K1M5
-  [cTargetsArray[2]]: "0x33000004", // ST33
-  [cTargetsArray[3]]: "0x33200004", // ST33K1M5
-};
-
-const rustSDKModels: Record<string, string> = {
-  [rustTargetsArray[0]]: "nanos",
-  [rustTargetsArray[1]]: "nanosplus",
-  [rustTargetsArray[2]]: "nanox",
+  [targetsArray[0]]: "0x31100004", // ST31
+  [targetsArray[1]]: "0x33100004", // ST33K1M5
+  [targetsArray[2]]: "0x33000004", // ST33
+  [targetsArray[3]]: "0x33200004", // ST33K1M5
 };
 
 export class TargetSelector {
@@ -51,18 +44,12 @@ export class TargetSelector {
   private selectedSpeculosModel: string = "";
   private selectedSDKModel: string = "";
   private selectedTargetId: string = "";
-  private targetsArray: LedgerDevice[];
-  private sdkModelsArray: Record<string, string>;
+  private targetsArray: LedgerDevice[] = [];
+  private sdkModelsArray: Record<string, string> = {};
 
   constructor() {
     const conf = vscode.workspace.getConfiguration("ledgerDevTools");
-    const currentApp = getSelectedApp();
-    this.targetsArray = cTargetsArray;
-    this.sdkModelsArray = sdkModels;
-    if (currentApp && currentApp.language === "Rust") {
-      this.targetsArray = rustTargetsArray;
-      this.sdkModelsArray = rustSDKModels;
-    }
+    this.updateTargetsInfos();
     this.setSelectedTarget(conf.get<string>("defaultDevice", "Nano S"));
   }
 
@@ -80,12 +67,12 @@ export class TargetSelector {
     this.selectedTarget = target;
 
     const currentApp = getSelectedApp();
-    if (currentApp && currentApp.language === "Rust") {
-      if (this.selectedTarget === "Stax") {
-        // Fallback on Nano X, because Stax not yet supported
-        this.selectedTarget = "Nano X";
-        vscode.window.showWarningMessage("Rust App detected. Fallback to Nano X...");
-      }
+    if (currentApp && !currentApp.compatibleDevices.includes(this.selectedTarget as LedgerDevice)) {
+      // Fallback to compatible device
+      this.selectedTarget = currentApp.compatibleDevices[0];
+      vscode.window.showWarningMessage(
+        `Incompatible device set for current app. Fallback to compatible device (${this.selectedTarget})`
+      );
     }
 
     this.selectedSDK = targetSDKs[this.selectedTarget];
@@ -97,11 +84,15 @@ export class TargetSelector {
   // Function that updates the targets infos based on the app language
   public updateTargetsInfos() {
     const currentApp = getSelectedApp();
-    this.targetsArray = cTargetsArray;
-    this.sdkModelsArray = sdkModels;
-    if (currentApp && currentApp.language === "Rust") {
-      this.targetsArray = rustTargetsArray;
-      this.sdkModelsArray = rustSDKModels;
+    this.targetsArray = [];
+    this.sdkModelsArray = {};
+    if (currentApp) {
+      this.targetsArray = currentApp.compatibleDevices;
+      // Define sdkModelsArray based on the targetsArray
+      this.targetsArray.forEach((target) => {
+        this.sdkModelsArray[target] =
+          target === "Nano S Plus" && currentApp.language === "Rust" ? "nanosplus" : sdkModels[target];
+      });
     }
   }
 
@@ -138,7 +129,7 @@ export class TargetSelector {
     return this.selectedSDKModel;
   }
 
-  public getSelectedBuildDir() {
+  public getTargetBuildDirName() {
     return sdkModels[this.selectedTarget];
   }
 

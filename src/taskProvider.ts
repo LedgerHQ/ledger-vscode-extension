@@ -1,6 +1,7 @@
 "use strict";
 
 import * as vscode from "vscode";
+import * as path from "path";
 import { platform } from "node:process";
 import { TargetSelector } from "./targetSelector";
 import { getSelectedApp, App, AppLanguage } from "./appSelector";
@@ -36,9 +37,11 @@ export class TaskProvider implements vscode.TaskProvider {
   private buildDir: string;
   private workspacePath: string;
   private containerName: string;
+  private appFolder?: vscode.WorkspaceFolder;
   private appName: string;
   private appLanguage: AppLanguage;
   private functionalTestsDir?: string;
+  private packageName?: string;
   private tasks: vscode.Task[] = [];
   private currentApp?: App;
   private taskSpecs: TaskSpec[] = [
@@ -129,7 +132,7 @@ export class TaskProvider implements vscode.TaskProvider {
     {
       group: "Device Operations",
       name: "Load app on device",
-      builders: { ["C"]: this.appLoadExec },
+      builders: { ["Both"]: this.appLoadExec },
       dependsOn: this.appLoadRequirementsExec,
       toolTip: "Load app on a physical device",
       enabled: true,
@@ -137,7 +140,7 @@ export class TaskProvider implements vscode.TaskProvider {
     {
       group: "Device Operations",
       name: "Delete app from device",
-      builders: { ["C"]: this.appDeleteExec },
+      builders: { ["Both"]: this.appDeleteExec },
       dependsOn: this.appLoadRequirementsExec,
       toolTip: "Delete app from a physical device",
       enabled: true,
@@ -180,6 +183,7 @@ export class TaskProvider implements vscode.TaskProvider {
     this.workspacePath = "";
     this.buildDir = "";
     this.functionalTestsDir = undefined;
+    this.packageName = undefined;
     const conf = vscode.workspace.getConfiguration("ledgerDevTools");
     this.image = conf.get<string>("dockerImage") || "";
     this.onboardPin = conf.get<string>("onboardingPin") || "";
@@ -197,8 +201,10 @@ export class TaskProvider implements vscode.TaskProvider {
       this.appName = this.currentApp.appName;
       this.appLanguage = this.currentApp.language;
       this.containerName = this.currentApp.containerName;
+      this.appFolder = this.currentApp.appFolder;
       this.buildDir = this.currentApp.buildDirPath;
       this.workspacePath = this.currentApp.appFolder.uri.path;
+      this.packageName = this.currentApp.packageName;
       this.checkDisabledTasks();
       this.pushAllTasks();
       this.treeProvider.addAllTasksToTree(this.taskSpecs);
@@ -250,25 +256,27 @@ export class TaskProvider implements vscode.TaskProvider {
     // Builds the app with debug mode enabled using the make command, inside the docker container.
     const exec = `docker exec -it  ${
       this.containerName
-    } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make -j DEBUG=1'`;
+    } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make -C ${this.buildDir} -j DEBUG=1'`;
     return exec;
   }
 
   private cBuildExec(): string {
     const exec = `docker exec -it  ${
       this.containerName
-    } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make -j'`;
+    } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make -C ${this.buildDir} -j'`;
     // Builds the app in release mode using the make command, inside the docker container.
     return exec;
   }
 
   private rustBuildExec(): string {
-    let buildDirName = this.tgtSelector.getSelectedBuildDir();
-    const exec = `docker exec -it -u 0 ${
-      this.containerName
-    } bash -c 'cargo ledger build ${this.tgtSelector.getSelectedSDKModel()} -- -Zunstable-options --out-dir build/${buildDirName}/bin && mv build/${buildDirName}/bin/${
-      this.appName
-    } build/${buildDirName}/bin/app.elf'`;
+    const tgtBuildDir = this.tgtSelector.getTargetBuildDirName();
+    const exec = `docker exec -it -u 0 ${this.containerName} bash -c 'cd ${
+      this.buildDir
+    } && cargo ledger build ${this.tgtSelector.getSelectedSDKModel()} -- -Zunstable-options --out-dir build/${tgtBuildDir}/bin && mv build/${tgtBuildDir}/bin/${
+      this.packageName
+    } build/${tgtBuildDir}/bin/app.elf && mv build/${tgtBuildDir}/bin/${
+      this.packageName
+    }.apdu build/${tgtBuildDir}/bin/app.apdu'`;
     // Builds the app in release mode using the make command, inside the docker container.
     return exec;
   }
@@ -288,13 +296,13 @@ export class TaskProvider implements vscode.TaskProvider {
 
   private cCleanExec(): string {
     // Cleans all app build files (for all device models).
-    const exec = `docker exec -it  ${this.containerName} bash -c 'make clean'`;
+    const exec = `docker exec -it  ${this.containerName} bash -c 'make -C ${this.buildDir} clean'`;
     return exec;
   }
 
   private rustCleanExec(): string {
     // Cleans all app build files (for all device models).
-    const exec = `docker exec -it -u 0 ${this.containerName} bash -c 'cargo clean ; rm -rf build'`;
+    const exec = `docker exec -it -u 0 ${this.containerName} bash -c 'cd ${this.buildDir} && cargo clean ; rm -rf build'`;
     return exec;
   }
 
@@ -307,7 +315,7 @@ export class TaskProvider implements vscode.TaskProvider {
     // Runs the app on the speculos emulator for the selected device model, in the docker container.
     const exec = `docker exec -it  ${
       this.containerName
-    } bash -c 'speculos --model ${this.tgtSelector.getSelectedSpeculosModel()} build/${this.tgtSelector.getSelectedBuildDir()}/bin/app.elf'`;
+    } bash -c 'speculos --model ${this.tgtSelector.getSelectedSpeculosModel()} build/${this.tgtSelector.getTargetBuildDirName()}/bin/app.elf'`;
     return exec;
   }
 
@@ -338,29 +346,28 @@ export class TaskProvider implements vscode.TaskProvider {
   private appLoadExec(): string {
     let exec = "";
     let keyconfig = "";
+    const hostBuildDirPath = path.join(this.appFolder!.uri.fsPath, this.buildDir);
+    const tgtBuildDir = this.tgtSelector.getTargetBuildDirName();
+
+    if (this.scpConfig === true) {
+      keyconfig = `--rootPrivateKey ${this.keyvarEnv}`;
+    }
+
     if (platform === "linux") {
       // Linux
-      if (this.scpConfig === true) {
-        keyconfig = `-e SCP_PRIVKEY=${this.keyvarEnv}`;
-      }
       // Executes make load in the container to load the app on a physical device.
-      exec = `docker exec -it ${keyconfig} ${
-        this.containerName
-      } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make load'`;
+      const binPath = path.join(this.buildDir, "build", tgtBuildDir, "bin");
+      exec = `docker exec -it ${this.containerName} bash -c 'python3 -m ledgerblue.runScript ${keyconfig} --scp --fileName ${binPath}/app.apdu --elfFile ${binPath}/app.elf'`;
     } else if (platform === "darwin") {
       // macOS
-      if (this.scpConfig === true) {
-        keyconfig = `--rootPrivateKey ${this.keyvarEnv}`;
-      }
       // Side loads the app APDU file using ledgerblue runScript.
-      exec = `source ledger/bin/activate && python3 -m ledgerblue.runScript ${keyconfig} --scp --fileName ${this.buildDir}/bin/app.apdu --elfFile ${this.buildDir}/bin/app.elf`;
+      const binPath = path.join(hostBuildDirPath, "build", tgtBuildDir, "bin");
+      exec = `source ledger/bin/activate && python3 -m ledgerblue.runScript ${keyconfig} --scp --fileName ${binPath}/app.apdu --elfFile ${binPath}/app.elf`;
     } else {
       // Assume windows
-      if (this.scpConfig === true) {
-        keyconfig = `--rootPrivateKey ${this.keyvarEnv}`;
-      }
       // Side loads the app APDU file using ledgerblue runScript.
-      exec = `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.runScript ${keyconfig} --scp --fileName ${this.buildDir}/bin/app.apdu --elfFile ${this.buildDir}/bin/app.elf'`;
+      const binPath = path.join(hostBuildDirPath, "build", tgtBuildDir, "bin").replace(/\\/g, "/");
+      exec = `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.runScript ${keyconfig} --scp --fileName ${binPath}/app.apdu --elfFile ${binPath}/app.elf'`;
     }
     return exec;
   }
@@ -368,31 +375,29 @@ export class TaskProvider implements vscode.TaskProvider {
   private appDeleteExec(): string {
     let exec = "";
     let keyconfig = "";
+
+    if (this.scpConfig === true) {
+      keyconfig = `--rootPrivateKey ${this.keyvarEnv}`;
+    }
+
     if (platform === "linux") {
       // Linux
-      if (this.scpConfig === true) {
-        keyconfig = `-e SCP_PRIVKEY=${this.keyvarEnv}`;
-      }
-      exec = `docker exec -it ${keyconfig} ${
+      exec = `docker exec -it ${
         this.containerName
-      } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make delete'`;
+      } bash -c 'python3 -m ledgerblue.deleteApp ${keyconfig} --targetId ${this.tgtSelector.getSelectedTargetId()} --appName "${
+        this.appName
+      }"'`;
     } else if (platform === "darwin") {
       // macOS
-      if (this.scpConfig === true) {
-        keyconfig = `--rootPrivateKey ${this.keyvarEnv}`;
-      }
       // Delete the app using ledgerblue runScript.
-      exec = `source ledger/bin/activate && python3 -m ledgerblue.deleteApp ${keyconfig} --targetId ${this.tgtSelector.getSelectedTargetId()} --appName ${
+      exec = `source ledger/bin/activate && python3 -m ledgerblue.deleteApp ${keyconfig} --targetId ${this.tgtSelector.getSelectedTargetId()} --appName "${
         this.appName
-      }`;
+      }"`;
     } else {
       // Assume windows
-      if (this.scpConfig === true) {
-        keyconfig = `--rootPrivateKey ${this.keyvarEnv}`;
-      }
-      exec = `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.deleteApp ${keyconfig} --targetId ${this.tgtSelector.getSelectedTargetId()} --appName ${
+      exec = `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.deleteApp ${keyconfig} --targetId ${this.tgtSelector.getSelectedTargetId()} --appName "${
         this.appName
-      }'`;
+      }"'`;
     }
     return exec;
   }

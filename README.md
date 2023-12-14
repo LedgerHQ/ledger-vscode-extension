@@ -1,6 +1,6 @@
 # Ledger Dev Tools
 
-<img src="https://github.com/LedgerHQ/ledger-vscode-extension/blob/update-readme/resources/ledger-wordmark.png?raw=true" width="40%" height="40%"/><br/>
+<img src="https://github.com/LedgerHQ/ledger-vscode-extension/blob/main/resources/ledger-wordmark.png?raw=true" width="40%" height="40%"/><br/>
 
 ![Visual Studio Marketplace Version](https://vsmarketplacebadges.dev/version-short/LedgerHQ.ledger-dev-tools.svg) ![Visual Studio Marketplace Installs](https://vsmarketplacebadges.dev/installs-short/LedgerHQ.ledger-dev-tools.svg) ![Visual Studio Marketplace Rating](https://vsmarketplacebadges.dev/rating-star/LedgerHQ.ledger-dev-tools.svg)
 
@@ -59,6 +59,10 @@ This extension contributes the following settings:
 * `ledgerDevTools.defaultDevice`: Select the default Device
 
 ## Release Notes
+
+## 0.3.3
+
+* Fix logo link in README.
 
 ## 0.3.2
 

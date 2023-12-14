@@ -31,6 +31,7 @@ The tasks are all accessible through an easy to use sidebar menu.
 <p align="center">
 <img src="https://github.com/LedgerHQ/ledger-vscode-extension/blob/main/resources/sidebar.gif?raw=true" width="70%" height="70%"/>
 </p>
+
 ### Status Bar
 
 Status bar items to quickly identify :
@@ -40,6 +41,7 @@ Status bar items to quickly identify :
 <p align="center">
 <img src="https://github.com/LedgerHQ/ledger-vscode-extension/blob/main/resources/statusbar.gif?raw=true" width="70%" height="70%"/>
 </p>
+
 ## Requirements
 
 * [Docker](https://www.docker.com/) should be installed and running.
@@ -59,6 +61,10 @@ This extension contributes the following settings:
 * `ledgerDevTools.defaultDevice`: Select the default Device
 
 ## Release Notes
+
+## 0.3.4
+
+* Fix section titles in README.
 
 ## 0.3.3
 

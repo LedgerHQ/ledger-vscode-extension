@@ -1,8 +1,12 @@
-# ledger-vscode-extension
+# Ledger Dev Tools
 
-Provide a quick and easy way to build and test applications for [Ledger](https://www.ledger.com/) devices.
+<img src="https://github.com/LedgerHQ/ledger-vscode-extension/blob/update-readme/resources/ledger-wordmark.png?raw=true" width="40%" height="40%"/><br/>
 
-The extension uses Ledger's own [Alpine based Docker image](https://github.com/LedgerHQ/ledger-app-builder/blob/master/dev-tools/Dockerfile) to allow developers to setup a build and test environment in a few minutes.
+![Visual Studio Marketplace Version](https://vsmarketplacebadges.dev/version-short/LedgerHQ.ledger-dev-tools.svg) ![Visual Studio Marketplace Installs](https://vsmarketplacebadges.dev/installs-short/LedgerHQ.ledger-dev-tools.svg) ![Visual Studio Marketplace Rating](https://vsmarketplacebadges.dev/rating-star/LedgerHQ.ledger-dev-tools.svg)
+
+[VS Code](https://code.visualstudio.com/) extension that provides a quick and easy way to build and test applications for [Ledger](https://www.ledger.com/) devices.
+
+The extension uses Ledger's own [Docker image](https://github.com/LedgerHQ/ledger-app-builder/blob/master/dev-tools/Dockerfile) to allow developers to setup a build and test environment in a few minutes.
 
 * Build your app for all Ledger devices : Nano S, Nano S Plus, Nano X, Stax.
 * Supports C and Rust apps.
@@ -17,24 +21,25 @@ The extension uses Ledger's own [Alpine based Docker image](https://github.com/L
 
 Automatically add tasks to help you build, test and load your app on a physical device.
 These tasks are accessible through the build task menu keyboard shortcut to avoid clicking around.
-
+<p align="center">
 <img src="https://github.com/LedgerHQ/ledger-vscode-extension/blob/main/resources/tasks.gif?raw=true" width="70%" height="70%"/>
+</p>
 
 ### Sidebar
 
 The tasks are all accessible through an easy to use sidebar menu.
-
+<p align="center">
 <img src="https://github.com/LedgerHQ/ledger-vscode-extension/blob/main/resources/sidebar.gif?raw=true" width="70%" height="70%"/>
-
+</p>
 ### Status Bar
 
 Status bar items to quickly identify :
 
 * Which device you are currently building your app for.
 * The status of the Ledger developer tools Docker image.
-
+<p align="center">
 <img src="https://github.com/LedgerHQ/ledger-vscode-extension/blob/main/resources/statusbar.gif?raw=true" width="70%" height="70%"/>
-
+</p>
 ## Requirements
 
 * [Docker](https://www.docker.com/) should be installed and running.
@@ -54,6 +59,10 @@ This extension contributes the following settings:
 * `ledgerDevTools.defaultDevice`: Select the default Device
 
 ## Release Notes
+
+## 0.3.2
+
+* Update README + displayed extension name.
 
 ## 0.3.1
 
@@ -108,7 +117,7 @@ This extension contributes the following settings:
 * Add icons to side bar root items.
 * Add auto run of docker containers.
 
-### 0.1.0
+## 0.1.0
 
 * Code refactoring.
 * New tasks :
@@ -117,26 +126,26 @@ This extension contributes the following settings:
   * On device functional tests,
   * Device quick onboarding.
 
-### 0.0.6
+## 0.0.6
 
 Fixes app detection for Windows.
 
-### 0.0.5
+## 0.0.5
 
 Add multi-folder workspace support. User can now choose which app to build from a quickpick menu.
 
-### 0.0.4
+## 0.0.4
 
 Adds container terminal task to side bar items.
 
-### 0.0.3
+## 0.0.3
 
 Fixes workspace path in docker run task for Windows.
 
-### 0.0.2
+## 0.0.2
 
 Add extension icon.
 
-### 0.0.1
+## 0.0.1
 
 Initial release of the extension.

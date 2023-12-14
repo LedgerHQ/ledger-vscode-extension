@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "Ledger Dev Tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",

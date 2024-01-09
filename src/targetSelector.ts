@@ -20,7 +20,7 @@ const targetSDKs: Record<string, string> = {
 };
 const speculosModels: Record<string, string> = {
   [targetsArray[0]]: "nanos",
-  [targetsArray[1]]: "nanosp",
+  [targetsArray[1]]: "nanos2",
   [targetsArray[2]]: "nanox",
   [targetsArray[3]]: "stax",
 };

@@ -62,6 +62,12 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+## 0.4.0
+
+* Add "select all targets" command with a button in the main tree view.
+* Replace `.png` icons with `vscode.ThemeIcon` icons.
+* Fix app sideload task requirements installation on macOS.
+
 ## 0.3.4
 
 * Fix section titles in README.

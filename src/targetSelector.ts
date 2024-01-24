@@ -7,6 +7,10 @@ import { getSelectedApp } from "./appSelector";
 // Define valid devices
 const devices = ["Nano S", "Nano S Plus", "Nano X", "Stax"] as const;
 
+const specialAllDevice = "All";
+
+type SpecialAllDevice = typeof specialAllDevice;
+
 // Define the LedgerDevice type
 export type LedgerDevice = (typeof devices)[number];
 
@@ -44,8 +48,10 @@ export class TargetSelector {
   private selectedSpeculosModel: string = "";
   private selectedSDKModel: string = "";
   private selectedTargetId: string = "";
-  private targetsArray: LedgerDevice[] = [];
+  private targetsArray: (LedgerDevice | SpecialAllDevice)[] = [];
   private sdkModelsArray: Record<string, string> = {};
+  private targetSelectedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter<string>();
+  private prevSelectedApp: string = "";
 
   constructor() {
     const conf = vscode.workspace.getConfiguration("ledgerDevTools");
@@ -55,7 +61,7 @@ export class TargetSelector {
 
   // Type guard function to check if a string is a valid device
   private isValidDevice(value: string): value is LedgerDevice {
-    return devices.includes(value as LedgerDevice);
+    return devices.includes(value as LedgerDevice) || value === specialAllDevice;
   }
 
   public setSelectedTarget(target: string) {
@@ -66,19 +72,21 @@ export class TargetSelector {
 
     this.selectedTarget = target;
 
-    const currentApp = getSelectedApp();
-    if (currentApp && !currentApp.compatibleDevices.includes(this.selectedTarget as LedgerDevice)) {
-      // Fallback to compatible device
-      this.selectedTarget = currentApp.compatibleDevices[0];
-      vscode.window.showWarningMessage(
-        `Incompatible device set for current app. Fallback to compatible device (${this.selectedTarget})`
-      );
-    }
+    if (!(this.selectedTarget === specialAllDevice)) {
+      const currentApp = getSelectedApp();
+      if (currentApp && !currentApp.compatibleDevices.includes(this.selectedTarget as LedgerDevice)) {
+        // Fallback to compatible device
+        this.selectedTarget = currentApp.compatibleDevices[0];
+        vscode.window.showWarningMessage(
+          `Incompatible device set for current app. Fallback to compatible device (${this.selectedTarget})`
+        );
+      }
 
-    this.selectedSDK = targetSDKs[this.selectedTarget];
-    this.selectedSpeculosModel = speculosModels[this.selectedTarget];
-    this.selectedSDKModel = this.sdkModelsArray[this.selectedTarget];
-    this.selectedTargetId = targetIds[this.selectedTarget];
+      this.selectedSDK = targetSDKs[this.selectedTarget];
+      this.selectedSpeculosModel = speculosModels[this.selectedTarget];
+      this.selectedSDKModel = this.sdkModelsArray[this.selectedTarget];
+      this.selectedTargetId = targetIds[this.selectedTarget];
+    }
   }
 
   // Function that updates the targets infos based on the app language
@@ -93,23 +101,39 @@ export class TargetSelector {
         this.sdkModelsArray[target] =
           target === "Nano S Plus" && currentApp.language === "Rust" ? "nanosplus" : sdkModels[target];
       });
+
+      if (this.targetsArray.length > 1) {
+        vscode.commands.executeCommand("setContext", "ledgerDevTools.showToggleAllTargets", true);
+      } else {
+        vscode.commands.executeCommand("setContext", "ledgerDevTools.showToggleAllTargets", false);
+      }
     }
   }
 
-  public async showTargetSelectorMenu(
-    statusManager: StatusBarManager,
-    taskProvider: TaskProvider,
-    treeDataProvider: TreeDataProvider
-  ) {
+  public readonly onTargetSelectedEvent: vscode.Event<string> = this.targetSelectedEmitter.event;
+
+  private triggerTargetSelectedEvent(data: string) {
+    this.targetSelectedEmitter.fire(data);
+  }
+
+  public toggleAllTargetSelection() {
+    if (this.selectedTarget === specialAllDevice) {
+      this.setSelectedTarget(this.prevSelectedApp);
+    } else {
+      this.prevSelectedApp = this.selectedTarget;
+      this.setSelectedTarget(specialAllDevice);
+    }
+    this.triggerTargetSelectedEvent(this.selectedTarget);
+  }
+
+  public async showTargetSelectorMenu() {
     const result = await vscode.window.showQuickPick(this.targetsArray, {
       placeHolder: "Please select a target",
       onDidSelectItem: (item) => {
         this.setSelectedTarget(item.toString());
+        this.triggerTargetSelectedEvent(item.toString());
       },
     });
-    taskProvider.generateTasks();
-    statusManager.updateTargetItem(this.getSelectedTarget());
-    treeDataProvider.updateAppAndTargetLabels();
     return result;
   }
 
@@ -135,5 +159,9 @@ export class TargetSelector {
 
   public getSelectedTargetId() {
     return this.selectedTargetId;
+  }
+
+  public getTargetsArray() {
+    return this.targetsArray;
   }
 }

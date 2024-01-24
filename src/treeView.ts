@@ -8,12 +8,28 @@ import { DevImageStatus } from "./containerManager";
 export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
   private data: TreeItem[];
   private targetSelector: TargetSelector;
+  private fileDecorationProvider: ViewFileDecorationProvider;
 
   constructor(targetSelector: TargetSelector) {
     this.data = [];
     this.targetSelector = targetSelector;
     this.addDefaultTreeItems();
     this.updateAppAndTargetLabels();
+    this.fileDecorationProvider = new ViewFileDecorationProvider(this);
+    vscode.window.registerFileDecorationProvider(this.fileDecorationProvider);
+  }
+
+  getTaskItemByLabel(label: string): TreeItem | undefined {
+    //Loop through all items in the tree that have children
+    for (let item of this.data) {
+      if (item.children) {
+        for (let child of item.children) {
+          if (child.label === label) {
+            return child;
+          }
+        }
+      }
+    }
   }
 
   getTreeItem(element: TreeItem): vscode.TreeItem | Thenable<vscode.TreeItem> {
@@ -40,35 +56,32 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
       if (!rootItem) {
         rootItem = new TreeItem(spec.group);
         if (rootItem.label?.toString().startsWith("Docker Container")) {
-          rootItem.iconPath = {
-            light: path.join(__filename, "..", "..", "resources", "docker-light.png"),
-            dark: path.join(__filename, "..", "..", "resources", "docker-dark.png"),
-          };
+          rootItem.iconPath = new vscode.ThemeIcon("vm");
         }
         if (rootItem.label?.toString().startsWith("Build")) {
-          rootItem.iconPath = {
-            light: path.join(__filename, "..", "..", "resources", "tool-light.png"),
-            dark: path.join(__filename, "..", "..", "resources", "tool-dark.png"),
-          };
+          rootItem.iconPath = new vscode.ThemeIcon("tools");
         }
         if (rootItem.label?.toString().startsWith("Functional")) {
-          rootItem.iconPath = {
-            light: path.join(__filename, "..", "..", "resources", "test-light.png"),
-            dark: path.join(__filename, "..", "..", "resources", "test-dark.png"),
-          };
+          rootItem.iconPath = new vscode.ThemeIcon("test-view-icon");
         }
         if (rootItem.label?.toString().startsWith("Device")) {
-          rootItem.iconPath = {
-            light: path.join(__filename, "..", "..", "resources", "device-light.png"),
-            dark: path.join(__filename, "..", "..", "resources", "device-dark.png"),
-          };
+          rootItem.iconPath = new vscode.ThemeIcon("zap");
         }
         this.data.push(rootItem);
       }
       rootItem.addChild(taskItem);
+
+      taskItem.iconPath = new vscode.ThemeIcon("circle-filled");
+      taskItem.resourceUri = vscode.Uri.from({
+        scheme: "devtools-treeview",
+        authority: "task",
+        path: "/" + spec.name + "/" + spec.state,
+      });
     } else {
       this.data.push(taskItem);
     }
+
+    this.fileDecorationProvider.refreshTaskItemDecoration(taskItem.resourceUri);
   }
 
   public addAllTasksToTree(taskSpecs: TaskSpec[]): void {
@@ -76,7 +89,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     this.data = this.data.filter((item) => item.default);
     taskSpecs.forEach((spec) => {
       // Add only enabled tasks
-      if (spec.enabled) {
+      if (!(spec.state === "unavailable")) {
         this.addTaskToTree(spec);
         if (spec.name.includes("Run tests")) {
           this.addTestDependenciesTreeItem();
@@ -114,6 +127,14 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
         title: "Add test dependencies",
         arguments: [],
       };
+
+      addTestDependenciesItem.iconPath = new vscode.ThemeIcon("circle-filled");
+      addTestDependenciesItem.resourceUri = vscode.Uri.from({
+        scheme: "devtools-treeview",
+        authority: "task",
+        path: "/" + testsRootItem.label + "/enabled",
+      });
+
       testsRootItem.addChild(addTestDependenciesItem);
     } else if (testsRootItem && addTestDependenciesItem) {
       // Move addTestDependenciesItem item to the end of the list
@@ -126,23 +147,29 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     const currentApp = getSelectedApp();
     let itemPrefix: string = "Docker Container";
     let itemSuffix: string = "";
+    let itemIcon = new vscode.ThemeIcon("vm");
     if (currentApp) {
       let containerItem = this.data.find((item) => item.label && item.label.toString().startsWith("Docker Container"));
       if (containerItem) {
         switch (status) {
           case DevImageStatus.running:
+            itemIcon = new vscode.ThemeIcon("vm-active");
             itemSuffix = "running";
             break;
           case DevImageStatus.syncing:
+            itemIcon = new vscode.ThemeIcon("vm-connect");
             itemSuffix = "syncing";
             break;
           case DevImageStatus.stopped:
+            itemIcon = new vscode.ThemeIcon("vm-outline");
             itemSuffix = "stopped";
             break;
           default:
+            itemIcon = new vscode.ThemeIcon("vm-outline");
             itemSuffix = "stopped";
             break;
         }
+        containerItem.iconPath = itemIcon;
         containerItem.label = `${itemPrefix} [${itemSuffix}]`;
       }
     }
@@ -187,6 +214,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
 
     if (!selectTargetItem) {
       let selectTarget = new TreeItem("Select target");
+      selectTarget.contextValue = "selectTarget";
       selectTarget.setDefault();
       selectTarget.tooltip = "Select device to build for";
       selectTarget.command = {
@@ -219,6 +247,70 @@ export class TreeItem extends vscode.TreeItem {
       this.children = [];
     }
     this.children.push(child);
-    super.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+    this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+  }
+}
+
+export class ViewFileDecorationProvider implements vscode.FileDecorationProvider, vscode.Disposable {
+  private treeDataProvider: TreeDataProvider;
+
+  private readonly _onDidChangeFileDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<
+    vscode.Uri | vscode.Uri[]
+  >();
+  readonly onDidChangeFileDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeFileDecorations.event;
+
+  async refreshTaskItemDecoration(uri: vscode.Uri | undefined): Promise<void> {
+    if (uri) {
+      this._onDidChangeFileDecorations.fire(uri);
+    }
+  }
+
+  private readonly disposable: vscode.Disposable;
+  constructor(treeDataProvider: TreeDataProvider) {
+    this.treeDataProvider = treeDataProvider;
+    this.disposable = vscode.Disposable.from(vscode.window.registerFileDecorationProvider(this));
+  }
+
+  dispose(): void {
+    this.disposable.dispose();
+  }
+
+  provideFileDecoration(uri: vscode.Uri, token: vscode.CancellationToken): vscode.FileDecoration | undefined {
+    if (uri.scheme !== "devtools-treeview") {
+      return undefined;
+    }
+
+    switch (uri.authority) {
+      case "task":
+        return this.provideTaskItemDecoration(uri, token);
+    }
+
+    return undefined;
+  }
+
+  provideTaskItemDecoration(uri: vscode.Uri, _token: vscode.CancellationToken): vscode.FileDecoration | undefined {
+    const [, name, status] = uri.path.split("/");
+
+    let color = new vscode.ThemeColor("gitDecoration.ignoredResourceForeground");
+    let icon = new vscode.ThemeIcon("circle-outline");
+    switch (status) {
+      case "disabled":
+        color = new vscode.ThemeColor("gitDecoration.ignoredResourceForeground");
+        icon = new vscode.ThemeIcon("circle-outline");
+        break;
+      default:
+      case "enabled":
+        color = new vscode.ThemeColor("list.inactiveSelectionForeground");
+        icon = new vscode.ThemeIcon("circle-filled");
+        break;
+    }
+
+    let treeItem = this.treeDataProvider.getTaskItemByLabel(name);
+    if (treeItem) {
+      treeItem.iconPath = icon;
+    }
+    return {
+      color: color,
+    };
   }
 }

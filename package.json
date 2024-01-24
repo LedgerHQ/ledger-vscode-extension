@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "Ledger Dev Tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "0.3.4",
+  "version": "0.4.0",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",
@@ -21,6 +21,15 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "menus":{
+        "view/item/context": [
+            {
+              "command": "toggleAllTargets",
+              "when": "view == mainView && viewItem == selectTarget && ledgerDevTools.showToggleAllTargets",
+              "group": "inline"
+            }
+        ]
+    },
     "taskDefinitions": [
       {
         "type": "ledger",
@@ -68,6 +77,14 @@
         "title": "Select device",
         "category": "Ledger",
         "tooltip": "Select the device you want to build your app for."
+      },
+      {
+        "command": "toggleAllTargets",
+        "title": "Toggle selection of all targets",
+        "category": "Ledger",
+        "tooltip": "Toggle selection of all compatible targets of the current app, for eligible tasks.",
+        "icon": "$(check-all)",
+        "enablement": "ledgerDevTools.showToggleAllTargets"
       },
       {
         "command": "showAppList",

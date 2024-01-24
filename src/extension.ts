@@ -35,6 +35,8 @@ export function activate(context: vscode.ExtensionContext) {
 
   let containerManager = new ContainerManager(taskProvider);
 
+  // Event listener for container status.
+  // This event is fired when the container status changes
   context.subscriptions.push(
     containerManager.onStatusEvent((data) => {
       statusBarManager.updateDevImageItem(data);
@@ -42,9 +44,20 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Event listener for target selection.
+  // This event is fired when the user selects a target in the targetSelector menu
+  context.subscriptions.push(
+    targetSelector.onTargetSelectedEvent((data) => {
+      taskProvider.generateTasks();
+      statusBarManager.updateTargetItem(data);
+      treeProvider.updateAppAndTargetLabels();
+      containerManager.manageContainer();
+    })
+  );
+
   context.subscriptions.push(
     vscode.commands.registerCommand("selectTarget", () => {
-      targetSelector.showTargetSelectorMenu(statusBarManager, taskProvider, treeProvider);
+      targetSelector.showTargetSelectorMenu();
     })
   );
 
@@ -56,7 +69,13 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("executeTask", (taskName: string) => {
-      executeTaskByName(taskProvider, taskName);
+      taskProvider.executeTaskByName(taskName);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("toggleAllTargets", (taskName: string) => {
+      targetSelector.toggleAllTargetSelection();
     })
   );
 
@@ -145,11 +164,4 @@ export async function deactivate() {
   console.log(`Ledger: deactivating extension`);
   // DO STUFF
   console.log(`Ledger: extension deactivated`);
-}
-
-function executeTaskByName(taskProvider: TaskProvider, taskName: string) {
-  const task = taskProvider.getTaskByName(taskName);
-  if (task) {
-    vscode.tasks.executeTask(task);
-  }
 }

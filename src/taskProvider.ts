@@ -17,13 +17,17 @@ type ExecBuilder = () => string;
 type TaskTargetLanguage = AppLanguage | "Both";
 type BuilderForLanguage = Partial<Record<TaskTargetLanguage, ExecBuilder>>;
 
+type TaskState = "enabled" | "disabled" | "unavailable";
+type BehaviorWhenAllTargetsSelected = "enable" | "disable" | "executeForEveryTarget";
+
 export interface TaskSpec {
   group?: string;
   name: string;
   toolTip?: string;
   builders: BuilderForLanguage;
   dependsOn?: ExecBuilder;
-  enabled: boolean;
+  state: TaskState;
+  allSelectedBehavior: BehaviorWhenAllTargetsSelected;
 }
 
 export class TaskProvider implements vscode.TaskProvider {
@@ -50,14 +54,16 @@ export class TaskProvider implements vscode.TaskProvider {
       name: "Update Container",
       builders: { ["Both"]: this.runDevToolsImageExec },
       toolTip: "Update docker container (pull image and restart container)",
-      enabled: true,
+      state: "enabled",
+      allSelectedBehavior: "enable",
     },
     {
       group: "Docker Container",
       name: "Open terminal",
       builders: { ["Both"]: this.openTerminalExec },
       toolTip: "Open terminal in container",
-      enabled: true,
+      state: "enabled",
+      allSelectedBehavior: "enable",
     },
     {
       group: "Build",
@@ -65,7 +71,8 @@ export class TaskProvider implements vscode.TaskProvider {
       builders: { ["C"]: this.cBuildExec, ["Rust"]: this.rustBuildExec },
       toolTip: "Build app in release mode",
       dependsOn: this.appSubmodulesInitExec,
-      enabled: true,
+      state: "enabled",
+      allSelectedBehavior: "executeForEveryTarget",
     },
     {
       group: "Build",
@@ -73,28 +80,32 @@ export class TaskProvider implements vscode.TaskProvider {
       builders: { ["C"]: this.buildDebugExec },
       toolTip: "Build app in debug mode",
       dependsOn: this.appSubmodulesInitExec,
-      enabled: true,
+      state: "enabled",
+      allSelectedBehavior: "executeForEveryTarget",
     },
     {
       group: "Build",
       name: "Clean build files",
       builders: { ["C"]: this.cCleanExec, ["Rust"]: this.rustCleanExec },
       toolTip: "Clean app build files",
-      enabled: true,
+      state: "enabled",
+      allSelectedBehavior: "enable",
     },
     {
       group: "Functional Tests",
       name: "Run with emulator",
       builders: { ["Both"]: this.runInSpeculosExec },
       toolTip: "Run app with Speculos emulator",
-      enabled: true,
+      state: "enabled",
+      allSelectedBehavior: "disable",
     },
     {
       group: "Functional Tests",
       name: "Kill emulator",
       builders: { ["Both"]: this.killSpeculosExec },
       toolTip: "Kill Speculos emulator instance",
-      enabled: true,
+      state: "enabled",
+      allSelectedBehavior: "disable",
     },
     {
       group: "Functional Tests",
@@ -102,7 +113,8 @@ export class TaskProvider implements vscode.TaskProvider {
       builders: { ["Both"]: this.functionalTestsExec },
       dependsOn: this.functionalTestsRequirementsExec,
       toolTip: "Run Python functional tests (with Qt display disabled)",
-      enabled: true,
+      state: "enabled",
+      allSelectedBehavior: "executeForEveryTarget",
     },
     {
       group: "Functional Tests",
@@ -110,7 +122,8 @@ export class TaskProvider implements vscode.TaskProvider {
       builders: { ["Both"]: this.functionalTestsDisplayExec },
       dependsOn: this.functionalTestsRequirementsExec,
       toolTip: "Run Python functional tests (with Qt display enabled)",
-      enabled: true,
+      state: "enabled",
+      allSelectedBehavior: "executeForEveryTarget",
     },
     {
       group: "Functional Tests",
@@ -118,7 +131,8 @@ export class TaskProvider implements vscode.TaskProvider {
       builders: { ["Both"]: this.functionalTestsDisplayOnDeviceExec },
       dependsOn: this.functionalTestsRequirementsExec,
       toolTip: "Run Python functional tests (with Qt display enabled) on real device",
-      enabled: true,
+      state: "enabled",
+      allSelectedBehavior: "disable",
     },
     {
       group: "Functional Tests",
@@ -127,7 +141,8 @@ export class TaskProvider implements vscode.TaskProvider {
       dependsOn: this.functionalTestsRequirementsExec,
       toolTip:
         "Run Python functional tests with '--golden_run' option to generate golden snapshots. They are used during tests runs to check what should be displayed on the device screen",
-      enabled: true,
+      state: "enabled",
+      allSelectedBehavior: "executeForEveryTarget",
     },
     {
       group: "Device Operations",
@@ -135,7 +150,8 @@ export class TaskProvider implements vscode.TaskProvider {
       builders: { ["Both"]: this.appLoadExec },
       dependsOn: this.appLoadRequirementsExec,
       toolTip: "Load app on a physical device",
-      enabled: true,
+      state: "enabled",
+      allSelectedBehavior: "disable",
     },
     {
       group: "Device Operations",
@@ -143,7 +159,8 @@ export class TaskProvider implements vscode.TaskProvider {
       builders: { ["Both"]: this.appDeleteExec },
       dependsOn: this.appLoadRequirementsExec,
       toolTip: "Delete app from a physical device",
-      enabled: true,
+      state: "enabled",
+      allSelectedBehavior: "disable",
     },
     {
       group: "Device Operations",
@@ -151,7 +168,8 @@ export class TaskProvider implements vscode.TaskProvider {
       builders: { ["Both"]: this.deviceOnboardingExec },
       dependsOn: this.appLoadRequirementsExec,
       toolTip: "Onboard a physical device with a seed and PIN code",
-      enabled: true,
+      state: "enabled",
+      allSelectedBehavior: "disable",
     },
   ];
   private keyvarEnv: string = process.env.SCP_PRIVKEY as string;
@@ -469,15 +487,32 @@ export class TaskProvider implements vscode.TaskProvider {
   }
 
   private pushAllTasks(): void {
+    let defineExec = (item: TaskSpec) => {
+      let dependExec = "";
+      if (item.dependsOn) {
+        dependExec = item.dependsOn.call(this) + ";";
+      }
+      const languageExec = item.builders[this.appLanguage]?.call(this) || item.builders["Both"]?.call(this) || "";
+      const exec = dependExec + languageExec;
+      return exec;
+    };
+
     this.taskSpecs.forEach((item) => {
-      if (this.currentApp && item.enabled) {
+      if (this.currentApp && item.state === "enabled") {
         console.log("Pushing task: " + item.name + " for app: " + this.currentApp.appName);
-        let dependExec = "";
-        if (item.dependsOn) {
-          dependExec = item.dependsOn.call(this) + ";";
+
+        let exec = defineExec(item);
+        // If the selected target is all and the task behavior is to be executed for all targets,
+        // define the exec for all targets of the app
+        if (this.tgtSelector.getSelectedTarget() === "All" && item.allSelectedBehavior === "executeForEveryTarget") {
+          exec = "";
+          this.tgtSelector.getTargetsArray().forEach((target) => {
+            this.tgtSelector.setSelectedTarget(target);
+            exec += defineExec(item) + " ; ";
+          });
+          this.tgtSelector.setSelectedTarget("All");
         }
-        const languageExec = item.builders[this.appLanguage]?.call(this) || item.builders["Both"]?.call(this) || "";
-        const exec = dependExec + languageExec;
+
         const task = new vscode.Task(
           { type: taskType, task: item.name },
           this.currentApp.appFolder,
@@ -497,9 +532,9 @@ export class TaskProvider implements vscode.TaskProvider {
       // builder for all languages ("Both").
       this.taskSpecs.forEach((item) => {
         if (item.builders[this.appLanguage] || item.builders["Both"]) {
-          item.enabled = true;
+          item.state = "enabled";
         } else {
-          item.enabled = false;
+          item.state = "unavailable";
         }
       });
 
@@ -507,7 +542,16 @@ export class TaskProvider implements vscode.TaskProvider {
       if (this.currentApp.functionalTestsDir === undefined) {
         this.taskSpecs.forEach((item) => {
           if (item.group === "Functional Tests" && !item.name.includes("Speculos")) {
-            item.enabled = false;
+            item.state = "unavailable";
+          }
+        });
+      }
+
+      // If selected target is all and the task behavior is to be disabled when all targets are selected, disable the task
+      if (this.tgtSelector.getSelectedTarget() === "All") {
+        this.taskSpecs.forEach((item) => {
+          if (item.allSelectedBehavior === "disable") {
+            item.state = "disabled";
           }
         });
       }

@@ -93,7 +93,7 @@
         "tooltip": "Select the app you want to build."
       },
       {
-        "command": "additionalDepsPerApp",
+        "command": "additionalReqsPerApp",
         "title": "Add test dependencies",
         "category": "Ledger",
         "tooltip": "Add additional test dependencies to install for selected app."
@@ -117,13 +117,13 @@
           "default": "glory promote mansion idle axis finger extra february uncover one trip resource lawn turtle enact monster seven myth punch hobby comfort wild raise skin",
           "markdownDescription": "Device quick onboarding default 24-word Seed phrase."
         },
-        "ledgerDevTools.additionalDepsPerApp": {
+        "ledgerDevTools.additionalReqsPerApp": {
           "type": "object",
           "default": {
             "app-boilerplate": "apk add gcc musl-dev python3-dev"
           },
           "scope": "application",
-          "description": "Additional dependencies to install for each app."
+          "description": "Additional functional tests prerequisites to install in the current app's docker container."
         },
         "ledgerDevTools.keepContainerTerminal": {
           "type": "boolean",

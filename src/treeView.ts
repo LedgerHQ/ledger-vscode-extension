@@ -113,32 +113,30 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     // Check functional tests root item exists
     let testsRootItem = this.data.find((item) => item.label?.toString().startsWith("Functional"));
     // Check if dependencies item already exists
-    let addTestDependenciesItem = testsRootItem?.children?.find((item) =>
-      item.label?.toString().startsWith("Add test dependencies")
-    );
-    if (testsRootItem && !addTestDependenciesItem) {
+    let addTestReqsItem = testsRootItem?.children?.find((item) => item.label?.toString().startsWith("Add test prerequisites"));
+    if (testsRootItem && !addTestReqsItem) {
       // Add item to add new test requirements
-      let addTestDependenciesItem = new TreeItem("Add test dependencies");
-      addTestDependenciesItem.tooltip =
-        "Add Python test dependencies for current app (for instance 'apk add python3-protobuf'). This will be saved in your global configuration.";
-      addTestDependenciesItem.command = {
+      let addTestReqsItem = new TreeItem("Add test prerequisites");
+      addTestReqsItem.tooltip =
+        "Add Python tests prerequisites for current app (for instance 'apk add python3-protobuf'). This will be saved in your global configuration.";
+      addTestReqsItem.command = {
         // Command that let's user input string saved for each app present in workspace
-        command: "addTestsDependencies",
-        title: "Add test dependencies",
+        command: "addTestsPrerequisites",
+        title: "Add test prerequisites",
         arguments: [],
       };
 
-      addTestDependenciesItem.iconPath = new vscode.ThemeIcon("circle-filled");
-      addTestDependenciesItem.resourceUri = vscode.Uri.from({
+      addTestReqsItem.iconPath = new vscode.ThemeIcon("circle-filled");
+      addTestReqsItem.resourceUri = vscode.Uri.from({
         scheme: "devtools-treeview",
         authority: "task",
         path: "/" + testsRootItem.label + "/enabled",
       });
 
-      testsRootItem.addChild(addTestDependenciesItem);
-    } else if (testsRootItem && addTestDependenciesItem) {
-      // Move addTestDependenciesItem item to the end of the list
-      testsRootItem.children?.splice(testsRootItem.children?.indexOf(addTestDependenciesItem), 1);
+      testsRootItem.addChild(addTestReqsItem);
+    } else if (testsRootItem && addTestReqsItem) {
+      // Move addTestReqsItem item to the end of the list
+      testsRootItem.children?.splice(testsRootItem.children?.indexOf(addTestReqsItem), 1);
     }
   }
 

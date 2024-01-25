@@ -6,7 +6,13 @@ import { TreeDataProvider } from "./treeView";
 import { TargetSelector } from "./targetSelector";
 import { StatusBarManager } from "./statusBar";
 import { ContainerManager, DevImageStatus } from "./containerManager";
-import { findAppsInWorkspace, getSelectedApp, setSelectedApp, showAppSelectorMenu, setAppTestsDependencies } from "./appSelector";
+import {
+  findAppsInWorkspace,
+  getSelectedApp,
+  setSelectedApp,
+  showAppSelectorMenu,
+  setAppTestsPrerequisites,
+} from "./appSelector";
 
 let outputChannel: vscode.OutputChannel;
 const appDetectionFiles = ["Cargo.toml", "ledger_app.toml", "Makefile"];
@@ -62,8 +68,8 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("addTestsDependencies", () => {
-      setAppTestsDependencies(taskProvider);
+    vscode.commands.registerCommand("addTestsPrerequisites", () => {
+      setAppTestsPrerequisites(taskProvider);
     })
   );
 

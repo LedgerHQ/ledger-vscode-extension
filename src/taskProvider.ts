@@ -37,7 +37,7 @@ export class TaskProvider implements vscode.TaskProvider {
   private onboardPin: string;
   private onboardSeed: string;
   private scpConfig: boolean;
-  private additionalDeps?: string;
+  private additionalReqs?: string;
   private buildDir: string;
   private workspacePath: string;
   private containerName: string;
@@ -188,9 +188,9 @@ export class TaskProvider implements vscode.TaskProvider {
     this.onboardPin = conf.get<string>("onboardingPin") || "";
     this.onboardSeed = conf.get<string>("onboardingSeed") || "";
     this.scpConfig = conf.get<boolean>("userScpPrivateKey") || false;
-    const allDeps = conf.get<Record<string, string>>("additionalDepsPerApp");
-    if (this.currentApp && allDeps && allDeps[this.currentApp.appFolderName]) {
-      this.additionalDeps = allDeps[this.currentApp.appFolderName];
+    const configReqs = conf.get<Record<string, string>>("additionalReqsPerApp");
+    if (this.currentApp && configReqs && configReqs[this.currentApp.appFolderName]) {
+      this.additionalReqs = configReqs[this.currentApp.appFolderName];
     }
     this.generateTasks();
   }
@@ -209,11 +209,11 @@ export class TaskProvider implements vscode.TaskProvider {
     this.scpConfig = conf.get<boolean>("userScpPrivateKey") || false;
     this.currentApp = getSelectedApp();
     if (this.currentApp) {
-      const allDeps = conf.get<Record<string, string>>("additionalDepsPerApp");
-      if (allDeps && allDeps[this.currentApp.appFolderName]) {
-        this.additionalDeps = allDeps[this.currentApp.appFolderName];
+      const configReqs = conf.get<Record<string, string>>("additionalReqsPerApp");
+      if (configReqs && configReqs[this.currentApp.appFolderName]) {
+        this.additionalReqs = configReqs[this.currentApp.appFolderName];
       } else {
-        this.additionalDeps = undefined;
+        this.additionalReqs = undefined;
       }
       this.functionalTestsDir = this.currentApp.functionalTestsDir;
       this.appName = this.currentApp.appName;
@@ -475,10 +475,10 @@ export class TaskProvider implements vscode.TaskProvider {
   }
 
   private functionalTestsRequirementsExec(): string {
-    // Use additionalDepsPerApp configuration to install additional dependencies for current app.
+    // Use additionalReqsPerApp configuration to install additional dependencies for current app.
     let addDepsExec = "";
-    if (this.additionalDeps) {
-      addDepsExec = `${this.additionalDeps} &&`;
+    if (this.additionalReqs) {
+      addDepsExec = `${this.additionalReqs} &&`;
       console.log(`Ledger: Installing additional dependencies : ${addDepsExec}`);
     }
     const reqFilePath = this.functionalTestsDir + "/requirements.txt";

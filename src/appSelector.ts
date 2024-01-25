@@ -46,8 +46,7 @@ export interface App {
   compatibleDevices: LedgerDevice[];
   // If the app is a Rust app, the package name is parsed from the Cargo.toml
   packageName?: string;
-  testUseCases?: TestUseCase[];
-  buildUseCases?: BuildUseCase[];
+  testsUseCases?: TestUseCase[];
 }
 
 let appList: App[] = [];
@@ -94,6 +93,7 @@ export function findAppInFolder(folder: vscode.WorkspaceFolder): App | undefined
   let testsDir = undefined;
   let packageName = undefined;
   let compatibleDevices: LedgerDevice[] = ["Nano S", "Nano S Plus", "Nano X", "Stax"];
+  let testsUseCases = undefined;
 
   let found = true;
 
@@ -108,7 +108,7 @@ export function findAppInFolder(folder: vscode.WorkspaceFolder): App | undefined
       case "manifest": {
         console.log("Found manifest in " + appFolderName);
         let tomlContent = toml.parse(fileContent);
-        [appLanguage, buildDirPath, compatibleDevices, testsDir] = parseManifest(tomlContent);
+        [appLanguage, buildDirPath, compatibleDevices, testsDir, testsUseCases] = parseManifest(tomlContent);
         [appName, packageName] = findAdditionalInfo(appLanguage, buildDirPath, appFolder);
         break;
       }
@@ -140,6 +140,7 @@ export function findAppInFolder(folder: vscode.WorkspaceFolder): App | undefined
       err = error;
     }
     pushError("App detection failed in " + appFolder.name + ". " + err.message);
+    found = false;
   }
 
   // Add the app to the list
@@ -156,6 +157,7 @@ export function findAppInFolder(folder: vscode.WorkspaceFolder): App | undefined
       functionalTestsDir: testsDir,
       compatibleDevices: compatibleDevices,
       packageName: packageName,
+      testsUseCases: testsUseCases,
     };
   }
 
@@ -340,16 +342,42 @@ function getProperty(obj: any, objectPath: string): string | undefined {
 }
 
 // Get a nested property from a toml object, throw an error if not found
-function getPropertyOrThrow(obj: any, path: string): string {
+function getPropertyOrThrow(obj: any, path: string): string | any {
   const value = getProperty(obj, path);
   if (value === undefined) {
-    throw new Error(`Wrong manifest format. Mandatory property "${path}" not found`);
+    throw new Error(`Wrong manifest format. Mandatory property "${path}" not found in "${JSON.stringify(obj)}"`);
   }
   return value;
 }
 
+function parseTestsUsesCasesFromManifest(tomlContent: any): TestUseCase[] | undefined {
+  let dependenciesSection = getProperty(tomlContent, "tests.dependencies");
+  let testUseCases: TestUseCase[] | undefined = undefined;
+  if (dependenciesSection) {
+    testUseCases = [];
+    const useCases = Object.keys(dependenciesSection);
+    for (let useCase of useCases) {
+      let testUseCase: TestUseCase = {
+        name: useCase,
+        dependencies: [],
+      };
+      let useCaseDependencies = getPropertyOrThrow(dependenciesSection, useCase);
+      useCaseDependencies.forEach((dependency: any) => {
+        testUseCase.dependencies.push({
+          gitRepoUrl: getPropertyOrThrow(dependency, "url"),
+          gitRepoRef: getPropertyOrThrow(dependency, "ref"),
+          useCase: getPropertyOrThrow(dependency, "use_case"),
+        });
+      });
+      testUseCases.push(testUseCase);
+      console.log(`Found test use case ${useCase} with dependencies ${JSON.stringify(testUseCase.dependencies)}`);
+    }
+  }
+  return testUseCases;
+}
+
 // Parse manifest. Returns app language, build dir path, app name, devices, package name (for rust app), functional tests dir path (if any)
-function parseManifest(tomlContent: any): [AppLanguage, string, LedgerDevice[], string?] {
+function parseManifest(tomlContent: any): [AppLanguage, string, LedgerDevice[], string?, TestUseCase[]?] {
   // Parse app language
   const appLanguage = isValidLanguage(getPropertyOrThrow(tomlContent, "app.sdk"));
 
@@ -362,7 +390,10 @@ function parseManifest(tomlContent: any): [AppLanguage, string, LedgerDevice[], 
   // Check if pytest functional tests are present
   let functionalTestsDir = getProperty(tomlContent, "tests.pytest_directory");
 
-  return [appLanguage, buildDirPath, compatibleDevices, functionalTestsDir];
+  // Parse test dependencies, if any.
+  let testUseCases = parseTestsUsesCasesFromManifest(tomlContent);
+
+  return [appLanguage, buildDirPath, compatibleDevices, functionalTestsDir, testUseCases];
 }
 
 // Find app name and package name from build dir path, in Makefile for C apps or Cargo.toml for Rust apps

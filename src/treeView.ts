@@ -180,7 +180,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
       let selectTargetItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select target"));
       let selectAppItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select app"));
       if (selectAppItem) {
-        selectAppItem.label = `Select app [${currentApp.appFolderName}]`;
+        selectAppItem.label = `Select app [${currentApp.folderName}]`;
       }
       if (selectTargetItem) {
         selectTargetItem.label = `Select target [${this.targetSelector.getSelectedTarget()}]`;

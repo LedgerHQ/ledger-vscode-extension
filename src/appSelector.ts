@@ -35,9 +35,9 @@ export interface BuildUseCase {
 }
 
 export interface App {
-  appName: string;
-  appFolderName: string;
-  appFolder: vscode.WorkspaceFolder;
+  name: string;
+  folderName: string;
+  folder: vscode.WorkspaceFolder;
   containerName: string;
   buildDirPath: string;
   language: AppLanguage;
@@ -148,9 +148,9 @@ export function findAppInFolder(folder: vscode.WorkspaceFolder): App | undefined
     // Log all found fields
     console.log(`Found app ${appName} in folder ${appFolderName} with buildDirPath ${buildDirPath} and language ${appLanguage}`);
     app = {
-      appName: appName,
-      appFolderName: appFolderName,
-      appFolder: appFolder,
+      name: appName,
+      folderName: appFolderName,
+      folder: appFolder,
       containerName: containerName,
       buildDirPath: buildDirPath,
       language: appLanguage,
@@ -186,11 +186,11 @@ export async function showAppSelectorMenu(
   containerManager: ContainerManager,
   targetSelector: TargetSelector
 ) {
-  const appFolderNames = appList.map((app) => app.appFolderName);
+  const appFolderNames = appList.map((app) => app.folderName);
   const result = await vscode.window.showQuickPick(appFolderNames, {
     placeHolder: "Please select an app",
     onDidSelectItem: (item) => {
-      selectedApp = appList.find((app) => app.appFolderName === item);
+      selectedApp = appList.find((app) => app.folderName === item);
     },
   });
   taskProvider.generateTasks();
@@ -218,8 +218,8 @@ export function setAppTestsPrerequisites(taskProvider: TaskProvider) {
   let currentValue = "";
   const additionalReqsPerApp = conf.get<Record<string, string>>("additionalReqsPerApp");
   if (currentApp) {
-    if (additionalReqsPerApp && additionalReqsPerApp[currentApp.appFolderName]) {
-      currentValue = additionalReqsPerApp[currentApp.appFolderName];
+    if (additionalReqsPerApp && additionalReqsPerApp[currentApp.folderName]) {
+      currentValue = additionalReqsPerApp[currentApp.folderName];
     }
     // Let user input string in a popup and save it in the additionalReqsPerApp configuration
     vscode.window
@@ -233,19 +233,19 @@ export function setAppTestsPrerequisites(taskProvider: TaskProvider) {
           const conf = vscode.workspace.getConfiguration("ledgerDevTools");
           const additionalReqsPerApp = conf.get<Record<string, string>>("additionalReqsPerApp");
           // Account for the fact that maybe the app is not yet in the configuration
-          if (additionalReqsPerApp && additionalReqsPerApp[currentApp.appFolderName]) {
-            additionalReqsPerApp[currentApp.appFolderName] = value;
+          if (additionalReqsPerApp && additionalReqsPerApp[currentApp.folderName]) {
+            additionalReqsPerApp[currentApp.folderName] = value;
             conf.update("additionalReqsPerApp", additionalReqsPerApp, vscode.ConfigurationTarget.Global);
             console.log(
               `Ledger: additionalReqsPerApp configuration found (current value: ${additionalReqsPerApp[
-                currentApp.appFolderName
-              ].toString()}), updating it with ${currentApp.appFolderName}:${value}`
+                currentApp.folderName
+              ].toString()}), updating it with ${currentApp.folderName}:${value}`
             );
           } else {
             console.log(
-              `Ledger: no additionalReqsPerApp configuration found, creating it with ${currentApp.appFolderName}:${value}`
+              `Ledger: no additionalReqsPerApp configuration found, creating it with ${currentApp.folderName}:${value}`
             );
-            conf.update("additionalReqsPerApp", { [currentApp.appFolderName]: value }, vscode.ConfigurationTarget.Global);
+            conf.update("additionalReqsPerApp", { [currentApp.folderName]: value }, vscode.ConfigurationTarget.Global);
           }
         }
       });

@@ -189,8 +189,8 @@ export class TaskProvider implements vscode.TaskProvider {
     this.onboardSeed = conf.get<string>("onboardingSeed") || "";
     this.scpConfig = conf.get<boolean>("userScpPrivateKey") || false;
     const configReqs = conf.get<Record<string, string>>("additionalReqsPerApp");
-    if (this.currentApp && configReqs && configReqs[this.currentApp.appFolderName]) {
-      this.additionalReqs = configReqs[this.currentApp.appFolderName];
+    if (this.currentApp && configReqs && configReqs[this.currentApp.folderName]) {
+      this.additionalReqs = configReqs[this.currentApp.folderName];
     }
     this.generateTasks();
   }
@@ -210,18 +210,18 @@ export class TaskProvider implements vscode.TaskProvider {
     this.currentApp = getSelectedApp();
     if (this.currentApp) {
       const configReqs = conf.get<Record<string, string>>("additionalReqsPerApp");
-      if (configReqs && configReqs[this.currentApp.appFolderName]) {
-        this.additionalReqs = configReqs[this.currentApp.appFolderName];
+      if (configReqs && configReqs[this.currentApp.folderName]) {
+        this.additionalReqs = configReqs[this.currentApp.folderName];
       } else {
         this.additionalReqs = undefined;
       }
       this.functionalTestsDir = this.currentApp.functionalTestsDir;
-      this.appName = this.currentApp.appName;
+      this.appName = this.currentApp.name;
       this.appLanguage = this.currentApp.language;
       this.containerName = this.currentApp.containerName;
-      this.appFolder = this.currentApp.appFolder;
+      this.appFolder = this.currentApp.folder;
       this.buildDir = this.currentApp.buildDirPath;
-      this.workspacePath = this.currentApp.appFolder.uri.path;
+      this.workspacePath = this.currentApp.folder.uri.path;
       this.packageName = this.currentApp.packageName;
       this.checkDisabledTasks();
       this.pushAllTasks();
@@ -499,7 +499,7 @@ export class TaskProvider implements vscode.TaskProvider {
 
     this.taskSpecs.forEach((item) => {
       if (this.currentApp && item.state === "enabled") {
-        console.log("Pushing task: " + item.name + " for app: " + this.currentApp.appName);
+        console.log("Pushing task: " + item.name + " for app: " + this.currentApp.name);
 
         let exec = defineExec(item);
         // If the selected target is all and the task behavior is to be executed for all targets,
@@ -515,7 +515,7 @@ export class TaskProvider implements vscode.TaskProvider {
 
         const task = new vscode.Task(
           { type: taskType, task: item.name },
-          this.currentApp.appFolder,
+          this.currentApp.folder,
           item.name,
           taskType,
           new vscode.ShellExecution(exec)

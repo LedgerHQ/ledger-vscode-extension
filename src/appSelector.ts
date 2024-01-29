@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import * as fg from "fast-glob";
-import * as toml from "toml";
+import * as toml from "@ltd/j-toml";
 import { TreeDataProvider } from "./treeView";
 import { TaskProvider } from "./taskProvider";
 import { ContainerManager } from "./containerManager";

@@ -21,14 +21,19 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
-    "menus":{
-        "view/item/context": [
-            {
-              "command": "toggleAllTargets",
-              "when": "view == mainView && viewItem == selectTarget && ledgerDevTools.showToggleAllTargets",
-              "group": "inline"
-            }
-        ]
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "toggleAllTargets",
+          "when": "view == mainView && viewItem == selectTarget && ledgerDevTools.showToggleAllTargets",
+          "group": "inline"
+        },
+        {
+          "command": "selectTestUseCase",
+          "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showSelectTestUseCase",
+          "group": "inline"
+        }
+      ]
     },
     "taskDefinitions": [
       {
@@ -85,6 +90,14 @@
         "tooltip": "Toggle selection of all compatible targets of the current app, for eligible tasks.",
         "icon": "$(check-all)",
         "enablement": "ledgerDevTools.showToggleAllTargets"
+      },
+      {
+        "command": "selectTestUseCase",
+        "title": "Select test use case",
+        "category": "Ledger",
+        "tooltip": "Select the test use case you want to run, when manifest contains multiple test use cases.",
+        "icon": "$(selection)",
+        "enablement": "ledgerDevTools.showSelectTestUseCase"
       },
       {
         "command": "showAppList",

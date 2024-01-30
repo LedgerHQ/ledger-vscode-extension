@@ -14,7 +14,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     this.data = [];
     this.targetSelector = targetSelector;
     this.addDefaultTreeItems();
-    this.updateAppAndTargetLabels();
+    this.updateDynamicLabels();
     this.fileDecorationProvider = new ViewFileDecorationProvider(this);
     vscode.window.registerFileDecorationProvider(this.fileDecorationProvider);
   }
@@ -62,6 +62,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
           rootItem.iconPath = new vscode.ThemeIcon("tools");
         }
         if (rootItem.label?.toString().startsWith("Functional")) {
+          rootItem.contextValue = "functionalTests";
           rootItem.iconPath = new vscode.ThemeIcon("test-view-icon");
         }
         if (rootItem.label?.toString().startsWith("Device")) {
@@ -96,7 +97,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
         }
       }
     });
-    this.updateAppAndTargetLabels();
+    this.updateDynamicLabels();
   }
 
   private _onDidChangeTreeData: vscode.EventEmitter<TreeItem | undefined | null | void> = new vscode.EventEmitter<
@@ -174,16 +175,22 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     this.refresh();
   }
 
-  public updateAppAndTargetLabels(): void {
+  public updateDynamicLabels(): void {
     const currentApp = getSelectedApp();
     if (currentApp) {
       let selectTargetItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select target"));
       let selectAppItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select app"));
+      let functionalTestsItem = this.data.find((item) => item.label && item.label.toString().startsWith("Functional"));
       if (selectAppItem) {
         selectAppItem.label = `Select app [${currentApp.folderName}]`;
       }
       if (selectTargetItem) {
         selectTargetItem.label = `Select target [${this.targetSelector.getSelectedTarget()}]`;
+      }
+      if (functionalTestsItem && currentApp.selectedTestUseCase) {
+        functionalTestsItem.label = `Functional Tests [${currentApp.selectedTestUseCase.name}]`;
+      } else if (functionalTestsItem) {
+        functionalTestsItem.label = `Functional Tests`;
       }
     } else {
       // Remove all tree items. The welcome view will be displayed instead.

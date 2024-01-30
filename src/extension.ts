@@ -12,6 +12,9 @@ import {
   setSelectedApp,
   showAppSelectorMenu,
   setAppTestsPrerequisites,
+  onAppSelectedEvent,
+  showTestUseCaseSelectorMenu,
+  onTestUseCaseSelected,
 } from "./appSelector";
 
 let outputChannel: vscode.OutputChannel;
@@ -56,8 +59,27 @@ export function activate(context: vscode.ExtensionContext) {
     targetSelector.onTargetSelectedEvent((data) => {
       taskProvider.generateTasks();
       statusBarManager.updateTargetItem(data);
-      treeProvider.updateAppAndTargetLabels();
+      treeProvider.updateDynamicLabels();
       containerManager.manageContainer();
+    })
+  );
+
+  // Event listener for app selection.
+  // This event is fired when the user selects an app in the appSelector menu
+  context.subscriptions.push(
+    onAppSelectedEvent(() => {
+      taskProvider.generateTasks();
+      containerManager.manageContainer();
+      treeProvider.updateDynamicLabels();
+      targetSelector.updateTargetsInfos();
+    })
+  );
+
+  // Event listener for test use case selection.
+  // This event is fired when the user selects a test use case in the testUseCaseSelector menu
+  context.subscriptions.push(
+    onTestUseCaseSelected(() => {
+      treeProvider.updateDynamicLabels();
     })
   );
 
@@ -80,14 +102,20 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("toggleAllTargets", (taskName: string) => {
+    vscode.commands.registerCommand("toggleAllTargets", () => {
       targetSelector.toggleAllTargetSelection();
     })
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand("selectTestUseCase", () => {
+      showTestUseCaseSelectorMenu(targetSelector);
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand("showAppList", () => {
-      showAppSelectorMenu(treeProvider, taskProvider, containerManager, targetSelector);
+      showAppSelectorMenu(targetSelector);
     })
   );
 
@@ -121,7 +149,7 @@ export function activate(context: vscode.ExtensionContext) {
         setSelectedApp(appList[0]);
       }
       treeProvider.addDefaultTreeItems();
-      treeProvider.updateAppAndTargetLabels();
+      treeProvider.updateDynamicLabels();
       targetSelector.updateTargetsInfos();
       taskProvider.provideTasks();
       containerManager.manageContainer();
@@ -149,7 +177,7 @@ export function activate(context: vscode.ExtensionContext) {
       );
       taskProvider.generateTasks();
       statusBarManager.updateTargetItem(targetSelector.getSelectedTarget());
-      treeProvider.updateAppAndTargetLabels();
+      treeProvider.updateDynamicLabels();
     }
   });
 

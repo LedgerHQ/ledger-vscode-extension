@@ -476,13 +476,13 @@ export class TaskProvider implements vscode.TaskProvider {
 
   private functionalTestsRequirementsExec(): string {
     // Use additionalReqsPerApp configuration to install additional dependencies for current app.
-    let addDepsExec = "";
+    let addReqsExec = "";
     if (this.additionalReqs) {
-      addDepsExec = `${this.additionalReqs} &&`;
-      console.log(`Ledger: Installing additional dependencies : ${addDepsExec}`);
+      addReqsExec = `${this.additionalReqs} &&`;
+      console.log(`Ledger: Installing additional dependencies : ${addReqsExec}`);
     }
     const reqFilePath = this.functionalTestsDir + "/requirements.txt";
-    const exec = `docker exec -it -u 0  ${this.containerName} bash -c '${addDepsExec} [ -f ${reqFilePath} ] && pip install -r ${reqFilePath}'`;
+    const exec = `docker exec -it -u 0  ${this.containerName} bash -c '${addReqsExec} [ -f ${reqFilePath} ] && pip install -r ${reqFilePath}'`;
     return exec;
   }
 

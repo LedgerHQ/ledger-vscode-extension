@@ -41,7 +41,7 @@ export class TaskProvider implements vscode.TaskProvider {
   private buildDir: string;
   private workspacePath: string;
   private containerName: string;
-  private appFolder?: vscode.WorkspaceFolder;
+  private appFolderUri?: vscode.Uri;
   private appName: string;
   private appLanguage: AppLanguage;
   private functionalTestsDir?: string;
@@ -219,9 +219,9 @@ export class TaskProvider implements vscode.TaskProvider {
       this.appName = this.currentApp.name;
       this.appLanguage = this.currentApp.language;
       this.containerName = this.currentApp.containerName;
-      this.appFolder = this.currentApp.folder;
+      this.appFolderUri = this.currentApp.folderUri;
       this.buildDir = this.currentApp.buildDirPath;
-      this.workspacePath = this.currentApp.folder.uri.path;
+      this.workspacePath = this.currentApp.folderUri.path;
       this.packageName = this.currentApp.packageName;
       this.checkDisabledTasks();
       this.pushAllTasks();
@@ -364,7 +364,7 @@ export class TaskProvider implements vscode.TaskProvider {
   private appLoadExec(): string {
     let exec = "";
     let keyconfig = "";
-    const hostBuildDirPath = path.join(this.appFolder!.uri.fsPath, this.buildDir);
+    const hostBuildDirPath = path.join(this.appFolderUri!.fsPath, this.buildDir);
     const tgtBuildDir = this.tgtSelector.getTargetBuildDirName();
 
     if (this.scpConfig === true) {
@@ -515,7 +515,7 @@ export class TaskProvider implements vscode.TaskProvider {
 
         const task = new vscode.Task(
           { type: taskType, task: item.name },
-          this.currentApp.folder,
+          vscode.TaskScope.Workspace,
           item.name,
           taskType,
           new vscode.ShellExecution(exec)

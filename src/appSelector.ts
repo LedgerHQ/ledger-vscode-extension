@@ -37,7 +37,7 @@ export interface BuildUseCase {
 export interface App {
   name: string;
   folderName: string;
-  folder: vscode.WorkspaceFolder;
+  folderUri: vscode.Uri;
   containerName: string;
   buildDirPath: string;
   language: AppLanguage;
@@ -81,11 +81,11 @@ function detectAppType(appFolder: vscode.WorkspaceFolder): [AppType?, string?] {
   return appTypeAndFile;
 }
 
-export function findAppInFolder(folder: vscode.WorkspaceFolder): App | undefined {
+export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
   let app: App | undefined = undefined;
 
-  const appFolder = folder;
-  const appFolderName = folder.name;
+  const appFolderUri = folderUri;
+  const appFolderName = path.basename(folderUri.toString());
   const containerName = `${appFolderName}-container`;
 
   let appName = "unknown";
@@ -97,10 +97,10 @@ export function findAppInFolder(folder: vscode.WorkspaceFolder): App | undefined
 
   let found = true;
 
-  let [appType, appFile] = detectAppType(appFolder);
+  let [appType, appFile] = detectAppType(folderUri);
   const fileContent = fs.readFileSync(appFile || "", "utf-8");
 
-  let buildDirPath = path.relative(appFolder.uri.fsPath, path.dirname(appFile || ""));
+  let buildDirPath = path.relative(folderUri.fsPath, path.dirname(appFile || ""));
   buildDirPath = buildDirPath === "" ? "./" : buildDirPath;
 
   try {
@@ -109,14 +109,14 @@ export function findAppInFolder(folder: vscode.WorkspaceFolder): App | undefined
         console.log("Found manifest in " + appFolderName);
         let tomlContent = toml.parse(fileContent);
         [appLanguage, buildDirPath, compatibleDevices, testsDir, testsUseCases] = parseManifest(tomlContent);
-        [appName, packageName] = findAdditionalInfo(appLanguage, buildDirPath, appFolder);
+        [appName, packageName] = findAdditionalInfo(appLanguage, buildDirPath, appFolderUri);
         break;
       }
       case "legacyManifest": {
         console.log("Found deprecated rust manifest in " + appFolderName);
         let tomlContent = toml.parse(fileContent);
-        [buildDirPath, appName, packageName] = parseLegacyRustManifest(tomlContent, appFolder);
-        testsDir = findFunctionalTestsWithoutManifest(appFolder);
+        [buildDirPath, appName, packageName] = parseLegacyRustManifest(tomlContent, appFolderUri);
+        testsDir = findFunctionalTestsWithoutManifest(appFolderUri);
         compatibleDevices = ["Nano S", "Nano S Plus", "Nano X"];
         appLanguage = "Rust";
         showManifestWarning(appFolderName, true);
@@ -124,7 +124,7 @@ export function findAppInFolder(folder: vscode.WorkspaceFolder): App | undefined
       }
       case "makefile": {
         appName = getAppNameFromMakefile(fileContent);
-        testsDir = findFunctionalTestsWithoutManifest(appFolder);
+        testsDir = findFunctionalTestsWithoutManifest(appFolderUri);
         showManifestWarning(appFolderName, false);
         break;
       }
@@ -150,7 +150,7 @@ export function findAppInFolder(folder: vscode.WorkspaceFolder): App | undefined
     app = {
       name: appName,
       folderName: appFolderName,
-      folder: appFolder,
+      folderUri: appFolderUri,
       containerName: containerName,
       buildDirPath: buildDirPath,
       language: appLanguage,
@@ -170,7 +170,7 @@ export function findAppsInWorkspace(): App[] | undefined {
 
   if (workspaceFolders) {
     workspaceFolders.forEach((folder) => {
-      const app = findAppInFolder(folder);
+      const app = findAppInFolder(folder.uri);
       if (app) {
         appList.push(app);
       }
@@ -324,14 +324,14 @@ function parseCargoToml(cargoTomlPath: string): [string, string] {
 
 // Check if pytest functional tests are present for an app without manifest
 // or if the manifest does not specify the pytest directory (legacy manifest)
-function findFunctionalTestsWithoutManifest(appFolder: vscode.WorkspaceFolder): string | undefined {
+function findFunctionalTestsWithoutManifest(appFolderUri: vscode.Uri): string | undefined {
   // Check if pytest functional tests are present
   let testsDir = undefined;
-  const searchPattern = path.join(appFolder.uri.fsPath, `**/${PYTEST_DETECTION_FILE}`).replace(/\\/g, "/");
+  const searchPattern = path.join(appFolderUri.fsPath, `**/${PYTEST_DETECTION_FILE}`).replace(/\\/g, "/");
   const conftestFile = fg.sync(searchPattern, { onlyFiles: true, deep: 2 })[0];
   if (conftestFile) {
     // Get the tests folder path relative to current app folder
-    testsDir = path.relative(appFolder.uri.fsPath, path.dirname(conftestFile));
+    testsDir = path.relative(appFolderUri.fsPath, path.dirname(conftestFile));
   }
   return testsDir;
 }
@@ -397,16 +397,12 @@ function parseManifest(tomlContent: any): [AppLanguage, string, LedgerDevice[], 
 }
 
 // Find app name and package name from build dir path, in Makefile for C apps or Cargo.toml for Rust apps
-function findAdditionalInfo(
-  appLanguage: AppLanguage,
-  buildDirPath: string,
-  appFolder: vscode.WorkspaceFolder
-): [string, string?] {
+function findAdditionalInfo(appLanguage: AppLanguage, buildDirPath: string, appFolder: vscode.Uri): [string, string?] {
   let appName: string;
   let packageName: string | undefined;
 
   // Get the build dir path on the host to search for the Makefile or Cargo.toml
-  let hostBuildDirPath = buildDirPath.startsWith("./") ? path.join(appFolder.uri.fsPath, buildDirPath) : buildDirPath;
+  let hostBuildDirPath = buildDirPath.startsWith("./") ? path.join(appFolder.fsPath, buildDirPath) : buildDirPath;
 
   // If C app, parse app name from Makefile
   if (appLanguage === "C") {
@@ -427,11 +423,11 @@ function findAdditionalInfo(
 }
 
 // Parse legacy rust manifest and return build dir path, app name and package name
-function parseLegacyRustManifest(tomlContent: any, appFolder: any): [string, string, string] {
+function parseLegacyRustManifest(tomlContent: any, appFolderUri: vscode.Uri): [string, string, string] {
   let cargoTomlPath = getPropertyOrThrow(tomlContent, "rust-app.manifest-path");
   const buildDirPath = path.dirname(cargoTomlPath);
   if (cargoTomlPath.startsWith("./")) {
-    cargoTomlPath = path.join(appFolder.uri.fsPath, cargoTomlPath);
+    cargoTomlPath = path.join(appFolderUri.fsPath, cargoTomlPath);
   }
   let [appName, packageName] = parseCargoToml(cargoTomlPath);
   return [buildDirPath, appName, packageName];

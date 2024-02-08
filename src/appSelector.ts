@@ -50,6 +50,7 @@ export interface App {
   // If the manifest has a tests dependencies (optional) section with use cases, they are parsed here
   testsUseCases?: TestUseCase[];
   selectedTestUseCase?: TestUseCase;
+  builtTestDependencies?: boolean;
   // If the manifest has build use cases (optional) section they are parsed here
   buildUseCases?: BuildUseCase[];
   selectedBuildUseCase?: BuildUseCase;
@@ -174,6 +175,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
       packageName: packageName,
       testsUseCases: testsUseCases,
       selectedTestUseCase: testsUseCases ? testsUseCases[0] : undefined,
+      builtTestDependencies: false,
       buildUseCases: buildUseCases,
       selectedBuildUseCase: buildUseCases ? buildUseCases[0] : undefined,
     };
@@ -223,7 +225,7 @@ export async function showTestUseCaseSelectorMenu(targetSelector: TargetSelector
       },
     });
   }
-  getAndBuildAppTestsDependencies(targetSelector);
+  getAndBuildAppTestsDependencies(targetSelector, true);
   return result;
 }
 
@@ -233,9 +235,15 @@ export function getSelectedApp() {
 
 export function setSelectedApp(app: App | undefined) {
   selectedApp = app;
-  if (app && app.testsUseCases && app.testsUseCases.length > 1) {
-    vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTestUseCase", true);
+  if (app && app.testsUseCases) {
+    vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", true);
+    if (app.testsUseCases.length > 1) {
+      vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTestUseCase", true);
+    } else {
+      vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTestUseCase", false);
+    }
   } else {
+    vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", false);
     vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTestUseCase", false);
   }
 }
@@ -427,57 +435,93 @@ function parseBuildUseCasesFromManifest(tomlContent: any): BuildUseCase[] | unde
   return buildUseCases;
 }
 
-export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector) {
+export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, clean: boolean = false) {
+  const testDepDir = ".test_dependencies";
   if (selectedApp && selectedApp.selectedTestUseCase && selectedApp.functionalTestsDir) {
-    selectedApp.selectedTestUseCase.dependencies.forEach((dep) => {
-      let depFolderName = path.basename(dep.gitRepoUrl, ".git") + "-" + dep.useCase;
-      let depFolderPath = path.join(selectedApp!.functionalTestsDir!, ".test_dependencies", depFolderName);
-      let gitCloneCommand = `git clone ${dep.gitRepoUrl} --branch ${dep.gitRepoRef} ${depFolderPath}`;
-      let execGitCloneCommand = `docker exec -t ${
+    const testDepDirPath = path.join(selectedApp.functionalTestsDir, testDepDir);
+
+    if (clean) {
+      let cleanCmd = `docker exec -t ${
         selectedApp!.containerName
-      } bash -c 'if [ ! -d '${depFolderPath}' ]; then ${gitCloneCommand}; fi'`;
-
+      } bash -c 'if [ -d '${testDepDirPath}' ]; then rm -rf ${testDepDirPath}; fi'`;
       try {
-        cp.execSync(execGitCloneCommand, { stdio: "inherit" });
+        // Check if folder exists before removing it
+        cp.execSync(cleanCmd, { stdio: "inherit" });
+        vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", false);
+        vscode.commands.executeCommand("setContext", "ledgerDevTools.showrebuildTestUseCaseDepsSpin", true);
       } catch (error) {
-        pushError(`Git clone of test dependency ${depFolderName} failed. ${error}`);
+        pushError(`Clean of test dependencies failed. ${error}`);
       }
+      selectedApp.builtTestDependencies = false;
+    }
 
-      let depApp = findAppInFolder(vscode.Uri.parse(path.join(selectedApp!.folderUri.fsPath, depFolderPath)));
-      if (depApp) {
-        let depAppBuildUseCase = depApp.buildUseCases?.find((useCase) => useCase.name === dep.useCase);
-        if (depAppBuildUseCase) {
-          if (depApp.language === "C") {
-            console.log(`Ledger: building C app ${depApp.name} in ${depFolderPath}`);
+    if (!selectedApp.builtTestDependencies) {
+      selectedApp.selectedTestUseCase.dependencies.forEach((dep) => {
+        let depFolderName = path.basename(dep.gitRepoUrl, ".git") + "-" + dep.useCase;
+        let depFolderPath = path.join(testDepDirPath, depFolderName);
+        let gitCloneCommand = `git clone ${dep.gitRepoUrl} --branch ${dep.gitRepoRef} ${depFolderPath}`;
+        let execGitCloneCommand = `docker exec -t ${
+          selectedApp!.containerName
+        } bash -c 'if [ ! -d '${depFolderPath}' ]; then ${gitCloneCommand}; fi'`;
 
-            let submodulesCommand = `cd ${depFolderPath} && git submodule update --init --recursive;`;
-            if (platform === "win32") {
-              // Execute git command in cmd.exe on host, no docker
-              submodulesCommand = `cd ${depFolderPath} && cmd.exe /c "git submodule update --init --recursive";`;
-            }
-
-            let buildCommand = `export BOLOS_SDK=$(echo ${targetSelector.getSelectedSDK()}) && make -C ${path.join(
-              depFolderPath,
-              depApp.buildDirPath
-            )} -j ${depAppBuildUseCase.options}`;
-
-            let execBuildCommand = `${submodulesCommand} docker exec -t ${selectedApp!.containerName} bash -c '${buildCommand}'`;
-
-            try {
-              cp.execSync(execBuildCommand, { stdio: "inherit" });
-            } catch (error) {
-              pushError(`Build of test use case ${dep.useCase} dependency ${depApp.folderName} failed. ${error}`);
-            }
-
-            vscode.window.showInformationMessage(
-              `Build of test dependency ${depApp.folderName} for target ${targetSelector.getSelectedTarget()} succeeded.`
-            );
-          }
-        } else {
-          pushError(`Build use case ${dep.useCase} not found in ${depApp.folderName} manifest. Cannot build test dependency.`);
+        try {
+          cp.execSync(execGitCloneCommand, { stdio: "inherit" });
+        } catch (error) {
+          pushError(`Git clone of test dependency ${depFolderName} failed. ${error}`);
         }
-      }
-    });
+
+        let depApp = findAppInFolder(vscode.Uri.parse(path.join(selectedApp!.folderUri.fsPath, depFolderPath)));
+        if (depApp) {
+          let depAppBuildUseCase = depApp.buildUseCases?.find((useCase) => useCase.name === dep.useCase);
+          if (depAppBuildUseCase) {
+            if (depApp.language === "C") {
+              console.log(`Ledger: building C app ${depApp.name} in ${depFolderPath}`);
+
+              let submodulesCommand = `cd ${depFolderPath} && git submodule update --init --recursive;`;
+              if (platform === "win32") {
+                // Execute git command in cmd.exe on host, no docker
+                submodulesCommand = `cd ${depFolderPath} && cmd.exe /c "git submodule update --init --recursive";`;
+              }
+
+              let buildCommand = "";
+              let target = targetSelector.getSelectedTarget();
+              targetSelector.getTargetsArray().forEach((target) => {
+                targetSelector.setSelectedTarget(target);
+                buildCommand += `export BOLOS_SDK=$(echo ${targetSelector.getSelectedSDK()}) && make -C ${path.join(
+                  depFolderPath,
+                  depApp!.buildDirPath
+                )} -j ${depAppBuildUseCase!.options} ; `;
+              });
+              targetSelector.setSelectedTarget(target);
+
+              let execBuildCommand = `${submodulesCommand} docker exec -t ${
+                selectedApp!.containerName
+              } bash -c '${buildCommand}'`;
+
+              vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", false);
+              vscode.commands.executeCommand("setContext", "ledgerDevTools.showrebuildTestUseCaseDepsSpin", true);
+
+              // Executing the command with a callback
+              cp.exec(execBuildCommand, (error, stdout, stderr) => {
+                if (error) {
+                  pushError(`Build of test use case ${dep.useCase} dependency ${depApp!.folderName} failed. ${error}`);
+                  return;
+                } else {
+                  selectedApp!.builtTestDependencies = true;
+                  vscode.window.showInformationMessage(
+                    `Build of test dependency ${depApp!.folderName} for all supported targets succeeded.`
+                  );
+                }
+                vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", true);
+                vscode.commands.executeCommand("setContext", "ledgerDevTools.showrebuildTestUseCaseDepsSpin", false);
+              });
+            }
+          } else {
+            pushError(`Build use case ${dep.useCase} not found in ${depApp.folderName} manifest. Cannot build test dependency.`);
+          }
+        }
+      });
+    }
   }
 }
 

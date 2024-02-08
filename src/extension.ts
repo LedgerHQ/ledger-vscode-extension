@@ -15,6 +15,7 @@ import {
   onAppSelectedEvent,
   showTestUseCaseSelectorMenu,
   onTestUseCaseSelected,
+  getAndBuildAppTestsDependencies,
 } from "./appSelector";
 
 let outputChannel: vscode.OutputChannel;
@@ -50,6 +51,9 @@ export function activate(context: vscode.ExtensionContext) {
     containerManager.onStatusEvent((data) => {
       statusBarManager.updateDevImageItem(data);
       treeProvider.updateContainerLabel(data);
+      if (data === DevImageStatus.running) {
+        getAndBuildAppTestsDependencies(targetSelector);
+      }
     })
   );
 
@@ -112,6 +116,14 @@ export function activate(context: vscode.ExtensionContext) {
       showTestUseCaseSelectorMenu(targetSelector);
     })
   );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("rebuildTestUseCaseDeps", () => {
+      getAndBuildAppTestsDependencies(targetSelector, true);
+    })
+  );
+
+  context.subscriptions.push(vscode.commands.registerCommand("rebuildTestUseCaseDepsSpin", () => {}));
 
   context.subscriptions.push(
     vscode.commands.registerCommand("showAppList", () => {

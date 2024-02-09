@@ -136,7 +136,7 @@ export function activate(context: vscode.ExtensionContext) {
     if (taskName.startsWith("Update Container")) {
       containerManager.triggerStatusEvent(DevImageStatus.syncing);
     }
-    if (taskName.startsWith("Quick device onboarding")) {
+    if (taskName.startsWith("Quick initial device")) {
       const conf = vscode.workspace.getConfiguration("ledgerDevTools");
       const seedValue = conf.get<string>("onboardingSeed");
       const defaultSeed = conf.inspect<string>("onboardingSeed")?.defaultValue;

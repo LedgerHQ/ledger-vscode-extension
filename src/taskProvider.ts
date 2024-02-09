@@ -37,6 +37,7 @@ export class TaskProvider implements vscode.TaskProvider {
   private onboardPin: string;
   private onboardSeed: string;
   private scpConfig: boolean;
+  private enableNanoxOps: boolean;
   private additionalReqs?: string;
   private buildDir: string;
   private workspacePath: string;
@@ -188,6 +189,7 @@ export class TaskProvider implements vscode.TaskProvider {
     this.onboardPin = conf.get<string>("onboardingPin") || "";
     this.onboardSeed = conf.get<string>("onboardingSeed") || "";
     this.scpConfig = conf.get<boolean>("userScpPrivateKey") || false;
+    this.enableNanoxOps = conf.get<boolean>("enableDeviceOpsForNanoX") || false;
     const configReqs = conf.get<Record<string, string>>("additionalReqsPerApp");
     if (this.currentApp && configReqs && configReqs[this.currentApp.folderName]) {
       this.additionalReqs = configReqs[this.currentApp.folderName];
@@ -207,6 +209,7 @@ export class TaskProvider implements vscode.TaskProvider {
     this.onboardPin = conf.get<string>("onboardingPin") || "";
     this.onboardSeed = conf.get<string>("onboardingSeed") || "";
     this.scpConfig = conf.get<boolean>("userScpPrivateKey") || false;
+    this.enableNanoxOps = conf.get<boolean>("enableDeviceOpsForNanoX") || false;
     this.currentApp = getSelectedApp();
     if (this.currentApp) {
       const configReqs = conf.get<Record<string, string>>("additionalReqsPerApp");
@@ -551,6 +554,12 @@ export class TaskProvider implements vscode.TaskProvider {
       if (this.tgtSelector.getSelectedTarget() === "All") {
         this.taskSpecs.forEach((item) => {
           if (item.allSelectedBehavior === "disable" && item.state === "enabled") {
+            item.state = "disabled";
+          }
+        });
+      } else if (this.tgtSelector.getSelectedTarget() === "Nano X" && this.enableNanoxOps === false) {
+        this.taskSpecs.forEach((item) => {
+          if (item.group === "Device Operations") {
             item.state = "disabled";
           }
         });

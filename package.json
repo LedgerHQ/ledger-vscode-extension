@@ -189,6 +189,11 @@
             "Stax"
           ],
           "markdownDescription": "Select the default Device"
+        },
+        "ledgerDevTools.enableDeviceOpsForNanoX": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "Allow device operations on Nano X (requires special development device)"
         }
       }
     }

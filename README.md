@@ -59,6 +59,7 @@ This extension contributes the following settings:
 * `ledgerDevTools.containerUpdateRetries`: Set the max number of Container Update retries.
 * `ledgerDevTools.userScpPrivateKey`: Use the host's `SCP_PRIVKEY` environment variable when loading/deleting app on device. Cf. <https://developers.ledger.com/docs/embedded-app/pin-bypass>
 * `ledgerDevTools.defaultDevice`: Select the default Device
+* `ledgerDevTools.enableDeviceOpsForNanoX`: Allow device operations on Nano X (requires special development device)
 
 ## Release Notes
 

@@ -38,7 +38,7 @@ export class StatusBarManager {
   public updateDevImageItem(status: DevImageStatus): void {
     const currentApp = getSelectedApp();
     if (currentApp) {
-      this.devImageItem.text = `$(${status.toString()}) L : ${currentApp.appFolderName}`;
+      this.devImageItem.text = `$(${status.toString()}) L : ${currentApp.folderName}`;
       let statusText = "[stopped] ";
       switch (status) {
         case DevImageStatus.running:

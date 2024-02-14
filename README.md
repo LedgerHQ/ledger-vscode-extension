@@ -54,13 +54,24 @@ This extension contributes the following settings:
 * `ledgerDevTools.onboardingPin`: Set the device quick onboarding PIN code.
 * `ledgerDevTools.onboardingSeed`: Set the device quick onboarding 24-word Seed phrase.
 * `ledgerDevTools.dockerImage`: Set the Ledger developer tools Docker image.
-* `ledgerDevTools.additionalDepsPerApp`: Add dependencies for current app's functional tests (for instance 'apk add python3-protobuf').
+* `ledgerDevTools.additionalReqsPerApp`: Add prerequisites for current app's functional tests (for instance 'apk add python3-protobuf').
 * `ledgerDevTools.keepContainerTerminal`: Indicates to keep the Terminal window opened after a successful Container Update.
 * `ledgerDevTools.containerUpdateRetries`: Set the max number of Container Update retries.
 * `ledgerDevTools.userScpPrivateKey`: Use the host's `SCP_PRIVKEY` environment variable when loading/deleting app on device. Cf. <https://developers.ledger.com/docs/embedded-app/pin-bypass>
 * `ledgerDevTools.defaultDevice`: Select the default Device
+* `ledgerDevTools.enableDeviceOpsForNanoX`: Allow device operations on Nano X (requires special development device)
 
 ## Release Notes
+
+## 0.5.0
+
+* New setting to allow / deny device operations on Nano X (denied by default).
+* Support parsing of `test.dependencies` fields from the [app manifest specification](https://github.com/LedgerHQ/ledgered/blob/master/doc/utils/manifest.md). Speed up the setup for running functional tests by automating the clone/build of tests dependencies when needed.
+* Add button to rebuild test dependencies (if any) in treeview.
+* Refactor of `appSelected.ts` for better maintainability.
+* Replace TOML parsing package (previous one couldn't parse 1.0.0 TOML)
+* Update Udev rules for sideloading following hidapi python package update. Display warning message when rules need to be updated.
+* Wording in some tree view items.
 
 ## 0.4.0
 

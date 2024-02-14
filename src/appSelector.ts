@@ -2,167 +2,230 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import * as fg from "fast-glob";
-import * as toml from "toml";
-import { TreeDataProvider } from "./treeView";
+import * as toml from "@ltd/j-toml";
+import { platform } from "node:process";
+import * as cp from "child_process";
 import { TaskProvider } from "./taskProvider";
-import { ContainerManager } from "./containerManager";
-import { TargetSelector, LedgerDevice } from "./targetSelector";
+import { LedgerDevice, TargetSelector } from "./targetSelector";
 import { pushError } from "./extension";
 const APP_DETECTION_FILES: string[] = ["Makefile", "ledger_app.toml"];
 const C_APP_DETECTION_STRING: string = "include $(BOLOS_SDK)/Makefile.defines";
 const C_APP_NAME_MAKEFILE_VAR: string = "APPNAME";
 const PYTEST_DETECTION_FILE: string = "conftest.py";
 
+type AppType = "manifest" | "legacyManifest" | "makefile";
+
 // Define valid app languages
 const validLanguages = ["Rust", "C"] as const;
 // Define the AppLanguage type
 export type AppLanguage = (typeof validLanguages)[number];
 
+export interface TestDependency {
+  gitRepoUrl: string;
+  gitRepoRef: string;
+  useCase: string;
+}
+export interface TestUseCase {
+  name: string;
+  dependencies: TestDependency[];
+}
+export interface BuildUseCase {
+  name: string;
+  options: string;
+}
+
 export interface App {
-  appName: string;
-  appFolderName: string;
-  appFolder: vscode.WorkspaceFolder;
+  name: string;
+  folderName: string;
+  folderUri: vscode.Uri;
   containerName: string;
   buildDirPath: string;
   language: AppLanguage;
+  // If the manifest has a pytest_directory property, it is parsed here
   functionalTestsDir?: string;
   // The new manifest format allows to specify the compatible devices
   compatibleDevices: LedgerDevice[];
   // If the app is a Rust app, the package name is parsed from the Cargo.toml
   packageName?: string;
+  // If the app manifest has a tests dependencies (optional) section with use cases, they are parsed here
+  testsUseCases?: TestUseCase[];
+  selectedTestUseCase?: TestUseCase;
+  builtTestDependencies?: boolean;
+  // If the app manifest has build use cases (optional) section they are parsed here
+  buildUseCases?: BuildUseCase[];
+  selectedBuildUseCase?: BuildUseCase;
 }
 
 let appList: App[] = [];
 let selectedApp: App | undefined;
 
-// Define a sorting function to sort glob results so that ledger_app.toml files are first
-const sortByLedgerAppToml = (a: string, b: string) => {
-  if (a.includes("ledger_app.toml") && !b.includes("ledger_app.toml")) {
-    return -1;
-  } else if (!a.includes("ledger_app.toml") && b.includes("ledger_app.toml")) {
-    return 1;
+let appSelectedEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+
+export const onAppSelectedEvent: vscode.Event<void> = appSelectedEmitter.event;
+
+let testUseCaseSelected: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+
+export const onTestUseCaseSelected: vscode.Event<void> = testUseCaseSelected.event;
+
+function detectAppType(appFolder: vscode.Uri): [AppType?, string?] {
+  const searchPatterns = APP_DETECTION_FILES.map((file) => path.join(appFolder.fsPath, `**/${file}`).replace(/\\/g, "/"));
+  const makefileOrToml = fg.sync(searchPatterns, { onlyFiles: true, deep: 2 });
+
+  let appTypeAndFile: [AppType?, string?] = [undefined, undefined];
+
+  if (makefileOrToml.length > 0) {
+    const manifest = makefileOrToml.find((file) => file.endsWith("ledger_app.toml"));
+    if (manifest) {
+      const fileContent = fs.readFileSync(manifest, "utf-8");
+      const tomlContent = toml.parse(fileContent);
+      if (tomlContent["rust-app"]) {
+        appTypeAndFile = ["legacyManifest", manifest];
+      } else {
+        appTypeAndFile = ["manifest", manifest];
+      }
+    } else {
+      const makefile = makefileOrToml.find((file) => file.endsWith("Makefile"));
+      if (makefile) {
+        const fileContent = fs.readFileSync(makefile, "utf-8");
+        if (fileContent.includes(C_APP_DETECTION_STRING)) {
+          appTypeAndFile = ["makefile", makefile];
+        }
+      }
+    }
   }
-  return 0;
-};
+  return appTypeAndFile;
+}
+
+export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
+  let app: App | undefined = undefined;
+
+  const appFolderUri = folderUri;
+  const appFolderName = path.basename(folderUri.toString());
+  const containerName = `${appFolderName}-container`;
+
+  let appName = "unknown";
+  let appLanguage: AppLanguage = "C";
+  let testsDir = undefined;
+  let packageName = undefined;
+  let compatibleDevices: LedgerDevice[] = ["Nano S", "Nano S Plus", "Nano X", "Stax"];
+  let testsUseCases = undefined;
+  let buildUseCases = undefined;
+
+  let found = true;
+
+  let [appType, appFile] = detectAppType(folderUri);
+  const fileContent = fs.readFileSync(appFile || "", "utf-8");
+
+  let buildDirPath = path.relative(folderUri.fsPath, path.dirname(appFile || ""));
+  buildDirPath = buildDirPath === "" ? "./" : buildDirPath;
+
+  try {
+    switch (appType) {
+      case "manifest": {
+        console.log("Found manifest in " + appFolderName);
+        let tomlContent = toml.parse(fileContent);
+        [appLanguage, buildDirPath, compatibleDevices, testsDir, testsUseCases, buildUseCases] = parseManifest(tomlContent);
+        [appName, packageName] = findAdditionalInfo(appLanguage, buildDirPath, appFolderUri);
+        break;
+      }
+      case "legacyManifest": {
+        console.log("Found deprecated rust manifest in " + appFolderName);
+        let tomlContent = toml.parse(fileContent);
+        [buildDirPath, appName, packageName] = parseLegacyRustManifest(tomlContent, appFolderUri);
+        testsDir = findFunctionalTestsWithoutManifest(appFolderUri);
+        compatibleDevices = ["Nano S", "Nano S Plus", "Nano X"];
+        appLanguage = "Rust";
+        showManifestWarning(appFolderName, true);
+        break;
+      }
+      case "makefile": {
+        appName = getAppNameFromMakefile(fileContent);
+        testsDir = findFunctionalTestsWithoutManifest(appFolderUri);
+        showManifestWarning(appFolderName, false);
+        break;
+      }
+      default:
+        found = false;
+        break;
+    }
+  } catch (error) {
+    let err = new Error();
+    if (!(error instanceof Error)) {
+      err.message = String(error);
+    } else {
+      err = error;
+    }
+    pushError("App detection failed in " + appFolderName + ". " + err.message);
+    found = false;
+  }
+
+  // Add the app to the list
+  if (found) {
+    // Log all found fields
+    console.log(`Found app ${appName} in folder ${appFolderName} with buildDirPath ${buildDirPath} and language ${appLanguage}`);
+    app = {
+      name: appName,
+      folderName: appFolderName,
+      folderUri: appFolderUri,
+      containerName: containerName,
+      buildDirPath: buildDirPath,
+      language: appLanguage,
+      functionalTestsDir: testsDir,
+      compatibleDevices: compatibleDevices,
+      packageName: packageName,
+      testsUseCases: testsUseCases,
+      selectedTestUseCase: testsUseCases ? testsUseCases[0] : undefined,
+      builtTestDependencies: false,
+      buildUseCases: buildUseCases,
+      selectedBuildUseCase: buildUseCases ? buildUseCases[0] : undefined,
+    };
+  }
+
+  return app;
+}
 
 export function findAppsInWorkspace(): App[] | undefined {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   appList = [];
-  let blacklistedApps: string[] = [];
 
   if (workspaceFolders) {
     workspaceFolders.forEach((folder) => {
-      const appFolder = folder;
-      const appFolderName = folder.name;
-      const containerName = `${appFolderName}-container`;
-      const searchPatterns = APP_DETECTION_FILES.map((file) => path.join(folder.uri.fsPath, `**/${file}`).replace(/\\/g, "/"));
-      const makefileOrToml = fg.sync(searchPatterns, { onlyFiles: true, deep: 2 });
-      let found = false;
-
-      // Sort the results so that ledger_app.toml files are first
-      makefileOrToml.sort(sortByLedgerAppToml);
-
-      makefileOrToml.forEach((file) => {
-        found = false;
-        let buildDirPath = path.relative(appFolder.uri.fsPath, path.dirname(file));
-        buildDirPath = buildDirPath === "" ? "./" : buildDirPath;
-        let appName = "unknown";
-        let appLanguage: AppLanguage = "C";
-        let testsDir = undefined;
-        let packageName = undefined;
-        let compatibleDevices: LedgerDevice[] = ["Nano S", "Nano S Plus", "Nano X", "Stax"];
-        const fileContent = fs.readFileSync(file, "utf-8");
-
-        try {
-          // Parse the manifest (either legacy or new format)
-          if (file.endsWith("ledger_app.toml")) {
-            const tomlContent = toml.parse(fileContent);
-            // Legacy rust manifest
-            if (tomlContent["rust-app"]) {
-              console.log("Found deprecated rust manifest in " + appFolderName);
-              [buildDirPath, appName, packageName] = parseLegacyRustManifest(tomlContent, appFolder);
-              testsDir = findFunctionalTestsWithoutManifest(appFolder);
-              compatibleDevices = ["Nano S", "Nano S Plus", "Nano X"];
-              appLanguage = "Rust";
-              found = true;
-              showManifestWarning(appFolderName, true);
-            }
-            // New manifest
-            else {
-              console.log("Found manifest in " + appFolderName);
-              [appLanguage, buildDirPath, appName, compatibleDevices, packageName, testsDir] = parseManifest(
-                tomlContent,
-                appFolder
-              );
-              found = true;
-            }
-          } else {
-            console.log("Found Makefile in " + appFolderName);
-            // Check from appList that an app with the same folder name does not already exist or
-            // that the app is not blacklisted (from a previous failed detection)
-            const existingApp =
-              appList.find((app) => app.appFolderName === appFolderName) || blacklistedApps.includes(appFolderName);
-
-            if (fileContent.includes(C_APP_DETECTION_STRING) && !existingApp) {
-              appName = getAppNameFromMakefile(fileContent);
-              found = true;
-              testsDir = findFunctionalTestsWithoutManifest(appFolder);
-              showManifestWarning(appFolderName, false);
-            }
-          }
-        } catch (error) {
-          let err = new Error();
-          if (!(error instanceof Error)) {
-            err.message = String(error);
-          } else {
-            err = error;
-          }
-          pushError("App detection failed in " + appFolder.name + ". " + err.message);
-          blacklistedApps.push(appFolderName);
-        }
-
-        // Add the app to the list
-        if (found) {
-          // Log all found fields
-          console.log(
-            `Found app ${appName} in folder ${appFolderName} with buildDirPath ${buildDirPath} and language ${appLanguage}`
-          );
-          appList.push({
-            appName: appName,
-            appFolderName: appFolderName,
-            appFolder: appFolder,
-            containerName: containerName,
-            buildDirPath: buildDirPath,
-            language: appLanguage,
-            functionalTestsDir: testsDir,
-            compatibleDevices: compatibleDevices,
-            packageName: packageName,
-          });
-        }
-      });
+      const app = findAppInFolder(folder.uri);
+      if (app) {
+        appList.push(app);
+      }
     });
   }
 
   return appList;
 }
 
-export async function showAppSelectorMenu(
-  treeDataProvider: TreeDataProvider,
-  taskProvider: TaskProvider,
-  containerManager: ContainerManager,
-  targetSelector: TargetSelector
-) {
-  const appFolderNames = appList.map((app) => app.appFolderName);
+export async function showAppSelectorMenu(targetSelector: TargetSelector) {
+  const appFolderNames = appList.map((app) => app.folderName);
   const result = await vscode.window.showQuickPick(appFolderNames, {
     placeHolder: "Please select an app",
     onDidSelectItem: (item) => {
-      selectedApp = appList.find((app) => app.appFolderName === item);
+      setSelectedApp(appList.find((app) => app.folderName === item));
+      testUseCaseSelected.fire();
     },
   });
-  taskProvider.generateTasks();
-  containerManager.manageContainer();
-  treeDataProvider.updateAppAndTargetLabels();
-  targetSelector.updateTargetsInfos();
+  getAndBuildAppTestsDependencies(targetSelector);
+  return result;
+}
+
+export async function showTestUseCaseSelectorMenu(targetSelector: TargetSelector) {
+  const testUseCaseNames = selectedApp?.testsUseCases?.map((testUseCase) => testUseCase.name);
+  let result = undefined;
+  if (testUseCaseNames) {
+    result = await vscode.window.showQuickPick(testUseCaseNames, {
+      placeHolder: "Please select a test use case",
+      onDidSelectItem: (item) => {
+        selectedApp!.selectedTestUseCase = selectedApp!.testsUseCases?.find((testUseCase) => testUseCase.name === item);
+        appSelectedEmitter.fire();
+      },
+    });
+  }
+  getAndBuildAppTestsDependencies(targetSelector, true);
   return result;
 }
 
@@ -170,24 +233,35 @@ export function getSelectedApp() {
   return selectedApp;
 }
 
-export function setSelectedApp(app: App) {
+export function setSelectedApp(app: App | undefined) {
   selectedApp = app;
+  if (app && app.testsUseCases) {
+    vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", true);
+    if (app.testsUseCases.length > 1) {
+      vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTestUseCase", true);
+    } else {
+      vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTestUseCase", false);
+    }
+  } else {
+    vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", false);
+    vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTestUseCase", false);
+  }
 }
 
 export function getAppList() {
   return appList;
 }
 
-export function setAppTestsDependencies(taskProvider: TaskProvider) {
+export function setAppTestsPrerequisites(taskProvider: TaskProvider) {
   const currentApp = getSelectedApp();
   const conf = vscode.workspace.getConfiguration("ledgerDevTools");
   let currentValue = "";
-  const additionalDepsPerApp = conf.get<Record<string, string>>("additionalDepsPerApp");
+  const additionalReqsPerApp = conf.get<Record<string, string>>("additionalReqsPerApp");
   if (currentApp) {
-    if (additionalDepsPerApp && additionalDepsPerApp[currentApp.appFolderName]) {
-      currentValue = additionalDepsPerApp[currentApp.appFolderName];
+    if (additionalReqsPerApp && additionalReqsPerApp[currentApp.folderName]) {
+      currentValue = additionalReqsPerApp[currentApp.folderName];
     }
-    // Let user input string in a popup and save it in the additionalDepsPerApp configuration
+    // Let user input string in a popup and save it in the additionalReqsPerApp configuration
     vscode.window
       .showInputBox({
         prompt: "Please enter additional test dependencies for this app",
@@ -197,21 +271,21 @@ export function setAppTestsDependencies(taskProvider: TaskProvider) {
       .then((value) => {
         if (value) {
           const conf = vscode.workspace.getConfiguration("ledgerDevTools");
-          const additionalDepsPerApp = conf.get<Record<string, string>>("additionalDepsPerApp");
+          const additionalReqsPerApp = conf.get<Record<string, string>>("additionalReqsPerApp");
           // Account for the fact that maybe the app is not yet in the configuration
-          if (additionalDepsPerApp && additionalDepsPerApp[currentApp.appFolderName]) {
-            additionalDepsPerApp[currentApp.appFolderName] = value;
-            conf.update("additionalDepsPerApp", additionalDepsPerApp, vscode.ConfigurationTarget.Global);
+          if (additionalReqsPerApp && additionalReqsPerApp[currentApp.folderName]) {
+            additionalReqsPerApp[currentApp.folderName] = value;
+            conf.update("additionalReqsPerApp", additionalReqsPerApp, vscode.ConfigurationTarget.Global);
             console.log(
-              `Ledger: additionalDepsPerApp configuration found (current value: ${additionalDepsPerApp[
-                currentApp.appFolderName
-              ].toString()}), updating it with ${currentApp.appFolderName}:${value}`
+              `Ledger: additionalReqsPerApp configuration found (current value: ${additionalReqsPerApp[
+                currentApp.folderName
+              ].toString()}), updating it with ${currentApp.folderName}:${value}`
             );
           } else {
             console.log(
-              `Ledger: no additionalDepsPerApp configuration found, creating it with ${currentApp.appFolderName}:${value}`
+              `Ledger: no additionalReqsPerApp configuration found, creating it with ${currentApp.folderName}:${value}`
             );
-            conf.update("additionalDepsPerApp", { [currentApp.appFolderName]: value }, vscode.ConfigurationTarget.Global);
+            conf.update("additionalReqsPerApp", { [currentApp.folderName]: value }, vscode.ConfigurationTarget.Global);
           }
         }
       });
@@ -238,19 +312,24 @@ async function showManifestWarning(appFolderName: string, deprecated: boolean) {
 }
 
 // Convert a manifest device to a LedgerDevice
-function manifestDeviceToLedgerDevice(manifestDevice: string): LedgerDevice {
-  switch (manifestDevice) {
-    case "nanos":
-      return "Nano S";
-    case "nanox":
-      return "Nano X";
-    case "nanos+":
-      return "Nano S Plus";
-    case "stax":
-      return "Stax";
-    default:
-      throw new Error("Invalid device in manifest : " + manifestDevice);
-  }
+function manifestDevicesToLedgerDevices(manifestDevices: string): LedgerDevice[] {
+  return manifestDevices
+    .toString()
+    .split(",")
+    .map((device: string) => {
+      switch (device) {
+        case "nanos":
+          return "Nano S";
+        case "nanox":
+          return "Nano X";
+        case "nanos+":
+          return "Nano S Plus";
+        case "stax":
+          return "Stax";
+        default:
+          throw new Error("Invalid device in manifest : " + device);
+      }
+    });
 }
 
 // Get the app name from the Makefile (for C apps)
@@ -278,69 +357,206 @@ function isValidLanguage(value: string): AppLanguage {
 // Parse Cargo.toml and return app name and package name
 function parseCargoToml(cargoTomlPath: string): [string, string] {
   const cargoTomlContent = toml.parse(fs.readFileSync(cargoTomlPath, "utf-8"));
-  let packageName = getNestedProperty(cargoTomlContent, "package.name");
-  let appName = getNestedProperty(cargoTomlContent, "package.metadata.ledger.name");
+  let packageName = getPropertyOrThrow(cargoTomlContent, "package.name");
+  let appName = getPropertyOrThrow(cargoTomlContent, "package.metadata.ledger.name");
   return [appName, packageName];
 }
 
 // Check if pytest functional tests are present for an app without manifest
 // or if the manifest does not specify the pytest directory (legacy manifest)
-function findFunctionalTestsWithoutManifest(appFolder: any): string | undefined {
+function findFunctionalTestsWithoutManifest(appFolderUri: vscode.Uri): string | undefined {
   // Check if pytest functional tests are present
   let testsDir = undefined;
-  const searchPattern = path.join(appFolder.uri.fsPath, `**/${PYTEST_DETECTION_FILE}`).replace(/\\/g, "/");
+  const searchPattern = path.join(appFolderUri.fsPath, `**/${PYTEST_DETECTION_FILE}`).replace(/\\/g, "/");
   const conftestFile = fg.sync(searchPattern, { onlyFiles: true, deep: 2 })[0];
   if (conftestFile) {
     // Get the tests folder path relative to current app folder
-    testsDir = path.relative(appFolder.uri.fsPath, path.dirname(conftestFile));
+    testsDir = path.relative(appFolderUri.fsPath, path.dirname(conftestFile));
   }
   return testsDir;
 }
 
+// Get a nested property from a toml object, return undefined if not found
+function getProperty(obj: any, objectPath: string): string | undefined {
+  return objectPath.split(".").reduce((acc, key) => acc?.[key], obj);
+}
+
 // Get a nested property from a toml object, throw an error if not found
-function getNestedProperty(obj: any, path: string): string {
-  const value = path.split(".").reduce((acc, key) => acc?.[key], obj);
+function getPropertyOrThrow(obj: any, path: string): string | any {
+  const value = getProperty(obj, path);
   if (value === undefined) {
-    throw new Error(`Wrong manifest format. Property "${path}" not found`);
+    throw new Error(`Wrong manifest format. Mandatory property "${path}" not found in "${JSON.stringify(obj)}"`);
   }
   return value;
 }
 
-// Parse manifest. Returns app language, build dir path, app name, devices, package name (for rust app), functional tests dir path (if any)
-function parseManifest(tomlContent: any, appFolder: any): [AppLanguage, string, string, LedgerDevice[], string?, string?] {
-  // Check that the manifest is valid
-  getNestedProperty(tomlContent, "app");
+function parseTestsUsesCasesFromManifest(tomlContent: any): TestUseCase[] | undefined {
+  let dependenciesSection = getProperty(tomlContent, "tests.dependencies");
+  let testUseCases: TestUseCase[] | undefined = undefined;
+  if (dependenciesSection) {
+    testUseCases = [];
+    const useCases = Object.keys(dependenciesSection);
+    for (let useCase of useCases) {
+      let testUseCase: TestUseCase = {
+        name: useCase,
+        dependencies: [],
+      };
+      let useCaseDependencies = getPropertyOrThrow(dependenciesSection, useCase);
+      useCaseDependencies.forEach((dependency: any) => {
+        testUseCase.dependencies.push({
+          gitRepoUrl: getPropertyOrThrow(dependency, "url"),
+          gitRepoRef: getPropertyOrThrow(dependency, "ref"),
+          useCase: getPropertyOrThrow(dependency, "use_case"),
+        });
+      });
+      testUseCases.push(testUseCase);
+      console.log(`Found test use case ${useCase} with dependencies ${JSON.stringify(testUseCase.dependencies)}`);
+    }
+  }
+  return testUseCases;
+}
 
+function parseBuildUseCasesFromManifest(tomlContent: any): BuildUseCase[] | undefined {
+  let useCasesSection = getProperty(tomlContent, "use_cases");
+  let buildUseCases: BuildUseCase[] | undefined = undefined;
+  if (useCasesSection) {
+    console.log(`Found use_cases section in manifest`);
+    buildUseCases = [];
+    const useCases = Object.keys(useCasesSection);
+    for (let useCase of useCases) {
+      let buildUseCase: BuildUseCase = {
+        name: useCase,
+        options: getPropertyOrThrow(useCasesSection, useCase),
+      };
+      buildUseCases.push(buildUseCase);
+      console.log(`Found build use case ${useCase} with options ${JSON.stringify(buildUseCase.options)}`);
+    }
+  }
+  return buildUseCases;
+}
+
+export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, clean: boolean = false) {
+  const testDepDir = ".test_dependencies";
+  if (selectedApp && selectedApp.selectedTestUseCase && selectedApp.functionalTestsDir) {
+    const testDepDirPath = path.join(selectedApp.functionalTestsDir, testDepDir);
+
+    if (clean) {
+      let cleanCmd = `docker exec -t ${
+        selectedApp!.containerName
+      } bash -c 'if [ -d '${testDepDirPath}' ]; then rm -rf ${testDepDirPath}; fi'`;
+      try {
+        // Check if folder exists before removing it
+        cp.execSync(cleanCmd, { stdio: "inherit" });
+        vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", false);
+        vscode.commands.executeCommand("setContext", "ledgerDevTools.showrebuildTestUseCaseDepsSpin", true);
+      } catch (error) {
+        pushError(`Clean of test dependencies failed. ${error}`);
+      }
+      selectedApp.builtTestDependencies = false;
+    }
+
+    if (!selectedApp.builtTestDependencies) {
+      selectedApp.selectedTestUseCase.dependencies.forEach((dep) => {
+        let depFolderName = path.basename(dep.gitRepoUrl, ".git") + "-" + dep.useCase;
+        let depFolderPath = path.join(testDepDirPath, depFolderName);
+        let gitCloneCommand = `git clone ${dep.gitRepoUrl} --branch ${dep.gitRepoRef} ${depFolderPath}`;
+        let execGitCloneCommand = `docker exec -t ${
+          selectedApp!.containerName
+        } bash -c 'if [ ! -d '${depFolderPath}' ]; then ${gitCloneCommand}; fi'`;
+
+        try {
+          cp.execSync(execGitCloneCommand, { stdio: "inherit" });
+        } catch (error) {
+          pushError(`Git clone of test dependency ${depFolderName} failed. ${error}`);
+        }
+
+        let depApp = findAppInFolder(vscode.Uri.parse(path.join(selectedApp!.folderUri.fsPath, depFolderPath)));
+        if (depApp) {
+          let depAppBuildUseCase = depApp.buildUseCases?.find((useCase) => useCase.name === dep.useCase);
+          if (depAppBuildUseCase) {
+            if (depApp.language === "C") {
+              console.log(`Ledger: building C app ${depApp.name} in ${depFolderPath}`);
+
+              let submodulesCommand = `cd ${depFolderPath} && git submodule update --init --recursive;`;
+              if (platform === "win32") {
+                // Execute git command in cmd.exe on host, no docker
+                submodulesCommand = `cd ${depFolderPath} && cmd.exe /c "git submodule update --init --recursive";`;
+              }
+
+              let buildCommand = "";
+              let target = targetSelector.getSelectedTarget();
+              targetSelector.getTargetsArray().forEach((target) => {
+                targetSelector.setSelectedTarget(target);
+                buildCommand += `export BOLOS_SDK=$(echo ${targetSelector.getSelectedSDK()}) && make -C ${path.join(
+                  depFolderPath,
+                  depApp!.buildDirPath
+                )} -j ${depAppBuildUseCase!.options} ; `;
+              });
+              targetSelector.setSelectedTarget(target);
+
+              let execBuildCommand = `${submodulesCommand} docker exec -t ${
+                selectedApp!.containerName
+              } bash -c '${buildCommand}'`;
+
+              vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", false);
+              vscode.commands.executeCommand("setContext", "ledgerDevTools.showrebuildTestUseCaseDepsSpin", true);
+
+              // Executing the command with a callback
+              cp.exec(execBuildCommand, (error, stdout, stderr) => {
+                if (error) {
+                  pushError(`Build of test use case ${dep.useCase} dependency ${depApp!.folderName} failed. ${error}`);
+                  return;
+                } else {
+                  selectedApp!.builtTestDependencies = true;
+                  vscode.window.showInformationMessage(
+                    `Build of test dependency ${depApp!.folderName} for all supported targets succeeded.`
+                  );
+                }
+                vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", true);
+                vscode.commands.executeCommand("setContext", "ledgerDevTools.showrebuildTestUseCaseDepsSpin", false);
+              });
+            }
+          } else {
+            pushError(`Build use case ${dep.useCase} not found in ${depApp.folderName} manifest. Cannot build test dependency.`);
+          }
+        }
+      });
+    }
+  }
+}
+
+// Parse manifest. Returns app language, build dir path, app name, devices, package name (for rust app), functional tests dir path (if any)
+function parseManifest(tomlContent: any): [AppLanguage, string, LedgerDevice[], string?, TestUseCase[]?, BuildUseCase[]?] {
   // Parse app language
-  const language = getNestedProperty(tomlContent, "app.sdk");
-  const appLanguage = isValidLanguage(language);
+  const appLanguage = isValidLanguage(getPropertyOrThrow(tomlContent, "app.sdk"));
 
   // Parse build dir path
-  let buildDirPath = getNestedProperty(tomlContent, "app.build_directory");
+  let buildDirPath = getPropertyOrThrow(tomlContent, "app.build_directory");
 
   // Parse compatible devices
-  const compatibleDevicesStr: string = getNestedProperty(tomlContent, "app.devices");
-  const compatibleDevices: LedgerDevice[] = compatibleDevicesStr
-    .toString()
-    .split(",")
-    .map((device: string) => manifestDeviceToLedgerDevice(device));
+  const compatibleDevices: LedgerDevice[] = manifestDevicesToLedgerDevices(getPropertyOrThrow(tomlContent, "app.devices"));
 
   // Check if pytest functional tests are present
-  let functionalTestsDir = undefined;
-  if (tomlContent["tests"] && tomlContent["tests"]["pytest_directory"]) {
-    functionalTestsDir = tomlContent["tests"]["pytest_directory"];
-  }
+  let functionalTestsDir = getProperty(tomlContent, "tests.pytest_directory");
 
-  // If C app, parse app name from Makefile
-  let appName = "unknown";
+  // Parse test dependencies, if any.
+  let testUseCases = parseTestsUsesCasesFromManifest(tomlContent);
+
+  // Parse build use cases, if any.
+  let buildUseCases = parseBuildUseCasesFromManifest(tomlContent);
+
+  return [appLanguage, buildDirPath, compatibleDevices, functionalTestsDir, testUseCases, buildUseCases];
+}
+
+// Find app name and package name from build dir path, in Makefile for C apps or Cargo.toml for Rust apps
+function findAdditionalInfo(appLanguage: AppLanguage, buildDirPath: string, appFolder: vscode.Uri): [string, string?] {
+  let appName: string;
   let packageName: string | undefined;
 
   // Get the build dir path on the host to search for the Makefile or Cargo.toml
-  let hostBuildDirPath = buildDirPath;
-  if (buildDirPath.startsWith("./")) {
-    hostBuildDirPath = path.join(appFolder.uri.fsPath, buildDirPath);
-  }
+  let hostBuildDirPath = buildDirPath.startsWith("./") ? path.join(appFolder.fsPath, buildDirPath) : buildDirPath;
 
+  // If C app, parse app name from Makefile
   if (appLanguage === "C") {
     // Search for Makefile in build dir
     const searchPattern = path.join(hostBuildDirPath, `**/Makefile`).replace(/\\/g, "/");
@@ -355,16 +571,15 @@ function parseManifest(tomlContent: any, appFolder: any): [AppLanguage, string, 
   else {
     [appName, packageName] = parseCargoToml(path.join(hostBuildDirPath, "Cargo.toml"));
   }
-  return [appLanguage, buildDirPath, appName, compatibleDevices, packageName, functionalTestsDir];
+  return [appName, packageName];
 }
 
 // Parse legacy rust manifest and return build dir path, app name and package name
-function parseLegacyRustManifest(tomlContent: any, appFolder: any): [string, string, string] {
-  getNestedProperty(tomlContent, "rust-app");
-  let cargoTomlPath = getNestedProperty(tomlContent, "rust-app.manifest-path");
+function parseLegacyRustManifest(tomlContent: any, appFolderUri: vscode.Uri): [string, string, string] {
+  let cargoTomlPath = getPropertyOrThrow(tomlContent, "rust-app.manifest-path");
   const buildDirPath = path.dirname(cargoTomlPath);
   if (cargoTomlPath.startsWith("./")) {
-    cargoTomlPath = path.join(appFolder.uri.fsPath, cargoTomlPath);
+    cargoTomlPath = path.join(appFolderUri.fsPath, cargoTomlPath);
   }
   let [appName, packageName] = parseCargoToml(cargoTomlPath);
   return [buildDirPath, appName, packageName];

@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0]
+
+### Added
+
+* New setting to allow / deny device operations on Nano X (denied by default).
+* Support parsing of `test.dependencies` fields from the [app manifest specification](https://github.com/LedgerHQ/ledgered/blob/master/doc/utils/manifest.md). Speed up the setup for running functional tests by automating the clone/build of tests dependencies when needed.
+* Add button to rebuild test dependencies (if any) in treeview.
+
+### Changed
+
+* Refactor of `appSelected.ts` for better maintainability.
+
+### Fixed
+
+* Replace TOML parsing package (previous one couldn't parse 1.0.0 TOML)
+* Update Udev rules for sideloading following hidapi python package update. Display warning message when rules need to be updated.
+* Wording in some tree view items.
+
 ## [0.4.0]
 
 ### Added

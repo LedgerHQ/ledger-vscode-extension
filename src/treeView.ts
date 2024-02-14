@@ -14,7 +14,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     this.data = [];
     this.targetSelector = targetSelector;
     this.addDefaultTreeItems();
-    this.updateAppAndTargetLabels();
+    this.updateDynamicLabels();
     this.fileDecorationProvider = new ViewFileDecorationProvider(this);
     vscode.window.registerFileDecorationProvider(this.fileDecorationProvider);
   }
@@ -62,6 +62,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
           rootItem.iconPath = new vscode.ThemeIcon("tools");
         }
         if (rootItem.label?.toString().startsWith("Functional")) {
+          rootItem.contextValue = "functionalTests";
           rootItem.iconPath = new vscode.ThemeIcon("test-view-icon");
         }
         if (rootItem.label?.toString().startsWith("Device")) {
@@ -96,7 +97,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
         }
       }
     });
-    this.updateAppAndTargetLabels();
+    this.updateDynamicLabels();
   }
 
   private _onDidChangeTreeData: vscode.EventEmitter<TreeItem | undefined | null | void> = new vscode.EventEmitter<
@@ -113,32 +114,30 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     // Check functional tests root item exists
     let testsRootItem = this.data.find((item) => item.label?.toString().startsWith("Functional"));
     // Check if dependencies item already exists
-    let addTestDependenciesItem = testsRootItem?.children?.find((item) =>
-      item.label?.toString().startsWith("Add test dependencies")
-    );
-    if (testsRootItem && !addTestDependenciesItem) {
+    let addTestReqsItem = testsRootItem?.children?.find((item) => item.label?.toString().startsWith("Add test prerequisites"));
+    if (testsRootItem && !addTestReqsItem) {
       // Add item to add new test requirements
-      let addTestDependenciesItem = new TreeItem("Add test dependencies");
-      addTestDependenciesItem.tooltip =
-        "Add Python test dependencies for current app (for instance 'apk add python3-protobuf'). This will be saved in your global configuration.";
-      addTestDependenciesItem.command = {
+      let addTestReqsItem = new TreeItem("Add test prerequisites");
+      addTestReqsItem.tooltip =
+        "Add Python tests prerequisites for current app (for instance 'apk add python3-protobuf'). This will be saved in your global configuration.";
+      addTestReqsItem.command = {
         // Command that let's user input string saved for each app present in workspace
-        command: "addTestsDependencies",
-        title: "Add test dependencies",
+        command: "addTestsPrerequisites",
+        title: "Add test prerequisites",
         arguments: [],
       };
 
-      addTestDependenciesItem.iconPath = new vscode.ThemeIcon("circle-filled");
-      addTestDependenciesItem.resourceUri = vscode.Uri.from({
+      addTestReqsItem.iconPath = new vscode.ThemeIcon("circle-filled");
+      addTestReqsItem.resourceUri = vscode.Uri.from({
         scheme: "devtools-treeview",
         authority: "task",
         path: "/" + testsRootItem.label + "/enabled",
       });
 
-      testsRootItem.addChild(addTestDependenciesItem);
-    } else if (testsRootItem && addTestDependenciesItem) {
-      // Move addTestDependenciesItem item to the end of the list
-      testsRootItem.children?.splice(testsRootItem.children?.indexOf(addTestDependenciesItem), 1);
+      testsRootItem.addChild(addTestReqsItem);
+    } else if (testsRootItem && addTestReqsItem) {
+      // Move addTestReqsItem item to the end of the list
+      testsRootItem.children?.splice(testsRootItem.children?.indexOf(addTestReqsItem), 1);
     }
   }
 
@@ -176,16 +175,22 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     this.refresh();
   }
 
-  public updateAppAndTargetLabels(): void {
+  public updateDynamicLabels(): void {
     const currentApp = getSelectedApp();
     if (currentApp) {
       let selectTargetItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select target"));
       let selectAppItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select app"));
+      let functionalTestsItem = this.data.find((item) => item.label && item.label.toString().startsWith("Functional"));
       if (selectAppItem) {
-        selectAppItem.label = `Select app [${currentApp.appFolderName}]`;
+        selectAppItem.label = `Select app [${currentApp.folderName}]`;
       }
       if (selectTargetItem) {
         selectTargetItem.label = `Select target [${this.targetSelector.getSelectedTarget()}]`;
+      }
+      if (functionalTestsItem && currentApp.selectedTestUseCase) {
+        functionalTestsItem.label = `Functional Tests [${currentApp.selectedTestUseCase.name}]`;
+      } else if (functionalTestsItem) {
+        functionalTestsItem.label = `Functional Tests`;
       }
     } else {
       // Remove all tree items. The welcome view will be displayed instead.

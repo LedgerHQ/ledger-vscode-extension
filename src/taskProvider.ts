@@ -2,6 +2,7 @@
 
 import * as vscode from "vscode";
 import * as path from "path";
+import * as fs from "fs";
 import { platform } from "node:process";
 import { TargetSelector } from "./targetSelector";
 import { getSelectedApp, App, AppLanguage } from "./appSelector";
@@ -10,10 +11,12 @@ import { TreeDataProvider } from "./treeView";
 export const taskType = "L";
 
 // Udev rules (for Linux app loading requirements)
+const udevRulesFilePath = "/etc/udev/rules.d/";
 const udevRulesFile = "20-ledger.ledgerblue.rules";
-const udevRules = `SUBSYSTEMS=="usb", ATTRS{idVendor}=="2c97", ATTRS{idProduct}=="0006|6000|6001|6002|6003|6004|6005|6006|6007|6008|6009|600a|600b|600c|600d|600e|600f|6010|6011|6012|6013|6014|6015|6016|6017|6018|6019|601a|601b|601c|601d|601e|601f", TAG+="uaccess", TAG+="udev-acl"`;
+const udevRules = `SUBSYSTEMS=="usb", KERNEL=="hidraw*", ATTRS{idVendor}=="2c97", MODE="0666", ATTRS{idProduct}=="0006|6000|6001|6002|6003|6004|6005|6006|6007|6008|6009|600a|600b|600c|600d|600e|600f|6010|6011|6012|6013|6014|6015|6016|6017|6018|6019|601a|601b|601c|601d|601e|601f", TAG+="uaccess", TAG+="udev-acl"`;
 
-type ExecBuilder = () => string;
+type CustomTaskFunction = () => void;
+type ExecBuilder = () => string | [string, CustomTaskFunction];
 type TaskTargetLanguage = AppLanguage | "Both";
 type BuilderForLanguage = Partial<Record<TaskTargetLanguage, ExecBuilder>>;
 
@@ -30,6 +33,21 @@ export interface TaskSpec {
   allSelectedBehavior: BehaviorWhenAllTargetsSelected;
 }
 
+class MyTask extends vscode.Task {
+  public customFunction: CustomTaskFunction | undefined;
+  constructor(
+    definition: vscode.TaskDefinition,
+    scope: vscode.TaskScope,
+    name: string,
+    source: string,
+    execution: vscode.ShellExecution,
+    customFunction: CustomTaskFunction | undefined
+  ) {
+    super(definition, scope, name, source, execution);
+    this.customFunction = customFunction;
+  }
+}
+
 export class TaskProvider implements vscode.TaskProvider {
   private treeProvider: TreeDataProvider;
   private tgtSelector: TargetSelector;
@@ -37,16 +55,17 @@ export class TaskProvider implements vscode.TaskProvider {
   private onboardPin: string;
   private onboardSeed: string;
   private scpConfig: boolean;
-  private additionalDeps?: string;
+  private enableNanoxOps: boolean;
+  private additionalReqs?: string;
   private buildDir: string;
   private workspacePath: string;
   private containerName: string;
-  private appFolder?: vscode.WorkspaceFolder;
+  private appFolderUri?: vscode.Uri;
   private appName: string;
   private appLanguage: AppLanguage;
   private functionalTestsDir?: string;
   private packageName?: string;
-  private tasks: vscode.Task[] = [];
+  private tasks: MyTask[] = [];
   private currentApp?: App;
   private taskSpecs: TaskSpec[] = [
     {
@@ -85,9 +104,9 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Build",
-      name: "Clean build files",
+      name: "Clean the build files",
       builders: { ["C"]: this.cCleanExec, ["Rust"]: this.rustCleanExec },
-      toolTip: "Clean app build files",
+      toolTip: "Clean the app build files",
       state: "enabled",
       allSelectedBehavior: "enable",
     },
@@ -95,7 +114,7 @@ export class TaskProvider implements vscode.TaskProvider {
       group: "Functional Tests",
       name: "Run with emulator",
       builders: { ["Both"]: this.runInSpeculosExec },
-      toolTip: "Run app with Speculos emulator",
+      toolTip: "Run app with emulator (Speculos)",
       state: "enabled",
       allSelectedBehavior: "disable",
     },
@@ -103,7 +122,7 @@ export class TaskProvider implements vscode.TaskProvider {
       group: "Functional Tests",
       name: "Kill emulator",
       builders: { ["Both"]: this.killSpeculosExec },
-      toolTip: "Kill Speculos emulator instance",
+      toolTip: "Kill emulator (Speculos) instance",
       state: "enabled",
       allSelectedBehavior: "disable",
     },
@@ -164,10 +183,10 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Device Operations",
-      name: "Quick device onboarding",
+      name: "Quick initial device setup",
       builders: { ["Both"]: this.deviceOnboardingExec },
       dependsOn: this.appLoadRequirementsExec,
-      toolTip: "Onboard a physical device with a seed and PIN code",
+      toolTip: "Automatic initial device setup with pre-defined test seed and PIN",
       state: "enabled",
       allSelectedBehavior: "disable",
     },
@@ -188,9 +207,10 @@ export class TaskProvider implements vscode.TaskProvider {
     this.onboardPin = conf.get<string>("onboardingPin") || "";
     this.onboardSeed = conf.get<string>("onboardingSeed") || "";
     this.scpConfig = conf.get<boolean>("userScpPrivateKey") || false;
-    const allDeps = conf.get<Record<string, string>>("additionalDepsPerApp");
-    if (this.currentApp && allDeps && allDeps[this.currentApp.appFolderName]) {
-      this.additionalDeps = allDeps[this.currentApp.appFolderName];
+    this.enableNanoxOps = conf.get<boolean>("enableDeviceOpsForNanoX") || false;
+    const configReqs = conf.get<Record<string, string>>("additionalReqsPerApp");
+    if (this.currentApp && configReqs && configReqs[this.currentApp.folderName]) {
+      this.additionalReqs = configReqs[this.currentApp.folderName];
     }
     this.generateTasks();
   }
@@ -207,21 +227,22 @@ export class TaskProvider implements vscode.TaskProvider {
     this.onboardPin = conf.get<string>("onboardingPin") || "";
     this.onboardSeed = conf.get<string>("onboardingSeed") || "";
     this.scpConfig = conf.get<boolean>("userScpPrivateKey") || false;
+    this.enableNanoxOps = conf.get<boolean>("enableDeviceOpsForNanoX") || false;
     this.currentApp = getSelectedApp();
     if (this.currentApp) {
-      const allDeps = conf.get<Record<string, string>>("additionalDepsPerApp");
-      if (allDeps && allDeps[this.currentApp.appFolderName]) {
-        this.additionalDeps = allDeps[this.currentApp.appFolderName];
+      const configReqs = conf.get<Record<string, string>>("additionalReqsPerApp");
+      if (configReqs && configReqs[this.currentApp.folderName]) {
+        this.additionalReqs = configReqs[this.currentApp.folderName];
       } else {
-        this.additionalDeps = undefined;
+        this.additionalReqs = undefined;
       }
       this.functionalTestsDir = this.currentApp.functionalTestsDir;
-      this.appName = this.currentApp.appName;
+      this.appName = this.currentApp.name;
       this.appLanguage = this.currentApp.language;
       this.containerName = this.currentApp.containerName;
-      this.appFolder = this.currentApp.appFolder;
+      this.appFolderUri = this.currentApp.folderUri;
       this.buildDir = this.currentApp.buildDirPath;
-      this.workspacePath = this.currentApp.appFolder.uri.path;
+      this.workspacePath = this.currentApp.folderUri.path;
       this.packageName = this.currentApp.packageName;
       this.checkDisabledTasks();
       this.pushAllTasks();
@@ -245,6 +266,9 @@ export class TaskProvider implements vscode.TaskProvider {
   public executeTaskByName(taskName: string) {
     const task = this.getTaskByName(taskName);
     if (task) {
+      if (task.customFunction) {
+        task.customFunction();
+      }
       vscode.tasks.executeTask(task);
     }
   }
@@ -343,12 +367,29 @@ export class TaskProvider implements vscode.TaskProvider {
     return exec;
   }
 
-  private appLoadRequirementsExec(): string {
+  private appLoadRequirementsExec(): string | [string, CustomTaskFunction] {
     let exec = "";
     if (platform === "linux") {
       // Linux
-      // Copies the ledger udev rule file to the /etc/udev/rules.d/ directory if it does not exist, then reloads the rules and triggers udev.
-      exec = `if [ ! -f '/etc/udev/rules.d/${udevRulesFile}' ]; then echo '${udevRules}' > ${udevRulesFile} && sudo mv ${udevRulesFile} /etc/udev/rules.d/ && sudo udevadm control --reload-rules && sudo udevadm trigger; fi`;
+      // Copies the ledger udev rule file to the /etc/udev/rules.d/ directory if it does not exist or if the content needs to be updated, then reloads the rules and triggers udev.
+      exec = `if [ ! -f '${udevRulesFilePath}${udevRulesFile}' ] || ! cmp -s '${udevRulesFilePath}${udevRulesFile}' <(echo -n '${udevRules}') ; then echo -n '${udevRules}' > ${udevRulesFile} && sudo mv ${udevRulesFile} ${udevRulesFilePath} && sudo udevadm control --reload-rules && sudo udevadm trigger; fi`;
+      const customFunction = () => {
+        let showSudoMsg: boolean = false;
+        if (fs.existsSync(`${udevRulesFilePath}${udevRulesFile}`)) {
+          const filesContent = fs.readFileSync(`${udevRulesFilePath}${udevRulesFile}`, "utf8");
+          if (filesContent !== udevRules) {
+            showSudoMsg = true;
+          }
+        } else {
+          showSudoMsg = true;
+        }
+        if (showSudoMsg) {
+          vscode.window.showWarningMessage(
+            `Udev rules need to be updated for sideloading to be executed properly. Please enter your password in the terminal panel to update ${udevRulesFilePath}${udevRulesFile}.`
+          );
+        }
+      };
+      return [exec, customFunction];
     } else if (platform === "darwin") {
       // macOS
       // Checks that virtual env is installed, otherwise installs it. Then installs ledgerblue in a virtualenv.
@@ -364,7 +405,7 @@ export class TaskProvider implements vscode.TaskProvider {
   private appLoadExec(): string {
     let exec = "";
     let keyconfig = "";
-    const hostBuildDirPath = path.join(this.appFolder!.uri.fsPath, this.buildDir);
+    const hostBuildDirPath = path.join(this.appFolderUri!.fsPath, this.buildDir);
     const tgtBuildDir = this.tgtSelector.getTargetBuildDirName();
 
     if (this.scpConfig === true) {
@@ -437,7 +478,7 @@ export class TaskProvider implements vscode.TaskProvider {
     } else {
       // Assume windows
       // Side loads the app APDU file using ledgerblue runScript.
-      exec = `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.hostOnboard --apdu --id 0 --pin ${this.onboardPin} --prefix \"\" --passphrase \"\" --words \"${this.onboardSeed}\"'`;
+      exec = `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.hostOnboard --apdu --id 0 --pin ${this.onboardPin} --prefix=\"\" --passphrase=\"\" --words \"${this.onboardSeed}\"'`;
     }
     return exec;
   }
@@ -475,50 +516,83 @@ export class TaskProvider implements vscode.TaskProvider {
   }
 
   private functionalTestsRequirementsExec(): string {
-    // Use additionalDepsPerApp configuration to install additional dependencies for current app.
-    let addDepsExec = "";
-    if (this.additionalDeps) {
-      addDepsExec = `${this.additionalDeps} &&`;
-      console.log(`Ledger: Installing additional dependencies : ${addDepsExec}`);
+    // Use additionalReqsPerApp configuration to install additional dependencies for current app.
+    let addReqsExec = "";
+    if (this.additionalReqs) {
+      addReqsExec = `${this.additionalReqs} &&`;
+      console.log(`Ledger: Installing additional dependencies : ${addReqsExec}`);
     }
     const reqFilePath = this.functionalTestsDir + "/requirements.txt";
-    const exec = `docker exec -it -u 0  ${this.containerName} bash -c '${addDepsExec} [ -f ${reqFilePath} ] && pip install -r ${reqFilePath}'`;
+    const exec = `docker exec -it -u 0  ${this.containerName} bash -c '${addReqsExec} [ -f ${reqFilePath} ] && pip install -r ${reqFilePath}'`;
     return exec;
   }
 
   private pushAllTasks(): void {
-    let defineExec = (item: TaskSpec) => {
+    type DefineExecFunc = (item: TaskSpec) => [string, CustomTaskFunction | undefined];
+    let defineExec: DefineExecFunc = (item: TaskSpec) => {
       let dependExec = "";
+      let customFunc: CustomTaskFunction | undefined;
+      let dependFunc: CustomTaskFunction | undefined;
       if (item.dependsOn) {
-        dependExec = item.dependsOn.call(this) + ";";
+        let dependResult = item.dependsOn.call(this);
+        if (typeof dependResult === "string") {
+          dependExec = dependExec + " ; ";
+        } else {
+          dependExec = dependResult[0] + " ; ";
+          dependFunc = dependResult[1];
+        }
       }
-      const languageExec = item.builders[this.appLanguage]?.call(this) || item.builders["Both"]?.call(this) || "";
+      const builderResult = item.builders[this.appLanguage]?.call(this) || item.builders["Both"]?.call(this) || "";
+      let languageExec = "";
+      if (typeof builderResult === "string") {
+        languageExec = builderResult;
+      } else {
+        languageExec = builderResult[0];
+        customFunc = builderResult[1];
+      }
+
+      let func: CustomTaskFunction | undefined;
+      if (dependFunc || customFunc) {
+        func = () => {
+          if (dependFunc) {
+            dependFunc();
+          }
+          if (customFunc) {
+            customFunc();
+          }
+        };
+      }
       const exec = dependExec + languageExec;
-      return exec;
+      return [exec, func];
     };
 
     this.taskSpecs.forEach((item) => {
       if (this.currentApp && item.state === "enabled") {
-        console.log("Pushing task: " + item.name + " for app: " + this.currentApp.appName);
-
-        let exec = defineExec(item);
+        console.log("Pushing task: " + item.name + " for app: " + this.currentApp.name);
+        let exec = "";
+        let customFunction: CustomTaskFunction | undefined;
+        let defineResult = defineExec(item);
+        exec = defineResult[0];
+        customFunction = defineResult[1];
         // If the selected target is all and the task behavior is to be executed for all targets,
         // define the exec for all targets of the app
         if (this.tgtSelector.getSelectedTarget() === "All" && item.allSelectedBehavior === "executeForEveryTarget") {
           exec = "";
           this.tgtSelector.getTargetsArray().forEach((target) => {
             this.tgtSelector.setSelectedTarget(target);
-            exec += defineExec(item) + " ; ";
+            exec += defineExec(item)[0] + " ; ";
           });
           this.tgtSelector.setSelectedTarget("All");
+          customFunction = undefined;
         }
 
-        const task = new vscode.Task(
+        const task = new MyTask(
           { type: taskType, task: item.name },
-          this.currentApp.appFolder,
+          vscode.TaskScope.Workspace,
           item.name,
           taskType,
-          new vscode.ShellExecution(exec)
+          new vscode.ShellExecution(exec),
+          customFunction
         );
         task.group = vscode.TaskGroup.Build;
         this.tasks.push(task);
@@ -551,6 +625,12 @@ export class TaskProvider implements vscode.TaskProvider {
       if (this.tgtSelector.getSelectedTarget() === "All") {
         this.taskSpecs.forEach((item) => {
           if (item.allSelectedBehavior === "disable" && item.state === "enabled") {
+            item.state = "disabled";
+          }
+        });
+      } else if (this.tgtSelector.getSelectedTarget() === "Nano X" && this.enableNanoxOps === false) {
+        this.taskSpecs.forEach((item) => {
+          if (item.group === "Device Operations") {
             item.state = "disabled";
           }
         });

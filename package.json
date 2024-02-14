@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "Ledger Dev Tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",
@@ -191,9 +191,9 @@
           "markdownDescription": "Select the default Device"
         },
         "ledgerDevTools.enableDeviceOpsForNanoX": {
-            "type": "boolean",
-            "default": false,
-            "markdownDescription": "Allow device operations on Nano X (requires special development device)"
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Allow device operations on Nano X (requires special development device)"
         }
       }
     }

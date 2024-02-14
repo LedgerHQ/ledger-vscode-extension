@@ -63,6 +63,16 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+## 0.5.0
+
+* New setting to allow / deny device operations on Nano X (denied by default).
+* Support parsing of `test.dependencies` fields from the [app manifest specification](https://github.com/LedgerHQ/ledgered/blob/master/doc/utils/manifest.md). Speed up the setup for running functional tests by automating the clone/build of tests dependencies when needed.
+* Add button to rebuild test dependencies (if any) in treeview.
+* Refactor of `appSelected.ts` for better maintainability.
+* Replace TOML parsing package (previous one couldn't parse 1.0.0 TOML)
+* Update Udev rules for sideloading following hidapi python package update. Display warning message when rules need to be updated.
+* Wording in some tree view items.
+
 ## 0.4.0
 
 * Add "select all targets" command with a button in the main tree view.

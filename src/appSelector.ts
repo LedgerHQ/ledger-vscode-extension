@@ -47,11 +47,11 @@ export interface App {
   compatibleDevices: LedgerDevice[];
   // If the app is a Rust app, the package name is parsed from the Cargo.toml
   packageName?: string;
-  // If the manifest has a tests dependencies (optional) section with use cases, they are parsed here
+  // If the app manifest has a tests dependencies (optional) section with use cases, they are parsed here
   testsUseCases?: TestUseCase[];
   selectedTestUseCase?: TestUseCase;
   builtTestDependencies?: boolean;
-  // If the manifest has build use cases (optional) section they are parsed here
+  // If the app manifest has build use cases (optional) section they are parsed here
   buildUseCases?: BuildUseCase[];
   selectedBuildUseCase?: BuildUseCase;
 }

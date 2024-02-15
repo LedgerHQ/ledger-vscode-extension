@@ -63,6 +63,13 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+## 0.5.1
+
+* Fix bugs introduced in 0.5.0 :
+  * "dependsOn" task execution string was missing when generating tasks.
+  * When one app detection failed, it prevented any app in the workspace to be detected afterwards.
+  * Extension update was not triggered properly when selecting app through the quick pick menu.
+
 ## 0.5.0
 
 * New setting to allow / deny device operations on Nano X (denied by default).

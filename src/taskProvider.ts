@@ -536,7 +536,7 @@ export class TaskProvider implements vscode.TaskProvider {
       if (item.dependsOn) {
         let dependResult = item.dependsOn.call(this);
         if (typeof dependResult === "string") {
-          dependExec = dependExec + " ; ";
+          dependExec = dependResult + " ; ";
         } else {
           dependExec = dependResult[0] + " ; ";
           dependFunc = dependResult[1];

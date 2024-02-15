@@ -84,11 +84,11 @@ function detectAppType(appFolder: vscode.Uri): [AppType?, string?] {
         appTypeAndFile = ["manifest", manifest];
       }
     } else {
-      const makefile = makefileOrToml.find((file) => file.endsWith("Makefile"));
-      if (makefile) {
-        const fileContent = fs.readFileSync(makefile, "utf-8");
+      for (let file of makefileOrToml) {
+        const fileContent = fs.readFileSync(file, "utf-8");
         if (fileContent.includes(C_APP_DETECTION_STRING)) {
-          appTypeAndFile = ["makefile", makefile];
+          appTypeAndFile = ["makefile", file];
+          break;
         }
       }
     }
@@ -110,16 +110,21 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
   let compatibleDevices: LedgerDevice[] = ["Nano S", "Nano S Plus", "Nano X", "Stax"];
   let testsUseCases = undefined;
   let buildUseCases = undefined;
+  let buildDirPath = "./";
 
   let found = true;
 
-  let [appType, appFile] = detectAppType(folderUri);
-  const fileContent = fs.readFileSync(appFile || "", "utf-8");
-
-  let buildDirPath = path.relative(folderUri.fsPath, path.dirname(appFile || ""));
-  buildDirPath = buildDirPath === "" ? "./" : buildDirPath;
-
   try {
+    let [appType, appFile] = detectAppType(folderUri);
+
+    let fileContent = "";
+    if (appFile) {
+      fileContent = fs.readFileSync(appFile || "", "utf-8");
+    }
+
+    buildDirPath = path.relative(folderUri.fsPath, path.dirname(appFile || ""));
+    buildDirPath = buildDirPath === "" ? "./" : buildDirPath;
+
     switch (appType) {
       case "manifest": {
         console.log("Found manifest in " + appFolderName);
@@ -206,7 +211,7 @@ export async function showAppSelectorMenu(targetSelector: TargetSelector) {
     placeHolder: "Please select an app",
     onDidSelectItem: (item) => {
       setSelectedApp(appList.find((app) => app.folderName === item));
-      testUseCaseSelected.fire();
+      appSelectedEmitter.fire();
     },
   });
   getAndBuildAppTestsDependencies(targetSelector);
@@ -221,7 +226,7 @@ export async function showTestUseCaseSelectorMenu(targetSelector: TargetSelector
       placeHolder: "Please select a test use case",
       onDidSelectItem: (item) => {
         selectedApp!.selectedTestUseCase = selectedApp!.testsUseCases?.find((testUseCase) => testUseCase.name === item);
-        appSelectedEmitter.fire();
+        testUseCaseSelected.fire();
       },
     });
   }

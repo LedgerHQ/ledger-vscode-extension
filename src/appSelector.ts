@@ -100,7 +100,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
   let app: App | undefined = undefined;
 
   const appFolderUri = folderUri;
-  const appFolderName = path.basename(folderUri.toString());
+  const appFolderName = path.basename(folderUri.toString(true));
   const containerName = `${appFolderName}-container`;
 
   let appName = "unknown";
@@ -311,7 +311,7 @@ async function showManifestWarning(appFolderName: string, deprecated: boolean) {
   if (openDoc) {
     vscode.commands.executeCommand(
       "vscode.open",
-      vscode.Uri.parse("https://github.com/LedgerHQ/ledgered/blob/master/doc/utils/manifest.md")
+      vscode.Uri.parse("https://github.com/LedgerHQ/ledgered/blob/master/doc/manifest.md")
     );
   }
 }
@@ -442,18 +442,26 @@ function parseBuildUseCasesFromManifest(tomlContent: any): BuildUseCase[] | unde
 
 export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, clean: boolean = false) {
   const testDepDir = ".test_dependencies";
+  let optionsExec: cp.ExecOptions = { cwd: selectedApp!.folderUri.fsPath, windowsHide: true };
+  let optionsExecSync: cp.ExecSyncOptions = { cwd: selectedApp!.folderUri.fsPath, stdio: "inherit", windowsHide: true };
+  // If platform is windows, set shell to powershell for cp exec.
+  if (platform === "win32") {
+    let shell = "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
+    optionsExec.shell = shell;
+    optionsExecSync.shell = shell;
+  }
+  // If the app has a functional tests directory and test use cases defined in the manifest with dependencies, clone the dependencies and build them.
   if (selectedApp && selectedApp.selectedTestUseCase && selectedApp.functionalTestsDir) {
-    const testDepDirPath = path.join(selectedApp.functionalTestsDir, testDepDir);
-
+    const testDepDirPath = path.posix.join(selectedApp.functionalTestsDir, testDepDir);
+    // Clean the test dependencies folder if it exists and the clean flag is set
     if (clean) {
-      let cleanCmd = `docker exec -t ${
+      let cleanCmd = `docker exec ${
         selectedApp!.containerName
-      } bash -c 'if [ -d '${testDepDirPath}' ]; then rm -rf ${testDepDirPath}; fi'`;
+      } bash -c "if [ -d '${testDepDirPath}' ]; then rm -rf ${testDepDirPath}; fi"`;
       try {
-        // Check if folder exists before removing it
-        cp.execSync(cleanCmd, { stdio: "inherit" });
         vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", false);
         vscode.commands.executeCommand("setContext", "ledgerDevTools.showrebuildTestUseCaseDepsSpin", true);
+        cp.execSync(cleanCmd, optionsExecSync);
       } catch (error) {
         pushError(`Clean of test dependencies failed. ${error}`);
       }
@@ -461,20 +469,22 @@ export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, 
     }
 
     if (!selectedApp.builtTestDependencies) {
+      // First, clone the test dependencies.
       selectedApp.selectedTestUseCase.dependencies.forEach((dep) => {
         let depFolderName = path.basename(dep.gitRepoUrl, ".git") + "-" + dep.useCase;
-        let depFolderPath = path.join(testDepDirPath, depFolderName);
+        let depFolderPath = path.posix.join(testDepDirPath, depFolderName);
         let gitCloneCommand = `git clone ${dep.gitRepoUrl} --branch ${dep.gitRepoRef} ${depFolderPath}`;
-        let execGitCloneCommand = `docker exec -t ${
+        let execGitCloneCommand = `docker exec ${
           selectedApp!.containerName
-        } bash -c 'if [ ! -d '${depFolderPath}' ]; then ${gitCloneCommand}; fi'`;
+        } bash -c "if [ ! -d '${depFolderPath}' ]; then ${gitCloneCommand}; fi"`;
 
         try {
-          cp.execSync(execGitCloneCommand, { stdio: "inherit" });
+          cp.execSync(execGitCloneCommand, optionsExecSync);
         } catch (error) {
           pushError(`Git clone of test dependency ${depFolderName} failed. ${error}`);
         }
 
+        // Then, if the dependency is detected as an app, build it.
         let depApp = findAppInFolder(vscode.Uri.parse(path.join(selectedApp!.folderUri.fsPath, depFolderPath)));
         if (depApp) {
           let depAppBuildUseCase = depApp.buildUseCases?.find((useCase) => useCase.name === dep.useCase);
@@ -482,32 +492,31 @@ export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, 
             if (depApp.language === "C") {
               console.log(`Ledger: building C app ${depApp.name} in ${depFolderPath}`);
 
+              // Execute git command in cmd.exe on host, no docker
               let submodulesCommand = `cd ${depFolderPath} && git submodule update --init --recursive;`;
               if (platform === "win32") {
-                // Execute git command in cmd.exe on host, no docker
-                submodulesCommand = `cd ${depFolderPath} && cmd.exe /c "git submodule update --init --recursive";`;
+                // Adapt the command for windows
+                submodulesCommand = `cd ${path.join(depFolderPath)} ; cmd.exe /c "git submodule update --init --recursive";`;
               }
-
+              // Build the app for all supported targets
               let buildCommand = "";
               let target = targetSelector.getSelectedTarget();
               targetSelector.getTargetsArray().forEach((target) => {
                 targetSelector.setSelectedTarget(target);
-                buildCommand += `export BOLOS_SDK=$(echo ${targetSelector.getSelectedSDK()}) && make -C ${path.join(
+                buildCommand += `export BOLOS_SDK=$(echo ${targetSelector.getSelectedSDK()}) && make -C ${path.posix.join(
                   depFolderPath,
                   depApp!.buildDirPath
                 )} -j ${depAppBuildUseCase!.options} ; `;
               });
               targetSelector.setSelectedTarget(target);
 
-              let execBuildCommand = `${submodulesCommand} docker exec -t ${
-                selectedApp!.containerName
-              } bash -c '${buildCommand}'`;
+              let execBuildCommand = `${submodulesCommand} docker exec ${selectedApp!.containerName} bash -c '${buildCommand}'`;
 
               vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", false);
               vscode.commands.executeCommand("setContext", "ledgerDevTools.showrebuildTestUseCaseDepsSpin", true);
 
               // Executing the command with a callback
-              cp.exec(execBuildCommand, (error, stdout, stderr) => {
+              cp.exec(execBuildCommand, optionsExec, (error, stdout, stderr) => {
                 if (error) {
                   pushError(`Build of test use case ${dep.useCase} dependency ${depApp!.folderName} failed. ${error}`);
                   return;

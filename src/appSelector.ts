@@ -311,7 +311,7 @@ async function showManifestWarning(appFolderName: string, deprecated: boolean) {
   if (openDoc) {
     vscode.commands.executeCommand(
       "vscode.open",
-      vscode.Uri.parse("https://github.com/LedgerHQ/ledgered/blob/master/doc/utils/manifest.md")
+      vscode.Uri.parse("https://github.com/LedgerHQ/ledgered/blob/master/doc/manifest.md")
     );
   }
 }

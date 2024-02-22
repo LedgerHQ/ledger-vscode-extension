@@ -63,6 +63,10 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+## 0.5.2
+
+* Fix plugin support on Windows : clone and build of test dependencies were not working properly.
+
 ## 0.5.1
 
 * Fix bugs introduced in 0.5.0 :

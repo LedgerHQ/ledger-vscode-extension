@@ -8,7 +8,7 @@
 
 The extension uses Ledger's own [Docker image](https://github.com/LedgerHQ/ledger-app-builder/blob/master/dev-tools/Dockerfile) to allow developers to setup a build and test environment in a few minutes.
 
-* Build your app for all Ledger devices : Nano S, Nano S Plus, Nano X, Stax.
+* Build your app for all Ledger devices : Nano S, Nano S Plus, Nano X, Stax and Flex.
 * Supports C and Rust apps.
 * Stay up to date with the latest SDK.
 * Run tests on the device emulator ([Speculos](https://github.com/LedgerHQ/speculos)) or on a real device.
@@ -62,6 +62,10 @@ This extension contributes the following settings:
 * `ledgerDevTools.enableDeviceOpsForNanoX`: Allow device operations on Nano X (requires special development device)
 
 ## Release Notes
+
+## [0.5.3]
+
+* Flex device support.
 
 ## 0.5.2
 

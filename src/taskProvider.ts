@@ -70,7 +70,7 @@ export class TaskProvider implements vscode.TaskProvider {
   private taskSpecs: TaskSpec[] = [
     {
       group: "Docker Container",
-      name: "Update Container",
+      name: "Update container",
       builders: { ["Both"]: this.runDevToolsImageExec },
       toolTip: "Update docker container (pull image and restart container)",
       state: "enabled",

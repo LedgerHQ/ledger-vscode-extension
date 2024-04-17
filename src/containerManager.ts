@@ -72,7 +72,7 @@ export class ContainerManager {
       if (currentApp) {
         this.triggerStatusEvent(DevImageStatus.stopped);
         console.log(`Ledger: Container ${currentApp.containerName} not found, respawning it.`);
-        this.taskProvider.executeTaskByName("Update Container");
+        this.taskProvider.executeTaskByName("Update container");
       }
     }
   }

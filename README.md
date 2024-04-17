@@ -63,9 +63,10 @@ This extension contributes the following settings:
 
 ## Release Notes
 
-## [0.5.3]
+## 0.6.0
 
 * Flex device support.
+* Fix wording case for "Update container" task.
 
 ## 0.5.2
 

@@ -133,7 +133,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   vscode.tasks.onDidStartTask((event) => {
     const taskName = event.execution.task.name;
-    if (taskName.startsWith("Update Container")) {
+    if (taskName.startsWith("Update container")) {
       containerManager.triggerStatusEvent(DevImageStatus.syncing);
     }
     if (taskName.startsWith("Quick initial device")) {
@@ -148,7 +148,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   vscode.tasks.onDidEndTask((event) => {
     const taskName = event.execution.task.name;
-    if (taskName.startsWith("Update Container")) {
+    if (taskName.startsWith("Update container")) {
       containerManager.checkUpdateRetries();
     }
   });

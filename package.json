@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "Ledger Dev Tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",
@@ -186,7 +186,8 @@
             "Nano S",
             "Nano S Plus",
             "Nano X",
-            "Stax"
+            "Stax",
+            "Flex"
           ],
           "markdownDescription": "Select the default Device"
         },

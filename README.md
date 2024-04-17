@@ -63,6 +63,10 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+## 0.6.1
+
+* Fix macOS venv creation for device operation tasks.
+
 ## 0.6.0
 
 * Flex device support.

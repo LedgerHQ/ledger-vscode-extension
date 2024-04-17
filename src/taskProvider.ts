@@ -393,7 +393,7 @@ export class TaskProvider implements vscode.TaskProvider {
     } else if (platform === "darwin") {
       // macOS
       // Checks that virtual env is installed, otherwise installs it. Then installs ledgerblue in a virtualenv.
-      exec = `[ -n "$VIRTUAL_ENV" ] || if ! python3 -m virtualenv --version >/dev/null 2>&1; then python3 -m pip install virtualenv; fi && [ -d 'ledger' ] || python3 -m virtualenv ledger && source ledger/bin/activate && python3 -m pip show ledgerblue >/dev/null 2>&1 || python3 -m pip install ledgerblue`;
+      exec = `[ -d 'ledger' ] || python3 -m venv ledger && source ledger/bin/activate && python3 -m pip show ledgerblue >/dev/null 2>&1 || python3 -m pip install ledgerblue`;
     } else {
       // Assume windows
       // Checks that virtual env is installed, otherwise installs it. Then installs ledgerblue in a virtualenv.

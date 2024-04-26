@@ -100,7 +100,8 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
   let app: App | undefined = undefined;
 
   const appFolderUri = folderUri;
-  const appFolderName = path.basename(folderUri.toString(true));
+  const folderStr = folderUri.toString(true);
+  const appFolderName = path.basename(folderStr);
   const containerName = `${appFolderName}-container`;
 
   let appName = "unknown";
@@ -130,7 +131,12 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
         console.log("Found manifest in " + appFolderName);
         let tomlContent = toml.parse(fileContent);
         [appLanguage, buildDirPath, compatibleDevices, testsDir, testsUseCases, buildUseCases] = parseManifest(tomlContent);
-        [appName, packageName] = findAdditionalInfo(appLanguage, buildDirPath, appFolderUri);
+        if (appLanguage === "C") {
+          appName = getAppName(folderStr.replace(/^file?:\/\//, ''));
+        } else {
+          let hostBuildDirPath = buildDirPath.startsWith("./") ? path.join(appFolderUri.fsPath, buildDirPath) : buildDirPath;
+          [appName, packageName] = parseCargoToml(path.join(hostBuildDirPath, "Cargo.toml"));
+        }
         break;
       }
       case "legacyManifest": {
@@ -144,7 +150,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
         break;
       }
       case "makefile": {
-        appName = getAppNameFromMakefile(fileContent);
+        appName = getAppName(folderStr.replace(/^file?:\/\//, ''));
         testsDir = findFunctionalTestsWithoutManifest(appFolderUri);
         showManifestWarning(appFolderName, false);
         break;
@@ -332,25 +338,28 @@ function manifestDevicesToLedgerDevices(manifestDevices: string): LedgerDevice[]
         case "stax":
           return "Stax";
         case "flex":
-            return "Flex";          
+            return "Flex";
         default:
           throw new Error("Invalid device in manifest : " + device);
       }
     });
 }
 
-// Get the app name from the Makefile (for C apps)
-function getAppNameFromMakefile(content: string): string {
-  let appName: string;
-  // Find the app name in the Makefile
-  const regex = new RegExp(`${C_APP_NAME_MAKEFILE_VAR}\\s*=\\s*(.*)`);
-  const match = content.match(regex);
-  if (match) {
-    appName = match[1];
-  } else {
-    throw new Error("No app name found in Makefile");
+// Get the app name (for C apps)
+function getAppName(appdir: string): string {
+  let optionsExecSync: cp.ExecSyncOptions = { stdio: "pipe", encoding: "utf-8" };
+  // If platform is windows, set shell to powershell for cp exec.
+  if (platform === "win32") {
+    let shell: string = "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
+    optionsExecSync.shell = shell;
   }
-  return appName;
+
+  const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+  const image = conf.get<string>("dockerImage") || "";
+
+  // BOLOS_SDK value doesn't impact the APPNAME
+  let cleanCmd:string = `docker run --rm -v '${appdir}:/app' ${image} bash -c "BOLOS_SDK=/opt/stax-secure-sdk make listinfo | grep ${C_APP_NAME_MAKEFILE_VAR}| cut -d'=' -f2"`;
+  return cp.execSync(cleanCmd, optionsExecSync).toString().trim();
 }
 
 // Type guard function to check if a string is a valid app language
@@ -562,32 +571,6 @@ function parseManifest(tomlContent: any): [AppLanguage, string, LedgerDevice[], 
   let buildUseCases = parseBuildUseCasesFromManifest(tomlContent);
 
   return [appLanguage, buildDirPath, compatibleDevices, functionalTestsDir, testUseCases, buildUseCases];
-}
-
-// Find app name and package name from build dir path, in Makefile for C apps or Cargo.toml for Rust apps
-function findAdditionalInfo(appLanguage: AppLanguage, buildDirPath: string, appFolder: vscode.Uri): [string, string?] {
-  let appName: string;
-  let packageName: string | undefined;
-
-  // Get the build dir path on the host to search for the Makefile or Cargo.toml
-  let hostBuildDirPath = buildDirPath.startsWith("./") ? path.join(appFolder.fsPath, buildDirPath) : buildDirPath;
-
-  // If C app, parse app name from Makefile
-  if (appLanguage === "C") {
-    // Search for Makefile in build dir
-    const searchPattern = path.join(hostBuildDirPath, `**/Makefile`).replace(/\\/g, "/");
-    const makefile = fg.sync(searchPattern, { onlyFiles: true, deep: 0 })[0];
-    if (!makefile) {
-      throw new Error("No Makefile found in build directory");
-    }
-    const makefileContent = fs.readFileSync(makefile, "utf-8");
-    appName = getAppNameFromMakefile(makefileContent);
-  }
-  // If Rust app, parse app name and package name from Cargo.toml
-  else {
-    [appName, packageName] = parseCargoToml(path.join(hostBuildDirPath, "Cargo.toml"));
-  }
-  return [appName, packageName];
 }
 
 // Parse legacy rust manifest and return build dir path, app name and package name

@@ -134,6 +134,7 @@ export function activate(context: vscode.ExtensionContext) {
   vscode.tasks.onDidStartTask((event) => {
     const taskName = event.execution.task.name;
     if (taskName.startsWith("Update container")) {
+      event.execution.task.isBackground = true;
       containerManager.triggerStatusEvent(DevImageStatus.syncing);
     }
     if (taskName.startsWith("Quick initial device")) {

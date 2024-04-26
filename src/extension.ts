@@ -154,6 +154,18 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
+  vscode.tasks.onDidEndTaskProcess((event) => {
+    const taskName = event.execution.task.name;
+    console.log(`Ledger: TaskProcess completed : "${taskName}". ExiCode=${event.exitCode}`);
+    if (((taskName === "Load app on device") || (taskName === "Delete app from device") || (taskName === "Update container")) &&
+      (event.exitCode === 0)) {
+      const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+      if (conf.get<boolean>("keepTerminal") === false) {
+        vscode.window.activeTerminal?.hide();
+      }
+    }
+  });
+
   let findAppsAndUpdateExtension = () => {
     const appList = findAppsInWorkspace();
     if (appList) {

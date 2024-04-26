@@ -164,10 +164,10 @@
           "scope": "application",
           "description": "Additional functional tests prerequisites to install in the current app's docker container."
         },
-        "ledgerDevTools.keepContainerTerminal": {
+        "ledgerDevTools.keepTerminal": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Keep the Terminal window opened after a successful Container Update."
+          "markdownDescription": "Keep the Terminal window opened after a successful task execution."
         },
         "ledgerDevTools.containerUpdateRetries": {
           "type": "number",

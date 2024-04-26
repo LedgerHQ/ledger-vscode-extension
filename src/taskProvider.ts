@@ -349,7 +349,9 @@ export class TaskProvider implements vscode.TaskProvider {
   }
 
   private openTerminalExec(): string {
-    const exec = `docker exec -it -u 0 ${this.containerName} bash`;
+    // Get the Selected target SDK to export inside the container
+    let sdk: string = this.tgtSelector.getSelectedSDK();
+    const exec = `docker exec -it -u 0 -e "BOLOS_SDK=${sdk}" ${this.containerName} bash`;
     return exec;
   }
 

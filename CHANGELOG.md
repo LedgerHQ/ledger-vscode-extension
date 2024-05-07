@@ -41,7 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 * New setting to allow / deny device operations on Nano X (denied by default).
-* Support parsing of `test.dependencies` fields from the [app manifest specification](https://github.com/LedgerHQ/ledgered/blob/master/doc/utils/manifest.md). Speed up the setup for running functional tests by automating the clone/build of tests dependencies when needed.
+* Support parsing of `test.dependencies` fields from the [app manifest specification](https://github.com/LedgerHQ/ledgered/blob/master/doc/utils/manifest.md).
+  Speed up the setup for running functional tests by automating the clone/build of tests dependencies when needed.
 * Add button to rebuild test dependencies (if any) in treeview.
 
 ### Changed
@@ -51,7 +52,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * Replace TOML parsing package (previous one couldn't parse 1.0.0 TOML)
-* Update Udev rules for sideloading following hidapi python package update. Display warning message when rules need to be updated.
+* Update Udev rules for sideloading following hidapi python package update.
+  Display warning message when rules need to be updated.
 * Wording in some tree view items.
 
 ## [0.4.0]
@@ -121,7 +123,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Add support for Rust apps (no sideloading yet).
 * Add welcome view when no app folder is detected in the workspace.
-* Dynamic tasks list : disable functional tests tasks when no `conftest.py` file is found or if task is not defined for app language.
+* Dynamic tasks list : disable functional tests tasks when no `conftest.py` file is found
+  or if task is not defined for app language.
 
 ### Fixed
 
@@ -200,6 +203,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
     - Add multi-folder workspace support. User can now choose which app to build from a quickpick menu.
+
 ## [0.0.4] - 2023-07-04
 
 ### Added

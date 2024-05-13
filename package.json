@@ -34,6 +34,11 @@
           "group": "inline"
         },
         {
+          "command": "buildUseCase",
+          "when": "view == mainView && viewItem == buildUseCase",
+          "group": "inline"
+        },
+        {
           "command": "rebuildTestUseCaseDeps",
           "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showRebuildTestUseCaseDeps",
           "group": "inline"
@@ -92,6 +97,13 @@
         "title": "Select device",
         "category": "Ledger",
         "tooltip": "Select the device you want to build your app for."
+      },
+      {
+        "command": "buildUseCase",
+        "title": "Select build use case",
+        "category": "Ledger",
+        "tooltip": "Select the use case you want to build with.",
+        "icon": "$(gear)"
       },
       {
         "command": "toggleAllTargets",

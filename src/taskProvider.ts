@@ -86,18 +86,18 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Build",
-      name: "Build",
+      name: "Build incremental",
       builders: { ["C"]: this.cBuildExec, ["Rust"]: this.rustBuildExec },
-      toolTip: "Build app in release mode",
+      toolTip: "Build app (incremental mode)",
       dependsOn: this.appSubmodulesInitExec,
       state: "enabled",
       allSelectedBehavior: "executeForEveryTarget",
     },
     {
       group: "Build",
-      name: "Build with debug mode",
-      builders: { ["C"]: this.buildDebugExec },
-      toolTip: "Build app in debug mode",
+      name: "Build full",
+      builders: { ["C"]: this.cBuildFullExec },
+      toolTip: "Build app (full rebuild)",
       dependsOn: this.appSubmodulesInitExec,
       state: "enabled",
       allSelectedBehavior: "executeForEveryTarget",
@@ -294,19 +294,37 @@ export class TaskProvider implements vscode.TaskProvider {
     return exec;
   }
 
-  private buildDebugExec(): string {
-    // Builds the app with debug mode enabled using the make command, inside the docker container.
+  private cBuildExec(): string {
+    let buildOpt: string = "";
+    if (this.currentApp && this.currentApp.selectedBuildUseCase?.options) {
+      buildOpt = this.currentApp.selectedBuildUseCase?.options;
+    }
+
     const exec = `docker exec -it  ${
       this.containerName
-    } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make -C ${this.buildDir} -j DEBUG=1'`;
+    } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make -C ${this.buildDir} -j ${buildOpt}'`;
+    // Builds the app using the make command, inside the docker container.
     return exec;
   }
 
-  private cBuildExec(): string {
+  private cBuildFullExec(): string {
+    let buildOpt: string = "";
+    if (this.currentApp) {
+        if (this.currentApp.selectedBuildUseCase?.options) {
+        // Add build option of the selected the useCase
+        buildOpt = this.currentApp.selectedBuildUseCase?.options;
+      }
+
+      // Add build option for the selected variant
+      if (this.currentApp.variant && this.currentApp.variant.selected) {
+        buildOpt += " " + this.currentApp.variant.name + "=" + this.currentApp.variant.selected;
+      }
+    }
+
     const exec = `docker exec -it  ${
       this.containerName
-    } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make -C ${this.buildDir} -j'`;
-    // Builds the app in release mode using the make command, inside the docker container.
+    } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make -C ${this.buildDir} -B -j ${buildOpt}'`;
+    // Builds the app using the make command, inside the docker container.
     return exec;
   }
 

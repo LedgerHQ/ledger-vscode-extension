@@ -59,6 +59,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
           rootItem.iconPath = new vscode.ThemeIcon("vm");
         }
         if (rootItem.label?.toString().startsWith("Build")) {
+          rootItem.contextValue = "buildUseCase";
           rootItem.iconPath = new vscode.ThemeIcon("tools");
         }
         if (rootItem.label?.toString().startsWith("Functional")) {
@@ -181,16 +182,27 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
       let selectTargetItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select target"));
       let selectAppItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select app"));
       let functionalTestsItem = this.data.find((item) => item.label && item.label.toString().startsWith("Functional"));
+      let buidUseCaseItem = this.data.find((item) => item.label && item.label.toString().startsWith("Build"));
+
       if (selectAppItem) {
         selectAppItem.label = `Select app [${currentApp.folderName}]`;
       }
       if (selectTargetItem) {
         selectTargetItem.label = `Select target [${this.targetSelector.getSelectedTarget()}]`;
       }
-      if (functionalTestsItem && currentApp.selectedTestUseCase) {
-        functionalTestsItem.label = `Functional Tests [${currentApp.selectedTestUseCase.name}]`;
-      } else if (functionalTestsItem) {
-        functionalTestsItem.label = `Functional Tests`;
+      if (functionalTestsItem) {
+        if (currentApp.selectedTestUseCase) {
+          functionalTestsItem.label = `Functional Tests [${currentApp.selectedTestUseCase.name}]`;
+        } else {
+          functionalTestsItem.label = `Functional Tests`;
+        }
+      }
+      if (buidUseCaseItem) {
+        if (currentApp.selectedBuildUseCase) {
+          buidUseCaseItem.label = `Build [${currentApp.selectedBuildUseCase.name}]`;
+        } else {
+          buidUseCaseItem.label = `Build`;
+        }
       }
     } else {
       // Remove all tree items. The welcome view will be displayed instead.

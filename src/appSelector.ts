@@ -60,12 +60,47 @@ let appList: App[] = [];
 let selectedApp: App | undefined;
 
 let appSelectedEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
-
 export const onAppSelectedEvent: vscode.Event<void> = appSelectedEmitter.event;
 
 let testUseCaseSelected: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
-
 export const onTestUseCaseSelected: vscode.Event<void> = testUseCaseSelected.event;
+
+let useCaseSelectedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter<string>();
+export const onUseCaseSelectedEvent: vscode.Event<string> = useCaseSelectedEmitter.event;
+
+export function getSelectedBuidUseCase(): string {
+  if (selectedApp && selectedApp.selectedBuildUseCase) {
+    return selectedApp.selectedBuildUseCase.name;
+  }
+  // No use case defined in manifest, no selection
+  return "";
+}
+
+export function setBuildUseCase(name: string) {
+  if (selectedApp && selectedApp?.buildUseCases) {
+    for (let useCase of selectedApp?.buildUseCases) {
+      if (useCase.name === name) {
+        selectedApp.selectedBuildUseCase = useCase;
+        break;
+      }
+    }
+  }
+}
+
+export async function showBuildUseCase() {
+  const buildUseCaseNames = selectedApp?.buildUseCases?.map((buildUseCases) => buildUseCases.name);
+  let result = undefined;
+  if (buildUseCaseNames) {
+    result = await vscode.window.showQuickPick(buildUseCaseNames, {
+      placeHolder: "Please select a use case",
+      onDidSelectItem: (item) => {
+        setBuildUseCase(item.toString());
+        useCaseSelectedEmitter.fire(item.toString());
+      },
+    });
+  }
+  return result;
+}
 
 function detectAppType(appFolder: vscode.Uri): [AppType?, string?] {
   const searchPatterns = APP_DETECTION_FILES.map((file) => path.join(appFolder.fsPath, `**/${file}`).replace(/\\/g, "/"));
@@ -173,7 +208,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
   // Add the app to the list
   if (found) {
     // Log all found fields
-    console.log(`Found app ${appName} in folder ${appFolderName} with buildDirPath ${buildDirPath} and language ${appLanguage}`);
+    console.log(`Found app '${appName}' in folder '${appFolderName}' with buildDirPath '${buildDirPath}' and language '${appLanguage}'`);
     app = {
       name: appName,
       folderName: appFolderName,
@@ -435,18 +470,48 @@ function parseTestsUsesCasesFromManifest(tomlContent: any): TestUseCase[] | unde
 function parseBuildUseCasesFromManifest(tomlContent: any): BuildUseCase[] | undefined {
   let useCasesSection = getProperty(tomlContent, "use_cases");
   let buildUseCases: BuildUseCase[] | undefined = undefined;
+  let debugFlagFound: Boolean = false;
+  let debugNameFound: Boolean = false;
+
+  buildUseCases = [];
+  // Add a default 'release' use case, to build in release mode, without any flag
+  let buildUseCase: BuildUseCase = {
+    name: "release",
+    options: "",
+  };
+  buildUseCases.push(buildUseCase);
+
+  // Parse 'use_cases' section from manifest to retrieve the configuration
   if (useCasesSection) {
-    console.log(`Found use_cases section in manifest`);
-    buildUseCases = [];
     const useCases = Object.keys(useCasesSection);
     for (let useCase of useCases) {
       let buildUseCase: BuildUseCase = {
         name: useCase,
         options: getPropertyOrThrow(useCasesSection, useCase),
       };
+      if (buildUseCase.options === "DEBUG=1") {
+        // A debug use case already exists
+        debugFlagFound = true;
+      }
+      if (buildUseCase.name === "debug") {
+        // A use case with name 'debug' already exists
+        debugNameFound = true;
+      }
       buildUseCases.push(buildUseCase);
-      console.log(`Found build use case ${useCase} with options ${JSON.stringify(buildUseCase.options)}`);
+      console.log(`Found build use_case '${useCase}' with options ${JSON.stringify(buildUseCase.options)}`);
     }
+  }
+
+  // Add a default 'debug' use case if not found in the manifest
+  if (debugFlagFound === false) {
+    let buildUseCase: BuildUseCase = {
+      name: "debug",
+      options: "DEBUG=1",
+    };
+    if (debugNameFound === true) {
+      buildUseCase.name = "debug_default";
+    }
+    buildUseCases.push(buildUseCase);
   }
   return buildUseCases;
 }

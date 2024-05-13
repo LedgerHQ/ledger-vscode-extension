@@ -7,15 +7,24 @@ import { ContainerManager, DevImageStatus } from "./containerManager";
 const imageToolTip = "Click to update image and respawn container.";
 
 export class StatusBarManager {
+  private buildUseCaseItem: vscode.StatusBarItem;
   private targetItem: vscode.StatusBarItem;
   private devImageItem: vscode.StatusBarItem;
 
-  constructor(target: string) {
+  constructor(target: string, useCase: string) {
     this.targetItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     this.targetItem.tooltip = "Click to select another device.";
     this.targetItem.command = "selectTarget";
     this.targetItem.backgroundColor = new vscode.ThemeColor("statusBarItem.prominentBackground");
     this.updateTargetItem(target);
+
+    this.buildUseCaseItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    if (useCase !== "") {
+      this.buildUseCaseItem.tooltip = "Click to select a build use case.";
+      this.buildUseCaseItem.command = "buildUseCase";
+      this.buildUseCaseItem.backgroundColor = new vscode.ThemeColor("statusBarItem.prominentBackground");
+      this.updateBuildUseCaseItem(useCase);
+    }
 
     this.devImageItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     // Create a Command object with command and arguments
@@ -33,6 +42,11 @@ export class StatusBarManager {
   public updateTargetItem(target: string) {
     this.targetItem.text = `$(target) L : ${target}`;
     this.targetItem.show();
+  }
+
+  public updateBuildUseCaseItem(useCase: string) {
+    this.buildUseCaseItem.text = `$(tools) L : ${useCase}`;
+    this.buildUseCaseItem.show();
   }
 
   public updateDevImageItem(status: DevImageStatus): void {

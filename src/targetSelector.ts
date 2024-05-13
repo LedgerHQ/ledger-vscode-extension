@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { StatusBarManager } from "./statusBar";
 import { TaskProvider } from "./taskProvider";
 import { TreeDataProvider } from "./treeView";
-import { getSelectedApp } from "./appSelector";
+import { getSelectedApp, setBuildUseCase } from "./appSelector";
 
 // Define valid devices
 const devices = ["Nano S", "Nano S Plus", "Nano X", "Stax", "Flex"] as const;

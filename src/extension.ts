@@ -7,6 +7,7 @@ import { TargetSelector } from "./targetSelector";
 import { StatusBarManager } from "./statusBar";
 import { ContainerManager, DevImageStatus } from "./containerManager";
 import {
+  showBuildUseCase,
   findAppsInWorkspace,
   getSelectedApp,
   setSelectedApp,
@@ -15,7 +16,9 @@ import {
   onAppSelectedEvent,
   showTestUseCaseSelectorMenu,
   onTestUseCaseSelected,
+  onUseCaseSelectedEvent,
   getAndBuildAppTestsDependencies,
+  getSelectedBuidUseCase,
 } from "./appSelector";
 
 let outputChannel: vscode.OutputChannel;
@@ -41,7 +44,7 @@ export function activate(context: vscode.ExtensionContext) {
   let taskProvider = new TaskProvider(treeProvider, targetSelector);
   context.subscriptions.push(vscode.tasks.registerTaskProvider(taskType, taskProvider));
 
-  let statusBarManager = new StatusBarManager(targetSelector.getSelectedTarget());
+  let statusBarManager = new StatusBarManager(targetSelector.getSelectedTarget(), getSelectedBuidUseCase());
 
   let containerManager = new ContainerManager(taskProvider);
 
@@ -68,6 +71,16 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Event listener for useCase selection.
+  // This event is fired when the user selects a build useCase
+  context.subscriptions.push(
+    onUseCaseSelectedEvent((data) => {
+      taskProvider.generateTasks();
+      statusBarManager.updateBuildUseCaseItem(data);
+      treeProvider.updateDynamicLabels();
+    })
+  );
+
   // Event listener for app selection.
   // This event is fired when the user selects an app in the appSelector menu
   context.subscriptions.push(
@@ -90,6 +103,12 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("selectTarget", () => {
       targetSelector.showTargetSelectorMenu();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("buildUseCase", () => {
+      showBuildUseCase();
     })
   );
 

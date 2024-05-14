@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0]
+
+### Changed
+
+* Update `webpack` and `electron` versions and dependencies
+* Update `KeepTerminal` to also include `Load app on device` and `Delete app from device`
+
+### Added
+
+* Start `Update Container` task in background
+* 1st CI workflows to perform:
+  * Spelling check
+  * Build / Lint / Test (Fix _Add CI with some checks and publishing mechanism_ [#10](https://github.com/LedgerHQ/ledger-vscode-extension/issues/10))
+  * Deploy (when a new tag is pushed)
+* Export the chosen device when opening the terminal (Fix _Export currently chosen device when opening the terminal_ [#15](https://github.com/LedgerHQ/ledger-vscode-extension/issues/15))
+* Add function to properly retrieve the `APPNAME`, using `make listinfo` (Fix Improve App detection [#40](https://github.com/LedgerHQ/ledger-vscode-extension/issues/40))
+* Add _build use case_ feature, allowing to build selecting a use case defined in the manifest
+  (Fix _Add an easy way to build with flags_ [#14](https://github.com/LedgerHQ/ledger-vscode-extension/issues/14))
+* Add _build variant_ feature, allowing to build a specific **variant**
+  (Fix _Add an easy way to build with flags_ [#14](https://github.com/LedgerHQ/ledger-vscode-extension/issues/14))
+* Save the selected target device in settings (Fix _Memorize target device when VS Code is quit_ [#39](https://github.com/LedgerHQ/ledger-vscode-extension/issues/39))
+
 ## [0.6.1]
 
 ### Fixed

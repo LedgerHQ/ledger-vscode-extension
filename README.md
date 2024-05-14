@@ -3,9 +3,9 @@
 <img src="https://github.com/LedgerHQ/ledger-vscode-extension/blob/main/resources/ledger-wordmark.png?raw=true"
   width="40%" height="40%"/><br/>
 
-![Visual Studio Marketplace Version](https://vsmarketplacebadges.dev/version-short/LedgerHQ.ledger-dev-tools.svg)
-![Visual Studio Marketplace Installs](https://vsmarketplacebadges.dev/installs-short/LedgerHQ.ledger-dev-tools.svg)
-![Visual Studio Marketplace Rating](https://vsmarketplacebadges.dev/rating-star/LedgerHQ.ledger-dev-tools.svg)
+![Visual Studio Marketplace Version](https://vsmarketplacebadges.dev/version-short/LedgerHQ.ledger-dev-tools.png)
+![Visual Studio Marketplace Installs](https://vsmarketplacebadges.dev/installs-short/LedgerHQ.ledger-dev-tools.png)
+![Visual Studio Marketplace Rating](https://vsmarketplacebadges.dev/rating-star/LedgerHQ.ledger-dev-tools.png)
 
 [VS Code](https://code.visualstudio.com/) extension that provides a quick and easy way to build and test
 applications for [Ledger](https://www.ledger.com/) devices.
@@ -71,6 +71,23 @@ This extension contributes the following settings:
 * `ledgerDevTools.enableDeviceOpsForNanoX`: Allow device operations on Nano X (requires special development device)
 
 ## Release Notes
+
+## 0.7.0
+
+* Update `webpack` and `electron` versions and dependencies
+* Update `KeepTerminal` to also include `Load app on device` and `Delete app from device`
+* Start `Update Container` task in background
+* 1st CI workflows to perform:
+  * Spelling check
+  * Build / Lint / Test (Fix _Add CI with some checks and publishing mechanism_ [#10](https://github.com/LedgerHQ/ledger-vscode-extension/issues/10))
+  * Deploy (when a new tag is pushed)
+* Export the chosen device when opening the terminal (Fix _Export currently chosen device when opening the terminal_ [#15](https://github.com/LedgerHQ/ledger-vscode-extension/issues/15))
+* Add function to properly retrieve the `APPNAME`, using `make listinfo` (Fix _Improve App detection_ [#40](https://github.com/LedgerHQ/ledger-vscode-extension/issues/40))
+* Add _build use case_ feature, allowing to build selecting a **use case** defined in the manifest
+  (Fix _Add an easy way to build with flags_ [#14](https://github.com/LedgerHQ/ledger-vscode-extension/issues/14))
+* Add _build variant_ feature, allowing to build a specific **variant**
+  (Fix _Add an easy way to build with flags_ [#14](https://github.com/LedgerHQ/ledger-vscode-extension/issues/14))
+* Save the selected target device in settings (Fix _Memorize target device when VS Code is quit_ [#39](https://github.com/LedgerHQ/ledger-vscode-extension/issues/39))
 
 ## 0.6.1
 

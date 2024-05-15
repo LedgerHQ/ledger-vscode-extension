@@ -7,7 +7,7 @@ import { platform } from "node:process";
 import * as cp from "child_process";
 import { TaskProvider } from "./taskProvider";
 import { LedgerDevice, TargetSelector } from "./targetSelector";
-import { pushError } from "./extension";
+import { pushError, updateSetting, getSetting } from "./extension";
 const APP_DETECTION_FILES: string[] = ["Makefile", "ledger_app.toml"];
 const C_APP_DETECTION_STRING: string = "include $(BOLOS_SDK)/Makefile.defines";
 const C_APP_NAME_MAKEFILE_VAR: string = "APPNAME";
@@ -92,6 +92,8 @@ export function setBuildUseCase(name: string) {
     for (let useCase of selectedApp?.buildUseCases) {
       if (useCase.name === name) {
         selectedApp.selectedBuildUseCase = useCase;
+        // Save the selected use case in the app repo settings
+        updateSetting("selectedUseCase", name, selectedApp.folderUri);
         break;
       }
     }
@@ -118,6 +120,8 @@ export function setVariant(name: string) {
     for (let variant of selectedApp?.variants.values) {
       if (variant === name) {
         selectedApp.variants.selected = variant;
+        // Save the selected variant in the app repo settings
+        updateSetting("selectedVariant", name, selectedApp.folderUri);
         break;
       }
     }
@@ -251,7 +255,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
   // Add the app to the list
   if (found) {
     if (appLanguage === "C") {
-      variants = getAppVariants(folderStr.replace(/^file?:\/\//, ''), appName);
+      variants = getAppVariants(folderStr.replace(/^file?:\/\//, ''), appName, appFolderUri);
       if (variants.values.length > 1) {
         vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", true);
       } else {
@@ -262,6 +266,10 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
     }
     // Log all found fields
     console.log(`Found app '${appName}' in folder '${appFolderName}' with buildDirPath '${buildDirPath}' and language '${appLanguage}'`);
+
+    // Retrieve last use case name from settings
+    let selectedBuildUseCase = getAppUseCases(buildUseCases, folderUri);
+
     app = {
       name: appName,
       folderName: appFolderName,
@@ -276,7 +284,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
       selectedTestUseCase: testsUseCases ? testsUseCases[0] : undefined,
       builtTestDependencies: false,
       buildUseCases: buildUseCases,
-      selectedBuildUseCase: buildUseCases ? buildUseCases[0] : undefined,
+      selectedBuildUseCase: selectedBuildUseCase,
       variants: variants,
     };
   }
@@ -451,8 +459,25 @@ function getAppName(appdir: string): string {
   return cp.execSync(cleanCmd, optionsExecSync).toString().trim();
 }
 
+// Get the app build use cases
+function getAppUseCases(buildUseCases: BuildUseCase[] | undefined, folderUri: vscode.Uri): BuildUseCase | undefined {
+  // Retrieve last selected use case name from settings
+  let selectedBuildUseCase: BuildUseCase | undefined = undefined;
+  if (buildUseCases) {
+    const lastUseCase = getSetting("selectedUseCase", folderUri);
+    if (lastUseCase) {
+      selectedBuildUseCase = buildUseCases.find(useCase => useCase.name === lastUseCase);
+    }
+    if (selectedBuildUseCase === undefined) {
+      selectedBuildUseCase = buildUseCases[0];
+      updateSetting("selectedUseCase", selectedBuildUseCase.name, folderUri);
+    }
+  }
+  return selectedBuildUseCase;
+}
+
 // Get the app variants (for C apps)
-function getAppVariants(appdir: string, appName: string): VariantList {
+function getAppVariants(appdir: string, appName: string, folderUri: vscode.Uri): VariantList {
   let optionsExecSync: cp.ExecSyncOptions = { stdio: "pipe", encoding: "utf-8" };
   // If platform is windows, set shell to powershell for cp exec.
   if (platform === "win32") {
@@ -460,23 +485,34 @@ function getAppVariants(appdir: string, appName: string): VariantList {
     optionsExecSync.shell = shell;
   }
 
-  const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+  let variants: VariantList = {
+    name: "",
+    selected: "",
+    values: [],
+  };
+  // Retrieve the last selected variant from settings
+  variants.selected = getSetting("selectedVariant", folderUri);
+
+  const conf = vscode.workspace.getConfiguration("ledgerDevTools", folderUri);
   const image = conf.get<string>("dockerImage") || "";
 
   // BOLOS_SDK value doesn't impact the APPNAME
   let cleanCmd:string = `docker run --rm -v '${appdir}:/app' ${image} bash -c "BOLOS_SDK=/opt/stax-secure-sdk make listvariants | grep ${C_VARIANT_MAKEFILE_VAR} | cut -d' ' -f2-"`;
   let result = cp.execSync(cleanCmd, optionsExecSync).toString().trim().split(" ");
   // Variant name is the 2nd word, and the values are following from the 3rd word
-  let variants: VariantList = {
-    name: result[0],
-    selected: result[1],
-    values: result.slice(1),
-  };
-  // Try to find the default variant, using the APPNAME
-  for (let elt of result) {
-    if (elt.toLowerCase() === appName.toLowerCase()) {
-      variants.selected = elt;
+  variants.name = result[0];
+  variants.values = result.slice(1);
+
+  if (variants.selected === "") {
+    // Try to guess the default variant, using the APPNAME
+    const selected = result.find(elt => elt.toLowerCase() === appName.toLowerCase());
+    if (selected) {
+      variants.selected = selected;
+    } else {
+      // Variant not found: Init with 1st element in the list
+      variants.selected = result[1];
     }
+    updateSetting("selectedVariant", variants.selected, folderUri);
   }
 
   return variants;

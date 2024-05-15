@@ -4,7 +4,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
 import { platform } from "node:process";
-import { TargetSelector } from "./targetSelector";
+import { TargetSelector, specialAllDevice } from "./targetSelector";
 import { getSelectedApp, App, AppLanguage } from "./appSelector";
 import { TreeDataProvider } from "./treeView";
 
@@ -605,13 +605,13 @@ export class TaskProvider implements vscode.TaskProvider {
         customFunction = defineResult[1];
         // If the selected target is all and the task behavior is to be executed for all targets,
         // define the exec for all targets of the app
-        if (this.tgtSelector.getSelectedTarget() === "All" && item.allSelectedBehavior === "executeForEveryTarget") {
+        if (this.tgtSelector.getSelectedTarget() === specialAllDevice && item.allSelectedBehavior === "executeForEveryTarget") {
           exec = "";
           this.tgtSelector.getTargetsArray().forEach((target) => {
             this.tgtSelector.setSelectedTarget(target);
             exec += defineExec(item)[0] + " ; ";
           });
-          this.tgtSelector.setSelectedTarget("All");
+          this.tgtSelector.setSelectedTarget(specialAllDevice);
           customFunction = undefined;
         }
 
@@ -651,7 +651,7 @@ export class TaskProvider implements vscode.TaskProvider {
       }
 
       // If selected target is all and the task behavior is to be disabled when all targets are selected, disable the task
-      if (this.tgtSelector.getSelectedTarget() === "All") {
+      if (this.tgtSelector.getSelectedTarget() === specialAllDevice) {
         this.taskSpecs.forEach((item) => {
           if (item.allSelectedBehavior === "disable" && item.state === "enabled") {
             item.state = "disabled";

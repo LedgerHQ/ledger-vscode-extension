@@ -22,6 +22,7 @@ import {
   onVariantSelectedEvent,
   showVariant,
 } from "./appSelector";
+import { inspect } from "util";
 
 let outputChannel: vscode.OutputChannel;
 const appDetectionFiles = ["Cargo.toml", "ledger_app.toml", "Makefile"];
@@ -96,9 +97,29 @@ export function activate(context: vscode.ExtensionContext) {
   // This event is fired when the user selects an app in the appSelector menu
   context.subscriptions.push(
     onAppSelectedEvent(() => {
-      taskProvider.generateTasks();
+      const selectedApp = getSelectedApp();
+      if (selectedApp) {
+        if (selectedApp.variants) {
+          if (selectedApp.variants.values.length > 1) {
+            vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", true);
+          } else {
+            vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", false);
+          }
+          const variant = getSetting("selectedVariant", selectedApp.folderUri);
+          selectedApp.variants.selected = variant;
+        } else {
+          vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", false);
+        }
+        const target = getSetting("selectedDevice", selectedApp.folderUri, "defaultDevice");
+        if (target){
+          targetSelector.setSelectedTarget(target);
+          statusBarManager.updateTargetItem(target);
+        }
+      }
       containerManager.manageContainer();
+      treeProvider.addDefaultTreeItems();
       treeProvider.updateDynamicLabels();
+      taskProvider.generateTasks();
       targetSelector.updateTargetsInfos();
     })
   );
@@ -259,4 +280,39 @@ export async function deactivate() {
   console.log(`Ledger: deactivating extension`);
   // DO STUFF
   console.log(`Ledger: extension deactivated`);
+}
+
+
+export function updateSetting(key: string, value: string, folderUri: vscode.Uri) {
+  const conf = vscode.workspace.getConfiguration("ledgerDevTools", folderUri);
+  const appSettings = conf.get<Record<string, string>>("appSettings");
+  if (appSettings) {
+    if (appSettings[key] !== value) {
+      if (appSettings[key]) {
+        console.log(`Ledger: appSettings '${key}' found (${appSettings[key].toString()}), updating it with '${value}'`);
+      } else {
+        console.log(`Ledger: appSettings no '${key}' key exist yet, adding it with '${value}'`);
+      }
+      appSettings[key] = value;
+      conf.update("appSettings", appSettings, vscode.ConfigurationTarget.WorkspaceFolder);
+    }
+  } else {
+    console.log(`Ledger: no appSettings configuration, creating it with '${value}'`);
+    conf.update("appSettings", { [key]: value }, vscode.ConfigurationTarget.WorkspaceFolder);
+  }
+}
+
+export function getSetting(key: string, folderUri: vscode.Uri, defaultKey?: string): string {
+  const conf = vscode.workspace.getConfiguration("ledgerDevTools", folderUri);
+  const appSettings = conf.get<Record<string, string>>("appSettings");
+  let value: string = "";
+  if (appSettings && appSettings[key]) {
+    value = appSettings[key];
+  } else if (defaultKey) {
+    const inspect = conf.inspect<string>(defaultKey);
+    if (inspect && inspect.defaultValue) {
+      value = inspect.defaultValue;
+    }
+  }
+  return value;
 }

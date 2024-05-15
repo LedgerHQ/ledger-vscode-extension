@@ -214,6 +214,11 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "Allow device operations on Nano X (requires special development device)"
+        },
+        "ledgerDevTools.appSettings": {
+          "type": "object",
+          "scope": "resource",
+          "description": "Application dedicated settings."
         }
       }
     }

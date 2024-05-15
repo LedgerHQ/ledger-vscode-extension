@@ -99,6 +99,13 @@
         "tooltip": "Select the device you want to build your app for."
       },
       {
+        "command": "selectVariant",
+        "title": "Select variant",
+        "category": "Ledger",
+        "tooltip": "Select the app variant you want to build.",
+        "enablement": "ledgerDevTools.showSelectVariant"
+      },
+      {
         "command": "buildUseCase",
         "title": "Select build use case",
         "category": "Ledger",

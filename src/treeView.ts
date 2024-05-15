@@ -183,6 +183,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
       let selectAppItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select app"));
       let functionalTestsItem = this.data.find((item) => item.label && item.label.toString().startsWith("Functional"));
       let buidUseCaseItem = this.data.find((item) => item.label && item.label.toString().startsWith("Build"));
+      let selectVariantItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select variant"));
 
       if (selectAppItem) {
         selectAppItem.label = `Select app [${currentApp.folderName}]`;
@@ -204,6 +205,13 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
           buidUseCaseItem.label = `Build`;
         }
       }
+      if (selectVariantItem) {
+        if (currentApp.variants?.values && currentApp.variants?.values.length > 1 && currentApp.variants?.selected) {
+          selectVariantItem.label = `Select variant [${currentApp.variants?.selected}]`;
+        } else {
+          selectVariantItem.label = `Select variant`;
+        }
+      }
     } else {
       // Remove all tree items. The welcome view will be displayed instead.
       this.data = [];
@@ -215,6 +223,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     // Check select app and select target items don't already exist
     const selectAppItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select app"));
     const selectTargetItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select target"));
+    const selectVariantItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select variant"));
 
     if (!selectAppItem) {
       let selectApp = new TreeItem("Select app");
@@ -241,6 +250,30 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
       };
       console.log("Ledger: Adding selectTarget to tree");
       this.data.push(selectTarget);
+    }
+
+    const currentApp = getSelectedApp();
+    if (currentApp) {
+      if (!selectVariantItem && currentApp.variants && currentApp.variants.values.length > 1) {
+        let selectVariant = new TreeItem("Select variant");
+        selectVariant.contextValue = "selectVariant";
+        selectVariant.setDefault();
+        selectVariant.tooltip = "Select the variant to build";
+        selectVariant.command = {
+          command: "selectVariant",
+          title: "Select target",
+          arguments: [],
+        };
+        console.log("Ledger: Adding selectVariant to tree");
+        this.data.push(selectVariant);
+      } else if (selectVariantItem &&
+          ((currentApp.variants && currentApp.variants.values.length <= 1) || !currentApp.variants)) {
+        const index = this.data.indexOf(selectVariantItem, 0);
+        if (index > -1) {
+          console.log("Ledger: Removing selectVariant from tree");
+          this.data.splice(index, 1);
+        }
+      }
     }
   }
 }

@@ -19,6 +19,8 @@ import {
   onUseCaseSelectedEvent,
   getAndBuildAppTestsDependencies,
   getSelectedBuidUseCase,
+  onVariantSelectedEvent,
+  showVariant,
 } from "./appSelector";
 
 let outputChannel: vscode.OutputChannel;
@@ -71,6 +73,15 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Event listener for variant selection.
+  // This event is fired when the user selects a build variant
+  context.subscriptions.push(
+    onVariantSelectedEvent((data) => {
+      taskProvider.generateTasks();
+      treeProvider.updateDynamicLabels();
+    })
+  );
+
   // Event listener for useCase selection.
   // This event is fired when the user selects a build useCase
   context.subscriptions.push(
@@ -103,6 +114,12 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("selectTarget", () => {
       targetSelector.showTargetSelectorMenu();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("selectVariant", () => {
+      showVariant();
     })
   );
 

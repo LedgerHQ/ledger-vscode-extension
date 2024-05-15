@@ -11,6 +11,7 @@ import { pushError } from "./extension";
 const APP_DETECTION_FILES: string[] = ["Makefile", "ledger_app.toml"];
 const C_APP_DETECTION_STRING: string = "include $(BOLOS_SDK)/Makefile.defines";
 const C_APP_NAME_MAKEFILE_VAR: string = "APPNAME";
+const C_VARIANT_MAKEFILE_VAR: string = "VARIANTS";
 const PYTEST_DETECTION_FILE: string = "conftest.py";
 
 type AppType = "manifest" | "legacyManifest" | "makefile";
@@ -33,6 +34,11 @@ export interface BuildUseCase {
   name: string;
   options: string;
 }
+export interface VariantList {
+  name: string;
+  selected: string;
+  values: string[];
+}
 
 export interface App {
   name: string;
@@ -54,6 +60,8 @@ export interface App {
   // If the app manifest has build use cases (optional) section they are parsed here
   buildUseCases?: BuildUseCase[];
   selectedBuildUseCase?: BuildUseCase;
+  // Supported variants
+  variants?: VariantList;
 }
 
 let appList: App[] = [];
@@ -67,6 +75,9 @@ export const onTestUseCaseSelected: vscode.Event<void> = testUseCaseSelected.eve
 
 let useCaseSelectedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter<string>();
 export const onUseCaseSelectedEvent: vscode.Event<string> = useCaseSelectedEmitter.event;
+
+let variantSelectedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter<string>();
+export const onVariantSelectedEvent: vscode.Event<string> = variantSelectedEmitter.event;
 
 export function getSelectedBuidUseCase(): string {
   if (selectedApp && selectedApp.selectedBuildUseCase) {
@@ -100,6 +111,37 @@ export async function showBuildUseCase() {
     });
   }
   return result;
+}
+
+export function setVariant(name: string) {
+  if (selectedApp && selectedApp?.variants) {
+    for (let variant of selectedApp?.variants.values) {
+      if (variant === name) {
+        selectedApp.variants.selected = variant;
+        break;
+      }
+    }
+  }
+}
+
+export function showVariant() {
+  if (selectedApp) {
+    if (selectedApp.variants) {
+      const items: string[] = [];
+      for (let variant of selectedApp.variants.values) {
+        items.push(variant);
+      }
+      const result = vscode.window.showQuickPick(items, {
+        placeHolder: "Please select a variant",
+        onDidSelectItem: (item) => {
+          setVariant(item.toString());
+          variantSelectedEmitter.fire(item.toString());
+        },
+      });
+      return result;
+    }
+    return "";
+  }
 }
 
 function detectAppType(appFolder: vscode.Uri): [AppType?, string?] {
@@ -146,6 +188,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
   let compatibleDevices: LedgerDevice[] = ["Nano S", "Nano S Plus", "Nano X", "Stax", "Flex"];
   let testsUseCases = undefined;
   let buildUseCases = undefined;
+  let variants = undefined;
   let buildDirPath = "./";
 
   let found = true;
@@ -207,6 +250,16 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
 
   // Add the app to the list
   if (found) {
+    if (appLanguage === "C") {
+      variants = getAppVariants(folderStr.replace(/^file?:\/\//, ''), appName);
+      if (variants.values.length > 1) {
+        vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", true);
+      } else {
+        vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", false);
+      }
+    } else {
+      vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", false);
+    }
     // Log all found fields
     console.log(`Found app '${appName}' in folder '${appFolderName}' with buildDirPath '${buildDirPath}' and language '${appLanguage}'`);
     app = {
@@ -224,6 +277,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
       builtTestDependencies: false,
       buildUseCases: buildUseCases,
       selectedBuildUseCase: buildUseCases ? buildUseCases[0] : undefined,
+      variants: variants,
     };
   }
 
@@ -396,6 +450,38 @@ function getAppName(appdir: string): string {
   let cleanCmd:string = `docker run --rm -v '${appdir}:/app' ${image} bash -c "BOLOS_SDK=/opt/stax-secure-sdk make listinfo | grep ${C_APP_NAME_MAKEFILE_VAR}| cut -d'=' -f2"`;
   return cp.execSync(cleanCmd, optionsExecSync).toString().trim();
 }
+
+// Get the app variants (for C apps)
+function getAppVariants(appdir: string, appName: string): VariantList {
+  let optionsExecSync: cp.ExecSyncOptions = { stdio: "pipe", encoding: "utf-8" };
+  // If platform is windows, set shell to powershell for cp exec.
+  if (platform === "win32") {
+    let shell: string = "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
+    optionsExecSync.shell = shell;
+  }
+
+  const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+  const image = conf.get<string>("dockerImage") || "";
+
+  // BOLOS_SDK value doesn't impact the APPNAME
+  let cleanCmd:string = `docker run --rm -v '${appdir}:/app' ${image} bash -c "BOLOS_SDK=/opt/stax-secure-sdk make listvariants | grep ${C_VARIANT_MAKEFILE_VAR} | cut -d' ' -f2-"`;
+  let result = cp.execSync(cleanCmd, optionsExecSync).toString().trim().split(" ");
+  // Variant name is the 2nd word, and the values are following from the 3rd word
+  let variants: VariantList = {
+    name: result[0],
+    selected: result[1],
+    values: result.slice(1),
+  };
+  // Try to find the default variant, using the APPNAME
+  for (let elt of result) {
+    if (elt.toLowerCase() === appName.toLowerCase()) {
+      variants.selected = elt;
+    }
+  }
+
+  return variants;
+}
+
 
 // Type guard function to check if a string is a valid app language
 function isValidLanguage(value: string): AppLanguage {

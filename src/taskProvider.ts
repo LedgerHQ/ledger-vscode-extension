@@ -296,9 +296,18 @@ export class TaskProvider implements vscode.TaskProvider {
 
   private cBuildExec(): string {
     let buildOpt: string = "";
-    if (this.currentApp && this.currentApp.selectedBuildUseCase?.options) {
-      buildOpt = this.currentApp.selectedBuildUseCase?.options;
+    if (this.currentApp) {
+        if (this.currentApp.selectedBuildUseCase?.options) {
+        // Add build option of the selected the useCase
+        buildOpt = this.currentApp.selectedBuildUseCase?.options;
+      }
+
+      // Add build option for the selected variant
+      if (this.currentApp.variants && this.currentApp.variants.selected) {
+        buildOpt += " " + this.currentApp.variants.name + "=" + this.currentApp.variants.selected;
+      }
     }
+
 
     const exec = `docker exec -it  ${
       this.containerName
@@ -316,8 +325,8 @@ export class TaskProvider implements vscode.TaskProvider {
       }
 
       // Add build option for the selected variant
-      if (this.currentApp.variant && this.currentApp.variant.selected) {
-        buildOpt += " " + this.currentApp.variant.name + "=" + this.currentApp.variant.selected;
+      if (this.currentApp.variants && this.currentApp.variants.selected) {
+        buildOpt += " " + this.currentApp.variants.name + "=" + this.currentApp.variants.selected;
       }
     }
 

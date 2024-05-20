@@ -44,7 +44,7 @@ const targetIds: Record<string, string> = {
   [targetsArray[1]]: "0x33100004", // ST33K1M5
   [targetsArray[2]]: "0x33000004", // ST33
   [targetsArray[3]]: "0x33200004", // ST33K1M5
-  [targetsArray[4]]: "0x33200004", // ST33K1M5
+  [targetsArray[4]]: "0x33300004", // ST33K1M5
 };
 
 export class TargetSelector {

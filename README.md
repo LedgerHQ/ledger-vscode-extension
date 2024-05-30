@@ -1,12 +1,17 @@
 # Ledger Dev Tools
 
-<img src="https://github.com/LedgerHQ/ledger-vscode-extension/blob/main/resources/ledger-wordmark.png?raw=true" width="40%" height="40%"/><br/>
+<img src="https://github.com/LedgerHQ/ledger-vscode-extension/blob/main/resources/ledger-wordmark.png?raw=true"
+  width="40%" height="40%"/><br/>
 
-![Visual Studio Marketplace Version](https://vsmarketplacebadges.dev/version-short/LedgerHQ.ledger-dev-tools.svg) ![Visual Studio Marketplace Installs](https://vsmarketplacebadges.dev/installs-short/LedgerHQ.ledger-dev-tools.svg) ![Visual Studio Marketplace Rating](https://vsmarketplacebadges.dev/rating-star/LedgerHQ.ledger-dev-tools.svg)
+![Visual Studio Marketplace Version](https://vsmarketplacebadges.dev/version-short/LedgerHQ.ledger-dev-tools.png)
+![Visual Studio Marketplace Installs](https://vsmarketplacebadges.dev/installs-short/LedgerHQ.ledger-dev-tools.png)
+![Visual Studio Marketplace Rating](https://vsmarketplacebadges.dev/rating-star/LedgerHQ.ledger-dev-tools.png)
 
-[VS Code](https://code.visualstudio.com/) extension that provides a quick and easy way to build and test applications for [Ledger](https://www.ledger.com/) devices.
+[VS Code](https://code.visualstudio.com/) extension that provides a quick and easy way to build and test
+applications for [Ledger](https://www.ledger.com/) devices.
 
-The extension uses Ledger's own [Docker image](https://github.com/LedgerHQ/ledger-app-builder/blob/master/dev-tools/Dockerfile) to allow developers to setup a build and test environment in a few minutes.
+The extension uses Ledger's own [Docker image](https://github.com/LedgerHQ/ledger-app-builder/blob/master/dev-tools/Dockerfile)
+to allow developers to setup a build and test environment in a few minutes.
 
 * Build your app for all Ledger devices : Nano S, Nano S Plus, Nano X, Stax and Flex.
 * Supports C and Rust apps.
@@ -38,6 +43,7 @@ Status bar items to quickly identify :
 
 * Which device you are currently building your app for.
 * The status of the Ledger developer tools Docker image.
+
 <p align="center">
 <img src="https://github.com/LedgerHQ/ledger-vscode-extension/blob/main/resources/statusbar.gif?raw=true" width="70%" height="70%"/>
 </p>
@@ -45,7 +51,9 @@ Status bar items to quickly identify :
 ## Requirements
 
 * [Docker](https://www.docker.com/) should be installed and running.
-* On macOS and Windows, make sure an X Window System server is installed and running (see [XQuartz](https://www.xquartz.org/) for mac and [VcXsrv](https://sourceforge.net/projec) for windows) otherwise, some testing tasks will not work. **Make sure client connections are allowed**.
+* On macOS and Windows, make sure an X Window System server is installed and running
+  (see [XQuartz](https://www.xquartz.org/) for mac and [VcXsrv](https://sourceforge.net/project) for windows).
+  Otherwise, some testing tasks will not work. **Make sure client connections are allowed**.
 
 ## Extension Settings
 
@@ -55,13 +63,31 @@ This extension contributes the following settings:
 * `ledgerDevTools.onboardingSeed`: Set the device quick onboarding 24-word Seed phrase.
 * `ledgerDevTools.dockerImage`: Set the Ledger developer tools Docker image.
 * `ledgerDevTools.additionalReqsPerApp`: Add prerequisites for current app's functional tests (for instance 'apk add python3-protobuf').
-* `ledgerDevTools.keepContainerTerminal`: Indicates to keep the Terminal window opened after a successful Container Update.
+* `ledgerDevTools.keepTerminal`: Indicates to keep the Terminal window opened after a successful task execution.
 * `ledgerDevTools.containerUpdateRetries`: Set the max number of Container Update retries.
-* `ledgerDevTools.userScpPrivateKey`: Use the host's `SCP_PRIVKEY` environment variable when loading/deleting app on device. Cf. <https://developers.ledger.com/docs/embedded-app/pin-bypass>
+* `ledgerDevTools.userScpPrivateKey`: Use the host's `SCP_PRIVKEY` environment variable when loading/deleting app on device.
+  Cf. <https://developers.ledger.com/docs/embedded-app/pin-bypass>
 * `ledgerDevTools.defaultDevice`: Select the default Device
 * `ledgerDevTools.enableDeviceOpsForNanoX`: Allow device operations on Nano X (requires special development device)
 
 ## Release Notes
+
+## 0.7.0
+
+* Update `webpack` and `electron` versions and dependencies
+* Update `KeepTerminal` to also include `Load app on device` and `Delete app from device`
+* Start `Update Container` task in background
+* 1st CI workflows to perform:
+  * Spelling check
+  * Build / Lint / Test (Fix _Add CI with some checks and publishing mechanism_ [#10](https://github.com/LedgerHQ/ledger-vscode-extension/issues/10))
+  * Deploy (when a new tag is pushed)
+* Export the chosen device when opening the terminal (Fix _Export currently chosen device when opening the terminal_ [#15](https://github.com/LedgerHQ/ledger-vscode-extension/issues/15))
+* Add function to properly retrieve the `APPNAME`, using `make listinfo` (Fix _Improve App detection_ [#40](https://github.com/LedgerHQ/ledger-vscode-extension/issues/40))
+* Add _build use case_ feature, allowing to build selecting a **use case** defined in the manifest
+  (Fix _Add an easy way to build with flags_ [#14](https://github.com/LedgerHQ/ledger-vscode-extension/issues/14))
+* Add _build variant_ feature, allowing to build a specific **variant**
+  (Fix _Add an easy way to build with flags_ [#14](https://github.com/LedgerHQ/ledger-vscode-extension/issues/14))
+* Save the selected target device in settings (Fix _Memorize target device when VS Code is quit_ [#39](https://github.com/LedgerHQ/ledger-vscode-extension/issues/39))
 
 ## 0.6.1
 
@@ -86,11 +112,13 @@ This extension contributes the following settings:
 ## 0.5.0
 
 * New setting to allow / deny device operations on Nano X (denied by default).
-* Support parsing of `test.dependencies` fields from the [app manifest specification](https://github.com/LedgerHQ/ledgered/blob/master/doc/utils/manifest.md). Speed up the setup for running functional tests by automating the clone/build of tests dependencies when needed.
+* Support parsing of `test.dependencies` fields from the [app manifest specification](https://github.com/LedgerHQ/ledgered/blob/master/doc/utils/manifest.md).
+  Speed up the setup for running functional tests by automating the clone/build of tests dependencies when needed.
 * Add button to rebuild test dependencies (if any) in treeview.
 * Refactor of `appSelected.ts` for better maintainability.
 * Replace TOML parsing package (previous one couldn't parse 1.0.0 TOML)
-* Update Udev rules for sideloading following hidapi python package update. Display warning message when rules need to be updated.
+* Update Udev rules for sideloading following hidapi python package update.
+  Display warning message when rules need to be updated.
 * Wording in some tree view items.
 
 ## 0.4.0
@@ -133,7 +161,8 @@ This extension contributes the following settings:
 * Add support for Rust apps (no sideloading yet).
 * Fix various display bugs.
 * Add welcome view when no app folder is detected in the workspace.
-* Dynamic tasks list : disable functional tests tasks when no `conftest.py` file is found or if task is not defined for app language.
+* Dynamic tasks list : disable functional tests tasks when no `conftest.py` file is found
+  or if task is not defined for app language.
 
 ## 0.1.6
 

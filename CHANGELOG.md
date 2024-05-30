@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0]
+
+### Changed
+
+* Update `webpack` and `electron` versions and dependencies
+* Update `KeepTerminal` to also include `Load app on device` and `Delete app from device`
+
+### Added
+
+* Start `Update Container` task in background
+* 1st CI workflows to perform:
+  * Spelling check
+  * Build / Lint / Test (Fix _Add CI with some checks and publishing mechanism_ [#10](https://github.com/LedgerHQ/ledger-vscode-extension/issues/10))
+  * Deploy (when a new tag is pushed)
+* Export the chosen device when opening the terminal (Fix _Export currently chosen device when opening the terminal_ [#15](https://github.com/LedgerHQ/ledger-vscode-extension/issues/15))
+* Add function to properly retrieve the `APPNAME`, using `make listinfo` (Fix Improve App detection [#40](https://github.com/LedgerHQ/ledger-vscode-extension/issues/40))
+* Add _build use case_ feature, allowing to build selecting a use case defined in the manifest
+  (Fix _Add an easy way to build with flags_ [#14](https://github.com/LedgerHQ/ledger-vscode-extension/issues/14))
+* Add _build variant_ feature, allowing to build a specific **variant**
+  (Fix _Add an easy way to build with flags_ [#14](https://github.com/LedgerHQ/ledger-vscode-extension/issues/14))
+* Save the selected target device in settings (Fix _Memorize target device when VS Code is quit_ [#39](https://github.com/LedgerHQ/ledger-vscode-extension/issues/39))
+
 ## [0.6.1]
 
 ### Fixed
@@ -41,7 +63,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 * New setting to allow / deny device operations on Nano X (denied by default).
-* Support parsing of `test.dependencies` fields from the [app manifest specification](https://github.com/LedgerHQ/ledgered/blob/master/doc/utils/manifest.md). Speed up the setup for running functional tests by automating the clone/build of tests dependencies when needed.
+* Support parsing of `test.dependencies` fields from the [app manifest specification](https://github.com/LedgerHQ/ledgered/blob/master/doc/utils/manifest.md).
+  Speed up the setup for running functional tests by automating the clone/build of tests dependencies when needed.
 * Add button to rebuild test dependencies (if any) in treeview.
 
 ### Changed
@@ -51,7 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * Replace TOML parsing package (previous one couldn't parse 1.0.0 TOML)
-* Update Udev rules for sideloading following hidapi python package update. Display warning message when rules need to be updated.
+* Update Udev rules for sideloading following hidapi python package update.
+  Display warning message when rules need to be updated.
 * Wording in some tree view items.
 
 ## [0.4.0]
@@ -121,7 +145,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Add support for Rust apps (no sideloading yet).
 * Add welcome view when no app folder is detected in the workspace.
-* Dynamic tasks list : disable functional tests tasks when no `conftest.py` file is found or if task is not defined for app language.
+* Dynamic tasks list : disable functional tests tasks when no `conftest.py` file is found
+  or if task is not defined for app language.
 
 ### Fixed
 
@@ -200,6 +225,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
     - Add multi-folder workspace support. User can now choose which app to build from a quickpick menu.
+
 ## [0.0.4] - 2023-07-04
 
 ### Added

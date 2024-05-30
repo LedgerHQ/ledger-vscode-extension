@@ -1,0 +1,69 @@
+name: Build, Lint and run functional tests
+
+# This workflow will Lint, Build and then Run tests.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  Build:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -qy eslint
+        if: runner.os == 'Linux'
+
+      - name: Clone
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: node
+
+      - name: Packages installation
+        run: npm install
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Linter
+        if: runner.os == 'Linux'
+        run: npm run lint
+
+      - name: Test
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm test
+
+      - name: Test
+        if: runner.os != 'Linux'
+        run: npm test
+
+  Build_Windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Clone
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: node
+
+      - name: Packages installation
+        run: cmd.exe /c npm.cmd install
+
+      - name: Compile
+        run: cmd.exe /c npm.cmd run compile
+
+      - name: Test
+        run: cmd.exe /c npm.cmd test

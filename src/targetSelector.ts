@@ -2,12 +2,13 @@ import * as vscode from "vscode";
 import { StatusBarManager } from "./statusBar";
 import { TaskProvider } from "./taskProvider";
 import { TreeDataProvider } from "./treeView";
-import { getSelectedApp } from "./appSelector";
+import { getSelectedApp, setBuildUseCase } from "./appSelector";
+import { updateSetting, getSetting } from "./extension";
 
 // Define valid devices
 const devices = ["Nano S", "Nano S Plus", "Nano X", "Stax", "Flex"] as const;
 
-const specialAllDevice = "All";
+export const specialAllDevice = "All";
 
 type SpecialAllDevice = typeof specialAllDevice;
 
@@ -43,7 +44,7 @@ const targetIds: Record<string, string> = {
   [targetsArray[1]]: "0x33100004", // ST33K1M5
   [targetsArray[2]]: "0x33000004", // ST33
   [targetsArray[3]]: "0x33200004", // ST33K1M5
-  [targetsArray[4]]: "0x33200004", // ST33K1M5
+  [targetsArray[4]]: "0x33300004", // ST33K1M5
 };
 
 export class TargetSelector {
@@ -58,9 +59,16 @@ export class TargetSelector {
   private prevSelectedApp: string = "";
 
   constructor() {
-    const conf = vscode.workspace.getConfiguration("ledgerDevTools");
-    this.updateTargetsInfos();
-    this.setSelectedTarget(conf.get<string>("defaultDevice", "Nano S"));
+    const selectedApp = getSelectedApp();
+    if (selectedApp === undefined) {
+      return;
+    }
+
+    const dev = getSetting("selectedDevice", selectedApp.folderUri, "defaultDevice");
+    if (dev){
+      this.updateTargetsInfos();
+      this.setSelectedTarget(dev);
+    }
   }
 
   // Type guard function to check if a string is a valid device
@@ -76,8 +84,13 @@ export class TargetSelector {
 
     this.selectedTarget = target;
 
+    // Save the selected device in the app repo settings, if we have not selected "All"
+    const currentApp = getSelectedApp();
+    if (currentApp && this.prevSelectedApp === "") {
+      updateSetting("selectedDevice", target, currentApp?.folderUri);
+    }
+
     if (!(this.selectedTarget === specialAllDevice)) {
-      const currentApp = getSelectedApp();
       if (currentApp && !currentApp.compatibleDevices.includes(this.selectedTarget as LedgerDevice)) {
         // Fallback to compatible device
         this.selectedTarget = currentApp.compatibleDevices[0];
@@ -123,6 +136,7 @@ export class TargetSelector {
   public toggleAllTargetSelection() {
     if (this.selectedTarget === specialAllDevice) {
       this.setSelectedTarget(this.prevSelectedApp);
+      this.prevSelectedApp = "";
     } else {
       this.prevSelectedApp = this.selectedTarget;
       this.setSelectedTarget(specialAllDevice);

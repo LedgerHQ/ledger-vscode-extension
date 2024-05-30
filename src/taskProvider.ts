@@ -4,7 +4,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
 import { platform } from "node:process";
-import { TargetSelector } from "./targetSelector";
+import { TargetSelector, specialAllDevice } from "./targetSelector";
 import { getSelectedApp, App, AppLanguage } from "./appSelector";
 import { TreeDataProvider } from "./treeView";
 
@@ -86,18 +86,18 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Build",
-      name: "Build",
+      name: "Build incremental",
       builders: { ["C"]: this.cBuildExec, ["Rust"]: this.rustBuildExec },
-      toolTip: "Build app in release mode",
+      toolTip: "Build app (incremental mode)",
       dependsOn: this.appSubmodulesInitExec,
       state: "enabled",
       allSelectedBehavior: "executeForEveryTarget",
     },
     {
       group: "Build",
-      name: "Build with debug mode",
-      builders: { ["C"]: this.buildDebugExec },
-      toolTip: "Build app in debug mode",
+      name: "Build full",
+      builders: { ["C"]: this.cBuildFullExec },
+      toolTip: "Build app (full rebuild)",
       dependsOn: this.appSubmodulesInitExec,
       state: "enabled",
       allSelectedBehavior: "executeForEveryTarget",
@@ -294,19 +294,46 @@ export class TaskProvider implements vscode.TaskProvider {
     return exec;
   }
 
-  private buildDebugExec(): string {
-    // Builds the app with debug mode enabled using the make command, inside the docker container.
+  private cBuildExec(): string {
+    let buildOpt: string = "";
+    if (this.currentApp) {
+        if (this.currentApp.selectedBuildUseCase?.options) {
+        // Add build option of the selected the useCase
+        buildOpt = this.currentApp.selectedBuildUseCase?.options;
+      }
+
+      // Add build option for the selected variant
+      if (this.currentApp.variants && this.currentApp.variants.selected) {
+        buildOpt += " " + this.currentApp.variants.name + "=" + this.currentApp.variants.selected;
+      }
+    }
+
+
     const exec = `docker exec -it  ${
       this.containerName
-    } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make -C ${this.buildDir} -j DEBUG=1'`;
+    } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make -C ${this.buildDir} -j ${buildOpt}'`;
+    // Builds the app using the make command, inside the docker container.
     return exec;
   }
 
-  private cBuildExec(): string {
+  private cBuildFullExec(): string {
+    let buildOpt: string = "";
+    if (this.currentApp) {
+        if (this.currentApp.selectedBuildUseCase?.options) {
+        // Add build option of the selected the useCase
+        buildOpt = this.currentApp.selectedBuildUseCase?.options;
+      }
+
+      // Add build option for the selected variant
+      if (this.currentApp.variants && this.currentApp.variants.selected) {
+        buildOpt += " " + this.currentApp.variants.name + "=" + this.currentApp.variants.selected;
+      }
+    }
+
     const exec = `docker exec -it  ${
       this.containerName
-    } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make -C ${this.buildDir} -j'`;
-    // Builds the app in release mode using the make command, inside the docker container.
+    } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make -C ${this.buildDir} -B -j ${buildOpt}'`;
+    // Builds the app using the make command, inside the docker container.
     return exec;
   }
 
@@ -349,7 +376,9 @@ export class TaskProvider implements vscode.TaskProvider {
   }
 
   private openTerminalExec(): string {
-    const exec = `docker exec -it -u 0 ${this.containerName} bash`;
+    // Get the Selected target SDK to export inside the container
+    let sdk: string = this.tgtSelector.getSelectedSDK();
+    const exec = `docker exec -it -u 0 -e "BOLOS_SDK=${sdk}" ${this.containerName} bash`;
     return exec;
   }
 
@@ -576,13 +605,13 @@ export class TaskProvider implements vscode.TaskProvider {
         customFunction = defineResult[1];
         // If the selected target is all and the task behavior is to be executed for all targets,
         // define the exec for all targets of the app
-        if (this.tgtSelector.getSelectedTarget() === "All" && item.allSelectedBehavior === "executeForEveryTarget") {
+        if (this.tgtSelector.getSelectedTarget() === specialAllDevice && item.allSelectedBehavior === "executeForEveryTarget") {
           exec = "";
           this.tgtSelector.getTargetsArray().forEach((target) => {
             this.tgtSelector.setSelectedTarget(target);
             exec += defineExec(item)[0] + " ; ";
           });
-          this.tgtSelector.setSelectedTarget("All");
+          this.tgtSelector.setSelectedTarget(specialAllDevice);
           customFunction = undefined;
         }
 
@@ -622,7 +651,7 @@ export class TaskProvider implements vscode.TaskProvider {
       }
 
       // If selected target is all and the task behavior is to be disabled when all targets are selected, disable the task
-      if (this.tgtSelector.getSelectedTarget() === "All") {
+      if (this.tgtSelector.getSelectedTarget() === specialAllDevice) {
         this.taskSpecs.forEach((item) => {
           if (item.allSelectedBehavior === "disable" && item.state === "enabled") {
             item.state = "disabled";

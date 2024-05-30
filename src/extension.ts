@@ -7,6 +7,7 @@ import { TargetSelector } from "./targetSelector";
 import { StatusBarManager } from "./statusBar";
 import { ContainerManager, DevImageStatus } from "./containerManager";
 import {
+  showBuildUseCase,
   findAppsInWorkspace,
   getSelectedApp,
   setSelectedApp,
@@ -15,8 +16,13 @@ import {
   onAppSelectedEvent,
   showTestUseCaseSelectorMenu,
   onTestUseCaseSelected,
+  onUseCaseSelectedEvent,
   getAndBuildAppTestsDependencies,
+  getSelectedBuidUseCase,
+  onVariantSelectedEvent,
+  showVariant,
 } from "./appSelector";
+import { inspect } from "util";
 
 let outputChannel: vscode.OutputChannel;
 const appDetectionFiles = ["Cargo.toml", "ledger_app.toml", "Makefile"];
@@ -41,7 +47,7 @@ export function activate(context: vscode.ExtensionContext) {
   let taskProvider = new TaskProvider(treeProvider, targetSelector);
   context.subscriptions.push(vscode.tasks.registerTaskProvider(taskType, taskProvider));
 
-  let statusBarManager = new StatusBarManager(targetSelector.getSelectedTarget());
+  let statusBarManager = new StatusBarManager(targetSelector.getSelectedTarget(), getSelectedBuidUseCase());
 
   let containerManager = new ContainerManager(taskProvider);
 
@@ -68,13 +74,52 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Event listener for variant selection.
+  // This event is fired when the user selects a build variant
+  context.subscriptions.push(
+    onVariantSelectedEvent((data) => {
+      taskProvider.generateTasks();
+      treeProvider.updateDynamicLabels();
+    })
+  );
+
+  // Event listener for useCase selection.
+  // This event is fired when the user selects a build useCase
+  context.subscriptions.push(
+    onUseCaseSelectedEvent((data) => {
+      taskProvider.generateTasks();
+      statusBarManager.updateBuildUseCaseItem(data);
+      treeProvider.updateDynamicLabels();
+    })
+  );
+
   // Event listener for app selection.
   // This event is fired when the user selects an app in the appSelector menu
   context.subscriptions.push(
     onAppSelectedEvent(() => {
-      taskProvider.generateTasks();
+      const selectedApp = getSelectedApp();
+      if (selectedApp) {
+        if (selectedApp.variants) {
+          if (selectedApp.variants.values.length > 1) {
+            vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", true);
+          } else {
+            vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", false);
+          }
+          const variant = getSetting("selectedVariant", selectedApp.folderUri);
+          selectedApp.variants.selected = variant;
+        } else {
+          vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", false);
+        }
+        const target = getSetting("selectedDevice", selectedApp.folderUri, "defaultDevice");
+        if (target){
+          targetSelector.setSelectedTarget(target);
+          statusBarManager.updateTargetItem(target);
+        }
+      }
       containerManager.manageContainer();
+      treeProvider.addDefaultTreeItems();
       treeProvider.updateDynamicLabels();
+      taskProvider.generateTasks();
       targetSelector.updateTargetsInfos();
     })
   );
@@ -90,6 +135,18 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("selectTarget", () => {
       targetSelector.showTargetSelectorMenu();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("selectVariant", () => {
+      showVariant();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("buildUseCase", () => {
+      showBuildUseCase();
     })
   );
 
@@ -134,6 +191,7 @@ export function activate(context: vscode.ExtensionContext) {
   vscode.tasks.onDidStartTask((event) => {
     const taskName = event.execution.task.name;
     if (taskName.startsWith("Update container")) {
+      event.execution.task.isBackground = true;
       containerManager.triggerStatusEvent(DevImageStatus.syncing);
     }
     if (taskName.startsWith("Quick initial device")) {
@@ -150,6 +208,18 @@ export function activate(context: vscode.ExtensionContext) {
     const taskName = event.execution.task.name;
     if (taskName.startsWith("Update container")) {
       containerManager.checkUpdateRetries();
+    }
+  });
+
+  vscode.tasks.onDidEndTaskProcess((event) => {
+    const taskName = event.execution.task.name;
+    console.log(`Ledger: TaskProcess completed : "${taskName}". ExiCode=${event.exitCode}`);
+    if (((taskName === "Load app on device") || (taskName === "Delete app from device") || (taskName === "Update container")) &&
+      (event.exitCode === 0)) {
+      const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+      if (conf.get<boolean>("keepTerminal") === false) {
+        vscode.window.activeTerminal?.hide();
+      }
     }
   });
 
@@ -210,4 +280,39 @@ export async function deactivate() {
   console.log(`Ledger: deactivating extension`);
   // DO STUFF
   console.log(`Ledger: extension deactivated`);
+}
+
+
+export function updateSetting(key: string, value: string, folderUri: vscode.Uri) {
+  const conf = vscode.workspace.getConfiguration("ledgerDevTools", folderUri);
+  const appSettings = conf.get<Record<string, string>>("appSettings");
+  if (appSettings) {
+    if (appSettings[key] !== value) {
+      if (appSettings[key]) {
+        console.log(`Ledger: appSettings '${key}' found (${appSettings[key].toString()}), updating it with '${value}'`);
+      } else {
+        console.log(`Ledger: appSettings no '${key}' key exist yet, adding it with '${value}'`);
+      }
+      appSettings[key] = value;
+      conf.update("appSettings", appSettings, vscode.ConfigurationTarget.WorkspaceFolder);
+    }
+  } else {
+    console.log(`Ledger: no appSettings configuration, creating it with '${value}'`);
+    conf.update("appSettings", { [key]: value }, vscode.ConfigurationTarget.WorkspaceFolder);
+  }
+}
+
+export function getSetting(key: string, folderUri: vscode.Uri, defaultKey?: string): string {
+  const conf = vscode.workspace.getConfiguration("ledgerDevTools", folderUri);
+  const appSettings = conf.get<Record<string, string>>("appSettings");
+  let value: string = "";
+  if (appSettings && appSettings[key]) {
+    value = appSettings[key];
+  } else if (defaultKey) {
+    const inspect = conf.inspect<string>(defaultKey);
+    if (inspect && inspect.defaultValue) {
+      value = inspect.defaultValue;
+    }
+  }
+  return value;
 }

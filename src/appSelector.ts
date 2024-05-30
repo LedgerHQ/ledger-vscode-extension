@@ -7,10 +7,11 @@ import { platform } from "node:process";
 import * as cp from "child_process";
 import { TaskProvider } from "./taskProvider";
 import { LedgerDevice, TargetSelector } from "./targetSelector";
-import { pushError } from "./extension";
+import { pushError, updateSetting, getSetting } from "./extension";
 const APP_DETECTION_FILES: string[] = ["Makefile", "ledger_app.toml"];
 const C_APP_DETECTION_STRING: string = "include $(BOLOS_SDK)/Makefile.defines";
 const C_APP_NAME_MAKEFILE_VAR: string = "APPNAME";
+const C_VARIANT_MAKEFILE_VAR: string = "VARIANTS";
 const PYTEST_DETECTION_FILE: string = "conftest.py";
 
 type AppType = "manifest" | "legacyManifest" | "makefile";
@@ -33,6 +34,11 @@ export interface BuildUseCase {
   name: string;
   options: string;
 }
+export interface VariantList {
+  name: string;
+  selected: string;
+  values: string[];
+}
 
 export interface App {
   name: string;
@@ -54,18 +60,93 @@ export interface App {
   // If the app manifest has build use cases (optional) section they are parsed here
   buildUseCases?: BuildUseCase[];
   selectedBuildUseCase?: BuildUseCase;
+  // Supported variants
+  variants?: VariantList;
 }
 
 let appList: App[] = [];
 let selectedApp: App | undefined;
 
 let appSelectedEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
-
 export const onAppSelectedEvent: vscode.Event<void> = appSelectedEmitter.event;
 
 let testUseCaseSelected: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
-
 export const onTestUseCaseSelected: vscode.Event<void> = testUseCaseSelected.event;
+
+let useCaseSelectedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter<string>();
+export const onUseCaseSelectedEvent: vscode.Event<string> = useCaseSelectedEmitter.event;
+
+let variantSelectedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter<string>();
+export const onVariantSelectedEvent: vscode.Event<string> = variantSelectedEmitter.event;
+
+export function getSelectedBuidUseCase(): string {
+  if (selectedApp && selectedApp.selectedBuildUseCase) {
+    return selectedApp.selectedBuildUseCase.name;
+  }
+  // No use case defined in manifest, no selection
+  return "";
+}
+
+export function setBuildUseCase(name: string) {
+  if (selectedApp && selectedApp?.buildUseCases) {
+    for (let useCase of selectedApp?.buildUseCases) {
+      if (useCase.name === name) {
+        selectedApp.selectedBuildUseCase = useCase;
+        // Save the selected use case in the app repo settings
+        updateSetting("selectedUseCase", name, selectedApp.folderUri);
+        break;
+      }
+    }
+  }
+}
+
+export async function showBuildUseCase() {
+  const buildUseCaseNames = selectedApp?.buildUseCases?.map((buildUseCases) => buildUseCases.name);
+  let result = undefined;
+  if (buildUseCaseNames) {
+    result = await vscode.window.showQuickPick(buildUseCaseNames, {
+      placeHolder: "Please select a use case",
+      onDidSelectItem: (item) => {
+        setBuildUseCase(item.toString());
+        useCaseSelectedEmitter.fire(item.toString());
+      },
+    });
+  }
+  return result;
+}
+
+export function setVariant(name: string) {
+  if (selectedApp && selectedApp?.variants) {
+    for (let variant of selectedApp?.variants.values) {
+      if (variant === name) {
+        selectedApp.variants.selected = variant;
+        // Save the selected variant in the app repo settings
+        updateSetting("selectedVariant", name, selectedApp.folderUri);
+        break;
+      }
+    }
+  }
+}
+
+export function showVariant() {
+  if (selectedApp) {
+    if (selectedApp.variants) {
+      const items: string[] = [];
+      for (let variant of selectedApp.variants.values) {
+        items.push(variant);
+      }
+      const result = vscode.window.showQuickPick(items, {
+        placeHolder: "Please select a variant",
+        onDidSelectItem: (item) => {
+          setVariant(item.toString());
+          variantSelectedEmitter.fire(item.toString());
+        },
+      });
+      return result;
+    }
+    return "";
+  }
+}
 
 function detectAppType(appFolder: vscode.Uri): [AppType?, string?] {
   const searchPatterns = APP_DETECTION_FILES.map((file) => path.join(appFolder.fsPath, `**/${file}`).replace(/\\/g, "/"));
@@ -100,7 +181,8 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
   let app: App | undefined = undefined;
 
   const appFolderUri = folderUri;
-  const appFolderName = path.basename(folderUri.toString(true));
+  const folderStr = folderUri.toString(true);
+  const appFolderName = path.basename(folderStr);
   const containerName = `${appFolderName}-container`;
 
   let appName = "unknown";
@@ -110,6 +192,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
   let compatibleDevices: LedgerDevice[] = ["Nano S", "Nano S Plus", "Nano X", "Stax", "Flex"];
   let testsUseCases = undefined;
   let buildUseCases = undefined;
+  let variants = undefined;
   let buildDirPath = "./";
 
   let found = true;
@@ -130,7 +213,12 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
         console.log("Found manifest in " + appFolderName);
         let tomlContent = toml.parse(fileContent);
         [appLanguage, buildDirPath, compatibleDevices, testsDir, testsUseCases, buildUseCases] = parseManifest(tomlContent);
-        [appName, packageName] = findAdditionalInfo(appLanguage, buildDirPath, appFolderUri);
+        if (appLanguage === "C") {
+          appName = getAppName(folderStr.replace(/^file?:\/\//, ''));
+        } else {
+          let hostBuildDirPath = buildDirPath.startsWith("./") ? path.join(appFolderUri.fsPath, buildDirPath) : buildDirPath;
+          [appName, packageName] = parseCargoToml(path.join(hostBuildDirPath, "Cargo.toml"));
+        }
         break;
       }
       case "legacyManifest": {
@@ -144,7 +232,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
         break;
       }
       case "makefile": {
-        appName = getAppNameFromMakefile(fileContent);
+        appName = getAppName(folderStr.replace(/^file?:\/\//, ''));
         testsDir = findFunctionalTestsWithoutManifest(appFolderUri);
         showManifestWarning(appFolderName, false);
         break;
@@ -166,8 +254,22 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
 
   // Add the app to the list
   if (found) {
+    if (appLanguage === "C") {
+      variants = getAppVariants(folderStr.replace(/^file?:\/\//, ''), appName, appFolderUri);
+      if (variants.values.length > 1) {
+        vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", true);
+      } else {
+        vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", false);
+      }
+    } else {
+      vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", false);
+    }
     // Log all found fields
-    console.log(`Found app ${appName} in folder ${appFolderName} with buildDirPath ${buildDirPath} and language ${appLanguage}`);
+    console.log(`Found app '${appName}' in folder '${appFolderName}' with buildDirPath '${buildDirPath}' and language '${appLanguage}'`);
+
+    // Retrieve last use case name from settings
+    let selectedBuildUseCase = getAppUseCases(buildUseCases, folderUri);
+
     app = {
       name: appName,
       folderName: appFolderName,
@@ -182,7 +284,8 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
       selectedTestUseCase: testsUseCases ? testsUseCases[0] : undefined,
       builtTestDependencies: false,
       buildUseCases: buildUseCases,
-      selectedBuildUseCase: buildUseCases ? buildUseCases[0] : undefined,
+      selectedBuildUseCase: selectedBuildUseCase,
+      variants: variants,
     };
   }
 
@@ -332,26 +435,89 @@ function manifestDevicesToLedgerDevices(manifestDevices: string): LedgerDevice[]
         case "stax":
           return "Stax";
         case "flex":
-            return "Flex";          
+            return "Flex";
         default:
           throw new Error("Invalid device in manifest : " + device);
       }
     });
 }
 
-// Get the app name from the Makefile (for C apps)
-function getAppNameFromMakefile(content: string): string {
-  let appName: string;
-  // Find the app name in the Makefile
-  const regex = new RegExp(`${C_APP_NAME_MAKEFILE_VAR}\\s*=\\s*(.*)`);
-  const match = content.match(regex);
-  if (match) {
-    appName = match[1];
-  } else {
-    throw new Error("No app name found in Makefile");
+// Get the app name (for C apps)
+function getAppName(appdir: string): string {
+  let optionsExecSync: cp.ExecSyncOptions = { stdio: "pipe", encoding: "utf-8" };
+  // If platform is windows, set shell to powershell for cp exec.
+  if (platform === "win32") {
+    let shell: string = "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
+    optionsExecSync.shell = shell;
   }
-  return appName;
+
+  const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+  const image = conf.get<string>("dockerImage") || "";
+
+  // BOLOS_SDK value doesn't impact the APPNAME
+  let cleanCmd:string = `docker run --rm -v '${appdir}:/app' ${image} bash -c "BOLOS_SDK=/opt/stax-secure-sdk make listinfo | grep ${C_APP_NAME_MAKEFILE_VAR}| cut -d'=' -f2"`;
+  return cp.execSync(cleanCmd, optionsExecSync).toString().trim();
 }
+
+// Get the app build use cases
+function getAppUseCases(buildUseCases: BuildUseCase[] | undefined, folderUri: vscode.Uri): BuildUseCase | undefined {
+  // Retrieve last selected use case name from settings
+  let selectedBuildUseCase: BuildUseCase | undefined = undefined;
+  if (buildUseCases) {
+    const lastUseCase = getSetting("selectedUseCase", folderUri);
+    if (lastUseCase) {
+      selectedBuildUseCase = buildUseCases.find(useCase => useCase.name === lastUseCase);
+    }
+    if (selectedBuildUseCase === undefined) {
+      selectedBuildUseCase = buildUseCases[0];
+      updateSetting("selectedUseCase", selectedBuildUseCase.name, folderUri);
+    }
+  }
+  return selectedBuildUseCase;
+}
+
+// Get the app variants (for C apps)
+function getAppVariants(appdir: string, appName: string, folderUri: vscode.Uri): VariantList {
+  let optionsExecSync: cp.ExecSyncOptions = { stdio: "pipe", encoding: "utf-8" };
+  // If platform is windows, set shell to powershell for cp exec.
+  if (platform === "win32") {
+    let shell: string = "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
+    optionsExecSync.shell = shell;
+  }
+
+  let variants: VariantList = {
+    name: "",
+    selected: "",
+    values: [],
+  };
+  // Retrieve the last selected variant from settings
+  variants.selected = getSetting("selectedVariant", folderUri);
+
+  const conf = vscode.workspace.getConfiguration("ledgerDevTools", folderUri);
+  const image = conf.get<string>("dockerImage") || "";
+
+  // BOLOS_SDK value doesn't impact the APPNAME
+  let cleanCmd:string = `docker run --rm -v '${appdir}:/app' ${image} bash -c "BOLOS_SDK=/opt/stax-secure-sdk make listvariants | grep ${C_VARIANT_MAKEFILE_VAR} | cut -d' ' -f2-"`;
+  let result = cp.execSync(cleanCmd, optionsExecSync).toString().trim().split(" ");
+  // Variant name is the 2nd word, and the values are following from the 3rd word
+  variants.name = result[0];
+  variants.values = result.slice(1);
+
+  if (variants.selected === "") {
+    // Try to guess the default variant, using the APPNAME
+    const selected = result.find(elt => elt.toLowerCase() === appName.toLowerCase());
+    if (selected) {
+      variants.selected = selected;
+    } else {
+      // Variant not found: Init with 1st element in the list
+      variants.selected = result[1];
+    }
+    updateSetting("selectedVariant", variants.selected, folderUri);
+  }
+
+  return variants;
+}
+
 
 // Type guard function to check if a string is a valid app language
 function isValidLanguage(value: string): AppLanguage {
@@ -426,18 +592,48 @@ function parseTestsUsesCasesFromManifest(tomlContent: any): TestUseCase[] | unde
 function parseBuildUseCasesFromManifest(tomlContent: any): BuildUseCase[] | undefined {
   let useCasesSection = getProperty(tomlContent, "use_cases");
   let buildUseCases: BuildUseCase[] | undefined = undefined;
+  let debugFlagFound: Boolean = false;
+  let debugNameFound: Boolean = false;
+
+  buildUseCases = [];
+  // Add a default 'release' use case, to build in release mode, without any flag
+  let buildUseCase: BuildUseCase = {
+    name: "release",
+    options: "",
+  };
+  buildUseCases.push(buildUseCase);
+
+  // Parse 'use_cases' section from manifest to retrieve the configuration
   if (useCasesSection) {
-    console.log(`Found use_cases section in manifest`);
-    buildUseCases = [];
     const useCases = Object.keys(useCasesSection);
     for (let useCase of useCases) {
       let buildUseCase: BuildUseCase = {
         name: useCase,
         options: getPropertyOrThrow(useCasesSection, useCase),
       };
+      if (buildUseCase.options === "DEBUG=1") {
+        // A debug use case already exists
+        debugFlagFound = true;
+      }
+      if (buildUseCase.name === "debug") {
+        // A use case with name 'debug' already exists
+        debugNameFound = true;
+      }
       buildUseCases.push(buildUseCase);
-      console.log(`Found build use case ${useCase} with options ${JSON.stringify(buildUseCase.options)}`);
+      console.log(`Found build use_case '${useCase}' with options ${JSON.stringify(buildUseCase.options)}`);
     }
+  }
+
+  // Add a default 'debug' use case if not found in the manifest
+  if (debugFlagFound === false) {
+    let buildUseCase: BuildUseCase = {
+      name: "debug",
+      options: "DEBUG=1",
+    };
+    if (debugNameFound === true) {
+      buildUseCase.name = "debug_default";
+    }
+    buildUseCases.push(buildUseCase);
   }
   return buildUseCases;
 }
@@ -562,32 +758,6 @@ function parseManifest(tomlContent: any): [AppLanguage, string, LedgerDevice[], 
   let buildUseCases = parseBuildUseCasesFromManifest(tomlContent);
 
   return [appLanguage, buildDirPath, compatibleDevices, functionalTestsDir, testUseCases, buildUseCases];
-}
-
-// Find app name and package name from build dir path, in Makefile for C apps or Cargo.toml for Rust apps
-function findAdditionalInfo(appLanguage: AppLanguage, buildDirPath: string, appFolder: vscode.Uri): [string, string?] {
-  let appName: string;
-  let packageName: string | undefined;
-
-  // Get the build dir path on the host to search for the Makefile or Cargo.toml
-  let hostBuildDirPath = buildDirPath.startsWith("./") ? path.join(appFolder.fsPath, buildDirPath) : buildDirPath;
-
-  // If C app, parse app name from Makefile
-  if (appLanguage === "C") {
-    // Search for Makefile in build dir
-    const searchPattern = path.join(hostBuildDirPath, `**/Makefile`).replace(/\\/g, "/");
-    const makefile = fg.sync(searchPattern, { onlyFiles: true, deep: 0 })[0];
-    if (!makefile) {
-      throw new Error("No Makefile found in build directory");
-    }
-    const makefileContent = fs.readFileSync(makefile, "utf-8");
-    appName = getAppNameFromMakefile(makefileContent);
-  }
-  // If Rust app, parse app name and package name from Cargo.toml
-  else {
-    [appName, packageName] = parseCargoToml(path.join(hostBuildDirPath, "Cargo.toml"));
-  }
-  return [appName, packageName];
 }
 
 // Parse legacy rust manifest and return build dir path, app name and package name

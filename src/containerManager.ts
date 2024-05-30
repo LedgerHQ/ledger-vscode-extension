@@ -46,10 +46,6 @@ export class ContainerManager {
           console.log(`Ledger: Container ${containerName} status is ${containerStatus}`);
 
           if (containerStatus === "running") {
-            const conf = vscode.workspace.getConfiguration("ledgerDevTools");
-            if (conf.get<boolean>("keepContainerTerminal") === false) {
-              vscode.window.activeTerminal?.hide();
-            }
             this.triggerStatusEvent(DevImageStatus.running);
             return true;
           }

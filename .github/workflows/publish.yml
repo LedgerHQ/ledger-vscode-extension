@@ -68,6 +68,6 @@ jobs:
       run: npm install @vscode/vsce --save-dev
 
     - name: Publish to Visual Studio Marketplace
-      run: npm deploy
+      run: npm run deploy
       env:
         pat: ${{ secrets.VSCE_PAT }}

@@ -70,4 +70,4 @@ jobs:
     - name: Publish to Visual Studio Marketplace
       run: npm run deploy
       env:
-        pat: ${{ secrets.VSCE_PAT }}
+        VSCE_PAT: ${{ secrets.VSCE_PAT }}

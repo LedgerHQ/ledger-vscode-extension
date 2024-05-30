@@ -62,7 +62,7 @@ jobs:
     - name: Install Node.js
       uses: actions/setup-node@v4
       with:
-        node-version-file: node
+        node-version: node
 
     - name: Packages installation
       run: npm install @vscode/vsce --save-dev

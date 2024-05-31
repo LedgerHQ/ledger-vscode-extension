@@ -214,7 +214,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
         let tomlContent = toml.parse(fileContent);
         [appLanguage, buildDirPath, compatibleDevices, testsDir, testsUseCases, buildUseCases] = parseManifest(tomlContent);
         if (appLanguage === "C") {
-          appName = getAppName(folderStr.replace(/^file?:\/\//, ''));
+          appName = getAppName(folderUri.fsPath);
         } else {
           let hostBuildDirPath = buildDirPath.startsWith("./") ? path.join(appFolderUri.fsPath, buildDirPath) : buildDirPath;
           [appName, packageName] = parseCargoToml(path.join(hostBuildDirPath, "Cargo.toml"));
@@ -232,7 +232,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
         break;
       }
       case "makefile": {
-        appName = getAppName(folderStr.replace(/^file?:\/\//, ''));
+        appName = getAppName(folderUri.fsPath);
         testsDir = findFunctionalTestsWithoutManifest(appFolderUri);
         showManifestWarning(appFolderName, false);
         break;
@@ -255,7 +255,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
   // Add the app to the list
   if (found) {
     if (appLanguage === "C") {
-      variants = getAppVariants(folderStr.replace(/^file?:\/\//, ''), appName, appFolderUri);
+      variants = getAppVariants(folderUri.fsPath, appName, appFolderUri);
       if (variants.values.length > 1) {
         vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", true);
       } else {

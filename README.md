@@ -72,6 +72,11 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+## 0.7.1
+
+* Fix regression on AppName detection on Windows platform
+* Fix Env variable in Deploy workflow
+
 ## 0.7.0
 
 * Update `webpack` and `electron` versions and dependencies

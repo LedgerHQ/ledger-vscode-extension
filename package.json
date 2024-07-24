@@ -167,6 +167,7 @@
         },
         "ledgerDevTools.dockerRunArgs": {
           "type": "string",
+          "scope": "resource",
           "default": "",
           "description": "Additional arguments to pass to the 'docker run' command for the Ledger developer tools Docker image."
         },

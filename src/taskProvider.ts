@@ -67,6 +67,7 @@ export class TaskProvider implements vscode.TaskProvider {
   private packageName?: string;
   private tasks: MyTask[] = [];
   private currentApp?: App;
+  private dockerRunArgs: string = "";
   private taskSpecs: TaskSpec[] = [
     {
       group: "Docker Container",
@@ -244,6 +245,10 @@ export class TaskProvider implements vscode.TaskProvider {
       this.buildDir = this.currentApp.buildDirPath;
       this.workspacePath = this.currentApp.folderUri.path;
       this.packageName = this.currentApp.packageName;
+
+      const appConf = vscode.workspace.getConfiguration("ledgerDevTools", this.appFolderUri);
+      this.dockerRunArgs = appConf.get<string>("dockerRunArgs") || "";
+
       this.checkDisabledTasks();
       this.pushAllTasks();
       this.treeProvider.addAllTasksToTree(this.taskSpecs);
@@ -276,21 +281,18 @@ export class TaskProvider implements vscode.TaskProvider {
   private runDevToolsImageExec(): string {
     let exec = "";
 
-    const conf = vscode.workspace.getConfiguration("ledgerDevTools");
-    const dockerRunArgs = conf.get<string>("dockerRunArgs");
-
     if (this.currentApp) {
       // Checks if a container with the name  ${this.containerName} exists, and if it does, it is stopped and removed before a new container is created using the same name and other specified configuration parameters
       if (platform === "linux") {
         // Linux
-        exec = `docker ps -a --format '{{.Names}}' | grep -q  ${this.containerName} && (docker container stop  ${this.containerName} && docker container rm  ${this.containerName}) ; docker pull ${this.image} && docker run --user $(id -u):$(id -g) --privileged -e DISPLAY=$DISPLAY -v '/dev/bus/usb:/dev/bus/usb' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' ${dockerRunArgs} -t -d --name  ${this.containerName} ${this.image}`;
+        exec = `docker ps -a --format '{{.Names}}' | grep -q  ${this.containerName} && (docker container stop  ${this.containerName} && docker container rm  ${this.containerName}) ; docker pull ${this.image} && docker run --user $(id -u):$(id -g) --privileged -e DISPLAY=$DISPLAY -v '/dev/bus/usb:/dev/bus/usb' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' ${this.dockerRunArgs} -t -d --name  ${this.containerName} ${this.image}`;
       } else if (platform === "darwin") {
         // macOS
-        exec = `xhost + ; docker ps -a --format '{{.Names}}' | grep -q  ${this.containerName} && (docker container stop  ${this.containerName} && docker container rm  ${this.containerName}) ; docker pull ${this.image} && docker run --user $(id -u):$(id -g) --privileged -e DISPLAY='host.docker.internal:0' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' ${dockerRunArgs} -t -d --name  ${this.containerName} ${this.image}`;
+        exec = `xhost + ; docker ps -a --format '{{.Names}}' | grep -q  ${this.containerName} && (docker container stop  ${this.containerName} && docker container rm  ${this.containerName}) ; docker pull ${this.image} && docker run --user $(id -u):$(id -g) --privileged -e DISPLAY='host.docker.internal:0' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' ${this.dockerRunArgs} -t -d --name  ${this.containerName} ${this.image}`;
       } else {
         // Assume windows
         const winWorkspacePath = this.workspacePath.substring(1); // Remove first '/' from windows workspace path URI. Otherwise it is not valid.
-        exec = `if (docker ps -a --format '{{.Names}}' | Select-String -Quiet  ${this.containerName}) { docker container stop  ${this.containerName}; docker container rm  ${this.containerName} }; docker pull ${this.image}; docker run --privileged -e DISPLAY='host.docker.internal:0' -v '${winWorkspacePath}:/app' ${dockerRunArgs} -t -d --name  ${this.containerName} ${this.image}`;
+        exec = `if (docker ps -a --format '{{.Names}}' | Select-String -Quiet  ${this.containerName}) { docker container stop  ${this.containerName}; docker container rm  ${this.containerName} }; docker pull ${this.image}; docker run --privileged -e DISPLAY='host.docker.internal:0' -v '${winWorkspacePath}:/app' ${this.dockerRunArgs} -t -d --name  ${this.containerName} ${this.image}`;
       }
     }
 

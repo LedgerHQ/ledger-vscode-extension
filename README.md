@@ -62,6 +62,7 @@ This extension contributes the following settings:
 * `ledgerDevTools.onboardingPin`: Set the device quick onboarding PIN code.
 * `ledgerDevTools.onboardingSeed`: Set the device quick onboarding 24-word Seed phrase.
 * `ledgerDevTools.dockerImage`: Set the Ledger developer tools Docker image.
+* `ledgerDevTools.dockerRunArgs`: Any additional command line args to pass to the `docker run` command for the Ledger developer tools Docker image.
 * `ledgerDevTools.additionalReqsPerApp`: Add prerequisites for current app's functional tests (for instance 'apk add python3-protobuf').
 * `ledgerDevTools.keepTerminal`: Indicates to keep the Terminal window opened after a successful task execution.
 * `ledgerDevTools.containerUpdateRetries`: Set the max number of Container Update retries.
@@ -71,6 +72,10 @@ This extension contributes the following settings:
 * `ledgerDevTools.enableDeviceOpsForNanoX`: Allow device operations on Nano X (requires special development device)
 
 ## Release Notes
+
+## 0.7.2
+
+* Added `dockerRunArgs` setting.
 
 ## 0.7.1
 

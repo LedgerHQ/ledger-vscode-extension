@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "Ledger Dev Tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",
@@ -164,6 +164,12 @@
           "type": "string",
           "default": "ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest",
           "description": "Ledger developer tools Docker image."
+        },
+        "ledgerDevTools.dockerRunArgs": {
+          "type": "string",
+          "scope": "resource",
+          "default": "",
+          "description": "Additional arguments to pass to the 'docker run' command for the Ledger developer tools Docker image."
         },
         "ledgerDevTools.onboardingPin": {
           "type": "string",

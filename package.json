@@ -165,6 +165,11 @@
           "default": "ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest",
           "description": "Ledger developer tools Docker image."
         },
+        "ledgerDevTools.dockerRunArgs": {
+          "type": "string",
+          "default": "",
+          "description": "Additional arguments to pass to the 'docker run' command for the Ledger developer tools Docker image."
+        },
         "ledgerDevTools.onboardingPin": {
           "type": "string",
           "default": "1234",

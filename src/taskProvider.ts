@@ -7,6 +7,7 @@ import { platform } from "node:process";
 import { TargetSelector, specialAllDevice } from "./targetSelector";
 import { getSelectedApp, App, AppLanguage } from "./appSelector";
 import { TreeDataProvider } from "./treeView";
+import * as cp from "child_process";
 
 export const taskType = "L";
 
@@ -108,6 +109,14 @@ export class TaskProvider implements vscode.TaskProvider {
       name: "Clean the build files",
       builders: { ["C"]: this.cCleanExec, ["Rust"]: this.rustCleanExec },
       toolTip: "Clean the app build files",
+      state: "enabled",
+      allSelectedBehavior: "enable",
+    },
+    {
+      group: "Build",
+      name: "Generate LSP DB",
+      builders: { ["C"]: this.generateLspDatabase },
+      toolTip: "Generate database for clangd",
       state: "enabled",
       allSelectedBehavior: "enable",
     },
@@ -372,6 +381,45 @@ export class TaskProvider implements vscode.TaskProvider {
     // Cleans all app build files (for all device models).
     const exec = `docker exec -it  ${this.containerName} bash -c 'make -C ${this.buildDir} clean'`;
     return exec;
+  }
+
+  private generateLspDatabase(): [string, CustomTaskFunction] {
+    const func = () => {
+      // TODO: customize for cross-platform
+      const tmp_dir = "/tmp/ledger_vscode_ext";
+      const sdk_dirname = `${this.tgtSelector.getSelectedSDK().substring(1).toLowerCase().split("_")[0]}-secure-sdk`;
+      const local_sdk_dir = `${tmp_dir}/${sdk_dirname}`;
+
+      if (!fs.existsSync(tmp_dir)) {
+        // create tmp dir
+        fs.mkdirSync(tmp_dir, {recursive: true});
+      } else {
+        // to make sure we have a fresh copy of the sdk
+        fs.rmSync(local_sdk_dir, {force: true, recursive: true});
+      }
+
+      // copy SDK to host
+      cp.execSync(`docker exec ${this.containerName} bash -c 'cp -R ${this.tgtSelector.getSelectedSDK()} /app/.${sdk_dirname}'`).toString();
+      fs.renameSync(`${this.appFolderUri?.fsPath}/.${sdk_dirname}`, local_sdk_dir);
+
+      // get compilation output
+      const result = cp.execSync(`docker exec ${this.containerName} bash -c 'make -C ${this.buildDir} BOLOS_SDK=${this.tgtSelector.getSelectedSDK()} --always-make --dry-run'`).toString();
+      let clang_lines: string[] = [];
+      result.split("\n").forEach(function (line) {
+        if (line.startsWith("clang -c ")) {
+          clang_lines.push(line.replace(/ \/app\//g, " ").replace(/\/opt\//g, `${tmp_dir}/`));
+        }
+      });
+      const clang_output = clang_lines.join("\n");
+
+      // create venv & install tool & generate DB
+      const venv_path = `${tmp_dir}/venv`;
+      if (!fs.existsSync(venv_path)) {
+        cp.execSync(`python3 -m venv ${venv_path}`);
+      }
+      cp.execSync(`bash -c 'source ${venv_path}/bin/activate && pip3 install -U compiledb && cd ${this.appFolderUri?.fsPath} && compiledb'`, {input: clang_output}).toString();
+    };
+    return ["", func];
   }
 
   private rustCleanExec(): string {

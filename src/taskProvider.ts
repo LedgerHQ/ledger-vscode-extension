@@ -383,7 +383,13 @@ export class TaskProvider implements vscode.TaskProvider {
   private openTerminalExec(): string {
     // Get the Selected target SDK to export inside the container
     let sdk: string = this.tgtSelector.getSelectedSDK();
-    const exec = `docker exec -it -u 0 -e "BOLOS_SDK=${sdk}" ${this.containerName} bash`;
+    let userOpt: string = "";
+    // Get settings to open terminal as root or not
+    const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+    if (conf.get<boolean>("openContainerAsRoot") === true) {
+      userOpt = `-u 0`;
+    }
+    const exec = `docker exec -it ${userOpt} -e "BOLOS_SDK=${sdk}" ${this.containerName} bash`;
     return exec;
   }
 
@@ -557,7 +563,7 @@ export class TaskProvider implements vscode.TaskProvider {
       console.log(`Ledger: Installing additional dependencies : ${addReqsExec}`);
     }
     const reqFilePath = this.functionalTestsDir + "/requirements.txt";
-    const exec = `docker exec -it -u 0  ${this.containerName} bash -c '${addReqsExec} [ -f ${reqFilePath} ] && pip install -r ${reqFilePath}'`;
+    const exec = `docker exec -it -u 0 ${this.containerName} bash -c '${addReqsExec} [ -f ${reqFilePath} ] && pip install -r ${reqFilePath}'`;
     return exec;
   }
 

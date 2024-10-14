@@ -194,6 +194,11 @@
           "default": true,
           "markdownDescription": "Keep the Terminal window opened after a successful task execution."
         },
+        "ledgerDevTools.openContainerAsRoot": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Open docker container using root user."
+        },
         "ledgerDevTools.containerUpdateRetries": {
           "type": "number",
           "default": 5,

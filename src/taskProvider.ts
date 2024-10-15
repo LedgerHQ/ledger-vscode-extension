@@ -191,6 +191,14 @@ export class TaskProvider implements vscode.TaskProvider {
       state: "enabled",
       allSelectedBehavior: "disable",
     },
+    {
+      name: "Run Guideline Enforcer",
+      builders: { ["Both"]: this.runGuidelineEnforcer },
+      toolTip:
+        "Run Guideline Enforcer checks. These checks are also run in the app's repository CI and must pass before the app can be deployed.",
+      state: "enabled",
+      allSelectedBehavior: "disable",
+    },
   ];
   private keyvarEnv: string = process.env.SCP_PRIVKEY as string;
 
@@ -552,6 +560,18 @@ export class TaskProvider implements vscode.TaskProvider {
     const exec = `docker exec -it ${this.containerName} bash -c 'pytest ${
       this.functionalTestsDir
     } --tb=short -v --device ${this.tgtSelector.getSelectedSpeculosModel()} --display --backend ledgerwallet'`;
+    return exec;
+  }
+
+  private runGuidelineEnforcer(): string {
+    let userOpt: string = "";
+    // Get settings to open terminal as root or not
+    const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+    if (conf.get<boolean>("openContainerAsRoot") === true) {
+      userOpt = `-u 0`;
+    }
+    // Runs checks inside the docker container.
+    const exec = `docker exec -it ${userOpt} ${this.containerName} bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && /opt/enforcer.sh'`;
     return exec;
   }
 

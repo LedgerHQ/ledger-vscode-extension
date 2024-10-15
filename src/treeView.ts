@@ -80,6 +80,14 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
         path: "/" + spec.name + "/" + spec.state,
       });
     } else {
+      if (taskItem.label?.toString().startsWith("Run Guideline Enforcer")) {
+        taskItem.iconPath = new vscode.ThemeIcon("symbol-ruler");
+        taskItem.resourceUri = vscode.Uri.from({
+          scheme: "devtools-treeview",
+          authority: "task",
+          path: "/" + spec.name + "/" + spec.state,
+        });
+      }
       this.data.push(taskItem);
     }
 

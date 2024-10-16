@@ -194,6 +194,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
       let buidUseCaseItem = this.data.find((item) => item.label && item.label.toString().startsWith("Build"));
       let selectVariantItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select variant"));
       let checkItem = this.data.find((item) => item.label && item.label.toString().startsWith("Run Guideline Enforcer"));
+      let devOprItem = this.data.find((item) => item.label && item.label.toString().startsWith("Device Operations"));
 
       this.data.forEach((item) => {
         if (item.label?.toString().startsWith("Docker Container")) {
@@ -204,6 +205,13 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
           }
         }
       });
+      if (devOprItem) {
+        if (this.targetSelector.getSelectedTarget() === "Nano X") {
+          devOprItem.label = `Device Operations [Unsupported on Nano X]`;
+        } else {
+          devOprItem.label = `Device Operations`;
+        }
+      }
       if (checkItem) {
         checkItem.label = `Run Guideline Enforcer [${checks.selected}]`;
       }

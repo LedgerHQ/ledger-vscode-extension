@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { TargetSelector } from "./targetSelector";
 import { getSelectedApp } from "./appSelector";
-import { TaskSpec } from "./taskProvider";
+import { TaskSpec, checks } from "./taskProvider";
 import { DevImageStatus } from "./containerManager";
 
 export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
@@ -87,6 +87,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
           authority: "task",
           path: "/" + spec.name + "/" + spec.state,
         });
+        taskItem.contextValue = "selectCheck";
       }
       this.data.push(taskItem);
     }
@@ -192,6 +193,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
       let functionalTestsItem = this.data.find((item) => item.label && item.label.toString().startsWith("Functional"));
       let buidUseCaseItem = this.data.find((item) => item.label && item.label.toString().startsWith("Build"));
       let selectVariantItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select variant"));
+      let checkItem = this.data.find((item) => item.label && item.label.toString().startsWith("Run Guideline Enforcer"));
 
       this.data.forEach((item) => {
         if (item.label?.toString().startsWith("Docker Container")) {
@@ -202,7 +204,9 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
           }
         }
       });
-
+      if (checkItem) {
+        checkItem.label = `Run Guideline Enforcer [${checks.selected}]`;
+      }
       if (selectAppItem) {
         selectAppItem.label = `Select app [${currentApp.folderName}]`;
       }

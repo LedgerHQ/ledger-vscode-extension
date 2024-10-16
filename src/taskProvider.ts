@@ -23,6 +23,31 @@ type BuilderForLanguage = Partial<Record<TaskTargetLanguage, ExecBuilder>>;
 type TaskState = "enabled" | "disabled" | "unavailable";
 type BehaviorWhenAllTargetsSelected = "enable" | "disable" | "executeForEveryTarget";
 
+export interface ChecksList {
+  selected: string;
+  values: string[];
+}
+const validChecks: string[] = ["All", "manifest", "icons", "app_load_params", "makefile", "readme", "scan"];
+export const checks: ChecksList = {
+  selected:"All",
+  values: validChecks,
+};
+
+let checkSelectedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter();
+export const onCheckSelectedEvent: vscode.Event<string> = checkSelectedEmitter.event;
+
+export async function showChecks() {
+  let result = undefined;
+  result = await vscode.window.showQuickPick(validChecks, {
+    placeHolder: "Please select a check to run",
+  });
+  if (result) {
+    checks.selected = result.toString();
+    checkSelectedEmitter.fire(checks.selected);
+  }
+  return result;
+}
+
 export interface TaskSpec {
   group?: string;
   name: string;
@@ -572,8 +597,13 @@ export class TaskProvider implements vscode.TaskProvider {
     if (conf.get<boolean>("openContainerAsRoot") === true) {
       userOpt = `-u 0`;
     }
+    let checkOpt: string = "";
+    // Retrieve the selected check, if any
+    if (checks.selected !== "All") {
+      checkOpt = `-c ${checks.selected}`;
+    }
     // Runs checks inside the docker container.
-    const exec = `docker exec -it ${userOpt} -e "BOLOS_SDK=${sdk}" ${this.containerName} bash -c "/opt/enforcer.sh"`;
+    const exec = `docker exec -it ${userOpt} -e "BOLOS_SDK=${sdk}" ${this.containerName} bash -c "/opt/enforcer.sh ${checkOpt}"`;
     return exec;
   }
 

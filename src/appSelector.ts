@@ -76,8 +76,8 @@ export const onTestUseCaseSelected: vscode.Event<void> = testUseCaseSelected.eve
 let useCaseSelectedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter<string>();
 export const onUseCaseSelectedEvent: vscode.Event<string> = useCaseSelectedEmitter.event;
 
-let variantSelectedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter<string>();
-export const onVariantSelectedEvent: vscode.Event<string> = variantSelectedEmitter.event;
+let variantSelectedEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+export const onVariantSelectedEvent: vscode.Event<void> = variantSelectedEmitter.event;
 
 export function getSelectedBuidUseCase(): string {
   if (selectedApp && selectedApp.selectedBuildUseCase) {
@@ -140,7 +140,7 @@ export async function showVariant() {
       });
       if (result) {
         setVariant(result.toString());
-        variantSelectedEmitter.fire(result.toString());
+        variantSelectedEmitter.fire();
       }
       return result;
     }

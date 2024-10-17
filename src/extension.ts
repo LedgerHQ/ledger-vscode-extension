@@ -86,7 +86,7 @@ export function activate(context: vscode.ExtensionContext) {
   // Event listener for Guideline Enforcer check selection.
   // This event is fired when the user selects a Guideline Enforcer check
   context.subscriptions.push(
-    onCheckSelectedEvent((data) => {
+    onCheckSelectedEvent(() => {
       taskProvider.generateTasks();
       treeProvider.updateDynamicLabels();
     })

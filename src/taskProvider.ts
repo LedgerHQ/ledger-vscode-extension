@@ -33,8 +33,8 @@ export const checks: ChecksList = {
   values: validChecks,
 };
 
-let checkSelectedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter();
-export const onCheckSelectedEvent: vscode.Event<string> = checkSelectedEmitter.event;
+let checkSelectedEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+export const onCheckSelectedEvent: vscode.Event<void> = checkSelectedEmitter.event;
 
 export async function showChecks() {
   let result = undefined;
@@ -43,7 +43,7 @@ export async function showChecks() {
   });
   if (result) {
     checks.selected = result.toString();
-    checkSelectedEmitter.fire(checks.selected);
+    checkSelectedEmitter.fire();
   }
   return result;
 }

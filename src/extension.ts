@@ -77,7 +77,7 @@ export function activate(context: vscode.ExtensionContext) {
   // Event listener for variant selection.
   // This event is fired when the user selects a build variant
   context.subscriptions.push(
-    onVariantSelectedEvent((data) => {
+    onVariantSelectedEvent(() => {
       taskProvider.generateTasks();
       treeProvider.updateDynamicLabels();
     })

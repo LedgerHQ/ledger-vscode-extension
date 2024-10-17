@@ -106,11 +106,11 @@ export async function showBuildUseCase() {
   if (buildUseCaseNames) {
     result = await vscode.window.showQuickPick(buildUseCaseNames, {
       placeHolder: "Please select a use case",
-      onDidSelectItem: (item) => {
-        setBuildUseCase(item.toString());
-        useCaseSelectedEmitter.fire(item.toString());
-      },
     });
+  }
+  if (result) {
+    setBuildUseCase(result.toString());
+    useCaseSelectedEmitter.fire(result.toString());
   }
   return result;
 }
@@ -128,20 +128,20 @@ export function setVariant(name: string) {
   }
 }
 
-export function showVariant() {
+export async function showVariant() {
   if (selectedApp) {
     if (selectedApp.variants) {
       const items: string[] = [];
       for (let variant of selectedApp.variants.values) {
         items.push(variant);
       }
-      const result = vscode.window.showQuickPick(items, {
+      const result = await vscode.window.showQuickPick(items, {
         placeHolder: "Please select a variant",
-        onDidSelectItem: (item) => {
-          setVariant(item.toString());
-          variantSelectedEmitter.fire(item.toString());
-        },
       });
+      if (result) {
+        setVariant(result.toString());
+        variantSelectedEmitter.fire(result.toString());
+      }
       return result;
     }
     return "";
@@ -312,26 +312,26 @@ export async function showAppSelectorMenu(targetSelector: TargetSelector) {
   const appFolderNames = appList.map((app) => app.folderName);
   const result = await vscode.window.showQuickPick(appFolderNames, {
     placeHolder: "Please select an app",
-    onDidSelectItem: (item) => {
-      setSelectedApp(appList.find((app) => app.folderName === item));
-      appSelectedEmitter.fire();
-    },
   });
+  if (result) {
+    setSelectedApp(appList.find((app) => app.folderName === result));
+    appSelectedEmitter.fire();
+  }
   getAndBuildAppTestsDependencies(targetSelector);
   return result;
 }
 
 export async function showTestUseCaseSelectorMenu(targetSelector: TargetSelector) {
   const testUseCaseNames = selectedApp?.testsUseCases?.map((testUseCase) => testUseCase.name);
-  let result = undefined;
+  let result:string | undefined = undefined;
   if (testUseCaseNames) {
     result = await vscode.window.showQuickPick(testUseCaseNames, {
       placeHolder: "Please select a test use case",
-      onDidSelectItem: (item) => {
-        selectedApp!.selectedTestUseCase = selectedApp!.testsUseCases?.find((testUseCase) => testUseCase.name === item);
-        testUseCaseSelected.fire();
-      },
     });
+    if (result) {
+      selectedApp!.selectedTestUseCase = selectedApp!.testsUseCases?.find((testUseCase) => testUseCase.name === result);
+      testUseCaseSelected.fire();
+    }
   }
   getAndBuildAppTestsDependencies(targetSelector, true);
   return result;

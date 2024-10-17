@@ -103,6 +103,9 @@ export class TargetSelector {
       this.selectedSpeculosModel = speculosModels[this.selectedTarget];
       this.selectedSDKModel = this.sdkModelsArray[this.selectedTarget];
       this.selectedTargetId = targetIds[this.selectedTarget];
+      vscode.commands.executeCommand("setContext", "ledgerDevTools.contextAllTargets", true);
+    } else {
+      vscode.commands.executeCommand("setContext", "ledgerDevTools.contextAllTargets", false);
     }
   }
 
@@ -147,11 +150,11 @@ export class TargetSelector {
   public async showTargetSelectorMenu() {
     const result = await vscode.window.showQuickPick(this.targetsArray, {
       placeHolder: "Please select a target",
-      onDidSelectItem: (item) => {
-        this.setSelectedTarget(item.toString());
-        this.triggerTargetSelectedEvent(item.toString());
-      },
     });
+    if (result) {
+      this.setSelectedTarget(result.toString());
+      this.triggerTargetSelectedEvent(result.toString());
+    }
     return result;
   }
 

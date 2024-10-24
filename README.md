@@ -62,9 +62,11 @@ This extension contributes the following settings:
 * `ledgerDevTools.onboardingPin`: Set the device quick onboarding PIN code.
 * `ledgerDevTools.onboardingSeed`: Set the device quick onboarding 24-word Seed phrase.
 * `ledgerDevTools.dockerImage`: Set the Ledger developer tools Docker image.
-* `ledgerDevTools.dockerRunArgs`: Any additional command line args to pass to the `docker run` command for the Ledger developer tools Docker image.
+* `ledgerDevTools.dockerRunArgs`: Any additional command line args to pass to the `docker run`
+  command for the Ledger developer tools Docker image.
 * `ledgerDevTools.additionalReqsPerApp`: Add prerequisites for current app's functional tests (for instance 'apk add python3-protobuf').
 * `ledgerDevTools.keepTerminal`: Indicates to keep the Terminal window opened after a successful task execution.
+* `ledgerDevTools.openContainerAsRoot`: Open docker container using `root`:`root` user.
 * `ledgerDevTools.containerUpdateRetries`: Set the max number of Container Update retries.
 * `ledgerDevTools.userScpPrivateKey`: Use the host's `SCP_PRIVKEY` environment variable when loading/deleting app on device.
   Cf. <https://developers.ledger.com/docs/embedded-app/pin-bypass>

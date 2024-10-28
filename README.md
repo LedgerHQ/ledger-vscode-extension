@@ -75,6 +75,15 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+## [0.8.0]
+
+* Add new setting to Open Terminal as `root` (enabled by default).
+* Add item to run the `Guideline Enforcer`, with possibility to run a single check or all (by default)
+* Add `xhost+` command when updating the container, to ensure compatibility with Ubuntu 24.04
+* Update the message for NanoX unsupported device operations
+* Fix menu selection (device, variant...) to not select the 1st item as soon as the menu is displayed
+* Fix `BOLOS_SDK` variable when entering the container
+
 ## 0.7.2
 
 * Added `dockerRunArgs` setting.

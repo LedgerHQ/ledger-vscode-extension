@@ -1,7 +1,7 @@
 "use strict";
 
 import * as vscode from "vscode";
-import { TaskProvider, taskType } from "./taskProvider";
+import { TaskProvider, taskType, onCheckSelectedEvent, showChecks } from "./taskProvider";
 import { TreeDataProvider } from "./treeView";
 import { TargetSelector } from "./targetSelector";
 import { StatusBarManager } from "./statusBar";
@@ -77,11 +77,27 @@ export function activate(context: vscode.ExtensionContext) {
   // Event listener for variant selection.
   // This event is fired when the user selects a build variant
   context.subscriptions.push(
-    onVariantSelectedEvent((data) => {
+    onVariantSelectedEvent(() => {
       taskProvider.generateTasks();
       treeProvider.updateDynamicLabels();
     })
   );
+
+  // Event listener for Guideline Enforcer check selection.
+  // This event is fired when the user selects a Guideline Enforcer check
+  context.subscriptions.push(
+    onCheckSelectedEvent(() => {
+      taskProvider.generateTasks();
+      treeProvider.updateDynamicLabels();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("selectCheck", () => {
+      showChecks();
+    })
+  );
+
 
   // Event listener for useCase selection.
   // This event is fired when the user selects a build useCase

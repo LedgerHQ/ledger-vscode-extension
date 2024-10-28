@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "Ledger Dev Tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",
@@ -46,6 +46,11 @@
         {
           "command": "rebuildTestUseCaseDepsSpin",
           "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showrebuildTestUseCaseDepsSpin",
+          "group": "inline"
+        },
+        {
+          "command": "selectCheck",
+          "when": "view == mainView && viewItem == selectCheck && ledgerDevTools.contextAllTargets",
           "group": "inline"
         }
       ]
@@ -155,7 +160,15 @@
         "title": "Add test dependencies",
         "category": "Ledger",
         "tooltip": "Add additional test dependencies to install for selected app."
-      }
+      },
+      {
+          "command": "selectCheck",
+          "title": "Select a Guideline Enforcer Check",
+          "category": "Ledger",
+          "tooltip": "Select the check you want to run, or All by default.",
+          "icon": "$(pass)",
+          "enablement": "ledgerDevTools.contextAllTargets"
+        }
     ],
     "configuration": {
       "title": "Ledger Developer Tools",
@@ -193,6 +206,11 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Keep the Terminal window opened after a successful task execution."
+        },
+        "ledgerDevTools.openContainerAsRoot": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Open docker container using root user."
         },
         "ledgerDevTools.containerUpdateRetries": {
           "type": "number",

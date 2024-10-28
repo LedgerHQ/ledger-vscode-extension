@@ -23,6 +23,31 @@ type BuilderForLanguage = Partial<Record<TaskTargetLanguage, ExecBuilder>>;
 type TaskState = "enabled" | "disabled" | "unavailable";
 type BehaviorWhenAllTargetsSelected = "enable" | "disable" | "executeForEveryTarget";
 
+export interface ChecksList {
+  selected: string;
+  values: string[];
+}
+const validChecks: string[] = ["All", "manifest", "icons", "app_load_params", "makefile", "readme", "scan"];
+export const checks: ChecksList = {
+  selected:"All",
+  values: validChecks,
+};
+
+let checkSelectedEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+export const onCheckSelectedEvent: vscode.Event<void> = checkSelectedEmitter.event;
+
+export async function showChecks() {
+  let result = undefined;
+  result = await vscode.window.showQuickPick(validChecks, {
+    placeHolder: "Please select a check to run",
+  });
+  if (result) {
+    checks.selected = result.toString();
+    checkSelectedEmitter.fire();
+  }
+  return result;
+}
+
 export interface TaskSpec {
   group?: string;
   name: string;
@@ -191,6 +216,14 @@ export class TaskProvider implements vscode.TaskProvider {
       state: "enabled",
       allSelectedBehavior: "disable",
     },
+    {
+      name: "Run Guideline Enforcer",
+      builders: { ["Both"]: this.runGuidelineEnforcer },
+      toolTip:
+        "Run Guideline Enforcer checks. These checks are also run in the app's repository CI and must pass before the app can be deployed.",
+      state: "enabled",
+      allSelectedBehavior: "disable",
+    },
   ];
   private keyvarEnv: string = process.env.SCP_PRIVKEY as string;
 
@@ -282,17 +315,17 @@ export class TaskProvider implements vscode.TaskProvider {
     let exec = "";
 
     if (this.currentApp) {
-      // Checks if a container with the name  ${this.containerName} exists, and if it does, it is stopped and removed before a new container is created using the same name and other specified configuration parameters
+      // Checks if a container with the name ${this.containerName} exists, and if it does, it is stopped and removed before a new container is created using the same name and other specified configuration parameters
       if (platform === "linux") {
         // Linux
-        exec = `docker ps -a --format '{{.Names}}' | grep -q  ${this.containerName} && (docker container stop  ${this.containerName} && docker container rm  ${this.containerName}) ; docker pull ${this.image} && docker run --user $(id -u):$(id -g) --privileged -e DISPLAY=$DISPLAY -v '/dev/bus/usb:/dev/bus/usb' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' ${this.dockerRunArgs} -t -d --name  ${this.containerName} ${this.image}`;
+        exec = `xhost + ; docker ps -a --format '{{.Names}}' | grep -q ${this.containerName} && (docker container stop ${this.containerName} && docker container rm ${this.containerName}) ; docker pull ${this.image} && docker run --user $(id -u):$(id -g) --privileged -e DISPLAY=$DISPLAY -v '/dev/bus/usb:/dev/bus/usb' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' ${this.dockerRunArgs} -t -d --name ${this.containerName} ${this.image}`;
       } else if (platform === "darwin") {
         // macOS
-        exec = `xhost + ; docker ps -a --format '{{.Names}}' | grep -q  ${this.containerName} && (docker container stop  ${this.containerName} && docker container rm  ${this.containerName}) ; docker pull ${this.image} && docker run --user $(id -u):$(id -g) --privileged -e DISPLAY='host.docker.internal:0' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' ${this.dockerRunArgs} -t -d --name  ${this.containerName} ${this.image}`;
+        exec = `xhost + ; docker ps -a --format '{{.Names}}' | grep -q ${this.containerName} && (docker container stop ${this.containerName} && docker container rm ${this.containerName}) ; docker pull ${this.image} && docker run --user $(id -u):$(id -g) --privileged -e DISPLAY='host.docker.internal:0' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' ${this.dockerRunArgs} -t -d --name ${this.containerName} ${this.image}`;
       } else {
         // Assume windows
         const winWorkspacePath = this.workspacePath.substring(1); // Remove first '/' from windows workspace path URI. Otherwise it is not valid.
-        exec = `if (docker ps -a --format '{{.Names}}' | Select-String -Quiet  ${this.containerName}) { docker container stop  ${this.containerName}; docker container rm  ${this.containerName} }; docker pull ${this.image}; docker run --privileged -e DISPLAY='host.docker.internal:0' -v '${winWorkspacePath}:/app' ${this.dockerRunArgs} -t -d --name  ${this.containerName} ${this.image}`;
+        exec = `if (docker ps -a --format '{{.Names}}' | Select-String -Quiet ${this.containerName}) { docker container stop ${this.containerName}; docker container rm ${this.containerName} }; docker pull ${this.image}; docker run --privileged -e DISPLAY='host.docker.internal:0' -v '${winWorkspacePath}:/app' ${this.dockerRunArgs} -t -d --name ${this.containerName} ${this.image}`;
       }
     }
 
@@ -314,7 +347,7 @@ export class TaskProvider implements vscode.TaskProvider {
     }
 
 
-    const exec = `docker exec -it  ${
+    const exec = `docker exec -it ${
       this.containerName
     } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make -C ${this.buildDir} -j ${buildOpt}'`;
     // Builds the app using the make command, inside the docker container.
@@ -335,7 +368,7 @@ export class TaskProvider implements vscode.TaskProvider {
       }
     }
 
-    const exec = `docker exec -it  ${
+    const exec = `docker exec -it ${
       this.containerName
     } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make -C ${this.buildDir} -B -j ${buildOpt}'`;
     // Builds the app using the make command, inside the docker container.
@@ -370,7 +403,7 @@ export class TaskProvider implements vscode.TaskProvider {
 
   private cCleanExec(): string {
     // Cleans all app build files (for all device models).
-    const exec = `docker exec -it  ${this.containerName} bash -c 'make -C ${this.buildDir} clean'`;
+    const exec = `docker exec -it ${this.containerName} bash -c 'make -C ${this.buildDir} clean'`;
     return exec;
   }
 
@@ -381,15 +414,19 @@ export class TaskProvider implements vscode.TaskProvider {
   }
 
   private openTerminalExec(): string {
-    // Get the Selected target SDK to export inside the container
-    let sdk: string = this.tgtSelector.getSelectedSDK();
-    const exec = `docker exec -it -u 0 -e "BOLOS_SDK=${sdk}" ${this.containerName} bash`;
+    let userOpt: string = "";
+    // Get settings to open terminal as root or not
+    const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+    if (conf.get<boolean>("openContainerAsRoot") === true) {
+      userOpt = `-u 0`;
+    }
+    const exec = `docker exec -it ${userOpt} ${this.containerName} bash -c 'export BOLOS_SDK=${this.tgtSelector.getSelectedSDK()} && bash'`;
     return exec;
   }
 
   private runInSpeculosExec(): string {
     // Runs the app on the speculos emulator for the selected device model, in the docker container.
-    const exec = `docker exec -it  ${
+    const exec = `docker exec -it ${
       this.containerName
     } bash -c 'speculos --model ${this.tgtSelector.getSelectedSpeculosModel()} build/${this.tgtSelector.getTargetBuildDirName()}/bin/app.elf'`;
     return exec;
@@ -397,7 +434,7 @@ export class TaskProvider implements vscode.TaskProvider {
 
   private killSpeculosExec(): string {
     // Kills speculos emulator in the docker container.
-    const exec = `docker exec -it  ${this.containerName} bash -c 'pkill -f speculos'`;
+    const exec = `docker exec -it ${this.containerName} bash -c 'pkill -f speculos'`;
     return exec;
   }
 
@@ -519,7 +556,7 @@ export class TaskProvider implements vscode.TaskProvider {
 
   private functionalTestsExec(): string {
     // Runs functional tests inside the docker container (with Qt display disabled).
-    const exec = `docker exec -it  ${this.containerName} bash -c 'pytest ${
+    const exec = `docker exec -it ${this.containerName} bash -c 'pytest ${
       this.functionalTestsDir
     } --tb=short -v --device ${this.tgtSelector.getSelectedSpeculosModel()}'`;
     return exec;
@@ -527,7 +564,7 @@ export class TaskProvider implements vscode.TaskProvider {
 
   private functionalTestsDisplayExec(): string {
     // Runs functional tests inside the docker container (with Qt display enabled).
-    const exec = `docker exec -it  ${this.containerName} bash -c 'pytest ${
+    const exec = `docker exec -it ${this.containerName} bash -c 'pytest ${
       this.functionalTestsDir
     } --tb=short -v --device ${this.tgtSelector.getSelectedSpeculosModel()} --display'`;
     return exec;
@@ -535,7 +572,7 @@ export class TaskProvider implements vscode.TaskProvider {
 
   private functionalTestsGoldenRunExec(): string {
     // Runs functional tests inside the docker container (with Qt display disabled and '--golden_run' option).
-    const exec = `docker exec -it  ${this.containerName} bash -c 'pytest ${
+    const exec = `docker exec -it ${this.containerName} bash -c 'pytest ${
       this.functionalTestsDir
     } --tb=short -v --device ${this.tgtSelector.getSelectedSpeculosModel()} --golden_run'`;
     return exec;
@@ -549,6 +586,23 @@ export class TaskProvider implements vscode.TaskProvider {
     return exec;
   }
 
+  private runGuidelineEnforcer(): string {
+    let userOpt: string = "";
+    // Get settings to open terminal as root or not
+    const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+    if (conf.get<boolean>("openContainerAsRoot") === true) {
+      userOpt = `-u 0`;
+    }
+    let checkOpt: string = "";
+    // Retrieve the selected check, if any
+    if (checks.selected !== "All") {
+      checkOpt = `-c ${checks.selected}`;
+    }
+    // Runs checks inside the docker container.
+    const exec = `docker exec -it ${userOpt} ${this.containerName} bash -c 'export BOLOS_SDK=${this.tgtSelector.getSelectedSDK()} && /opt/enforcer.sh ${checkOpt}'`;
+    return exec;
+  }
+
   private functionalTestsRequirementsExec(): string {
     // Use additionalReqsPerApp configuration to install additional dependencies for current app.
     let addReqsExec = "";
@@ -557,7 +611,7 @@ export class TaskProvider implements vscode.TaskProvider {
       console.log(`Ledger: Installing additional dependencies : ${addReqsExec}`);
     }
     const reqFilePath = this.functionalTestsDir + "/requirements.txt";
-    const exec = `docker exec -it -u 0  ${this.containerName} bash -c '${addReqsExec} [ -f ${reqFilePath} ] && pip install -r ${reqFilePath}'`;
+    const exec = `docker exec -it -u 0 ${this.containerName} bash -c '${addReqsExec} [ -f ${reqFilePath} ] && pip install -r ${reqFilePath}'`;
     return exec;
   }
 

@@ -62,9 +62,11 @@ This extension contributes the following settings:
 * `ledgerDevTools.onboardingPin`: Set the device quick onboarding PIN code.
 * `ledgerDevTools.onboardingSeed`: Set the device quick onboarding 24-word Seed phrase.
 * `ledgerDevTools.dockerImage`: Set the Ledger developer tools Docker image.
-* `ledgerDevTools.dockerRunArgs`: Any additional command line args to pass to the `docker run` command for the Ledger developer tools Docker image.
+* `ledgerDevTools.dockerRunArgs`: Any additional command line args to pass to the `docker run`
+  command for the Ledger developer tools Docker image.
 * `ledgerDevTools.additionalReqsPerApp`: Add prerequisites for current app's functional tests (for instance 'apk add python3-protobuf').
 * `ledgerDevTools.keepTerminal`: Indicates to keep the Terminal window opened after a successful task execution.
+* `ledgerDevTools.openContainerAsRoot`: Open docker container using `root`:`root` user.
 * `ledgerDevTools.containerUpdateRetries`: Set the max number of Container Update retries.
 * `ledgerDevTools.userScpPrivateKey`: Use the host's `SCP_PRIVKEY` environment variable when loading/deleting app on device.
   Cf. <https://developers.ledger.com/docs/embedded-app/pin-bypass>
@@ -72,6 +74,15 @@ This extension contributes the following settings:
 * `ledgerDevTools.enableDeviceOpsForNanoX`: Allow device operations on Nano X (requires special development device)
 
 ## Release Notes
+
+## [0.8.0]
+
+* Add new setting to Open Terminal as `root` (enabled by default).
+* Add item to run the `Guideline Enforcer`, with possibility to run a single check or all (by default)
+* Add `xhost+` command when updating the container, to ensure compatibility with Ubuntu 24.04
+* Update the message for NanoX unsupported device operations
+* Fix menu selection (device, variant...) to not select the 1st item as soon as the menu is displayed
+* Fix `BOLOS_SDK` variable when entering the container
 
 ## 0.7.2
 

@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { TargetSelector } from "./targetSelector";
 import { getSelectedApp } from "./appSelector";
-import { TaskSpec } from "./taskProvider";
+import { TaskSpec, checks } from "./taskProvider";
 import { DevImageStatus } from "./containerManager";
 
 export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
@@ -80,6 +80,15 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
         path: "/" + spec.name + "/" + spec.state,
       });
     } else {
+      if (taskItem.label?.toString().startsWith("Run Guideline Enforcer")) {
+        taskItem.iconPath = new vscode.ThemeIcon("symbol-ruler");
+        taskItem.resourceUri = vscode.Uri.from({
+          scheme: "devtools-treeview",
+          authority: "task",
+          path: "/" + spec.name + "/" + spec.state,
+        });
+        taskItem.contextValue = "selectCheck";
+      }
       this.data.push(taskItem);
     }
 
@@ -184,7 +193,28 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
       let functionalTestsItem = this.data.find((item) => item.label && item.label.toString().startsWith("Functional"));
       let buidUseCaseItem = this.data.find((item) => item.label && item.label.toString().startsWith("Build"));
       let selectVariantItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select variant"));
+      let checkItem = this.data.find((item) => item.label && item.label.toString().startsWith("Run Guideline Enforcer"));
+      let devOprItem = this.data.find((item) => item.label && item.label.toString().startsWith("Device Operations"));
 
+      this.data.forEach((item) => {
+        if (item.label?.toString().startsWith("Docker Container")) {
+          const terminalItem = item.children?.find((child) => child.label && child.label.toString().startsWith("Open terminal"));
+          if (terminalItem) {
+            const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+            terminalItem.label = conf.get<boolean>("openContainerAsRoot") ? "Open terminal [root]" : "Open terminal";
+          }
+        }
+      });
+      if (devOprItem) {
+        if (this.targetSelector.getSelectedTarget() === "Nano X") {
+          devOprItem.label = `Device Operations [Unsupported on Nano X]`;
+        } else {
+          devOprItem.label = `Device Operations`;
+        }
+      }
+      if (checkItem) {
+        checkItem.label = `Run Guideline Enforcer [${checks.selected}]`;
+      }
       if (selectAppItem) {
         selectAppItem.label = `Select app [${currentApp.folderName}]`;
       }

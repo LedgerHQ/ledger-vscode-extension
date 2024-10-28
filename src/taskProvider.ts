@@ -414,15 +414,13 @@ export class TaskProvider implements vscode.TaskProvider {
   }
 
   private openTerminalExec(): string {
-    // Get the Selected target SDK to export inside the container
-    let sdk: string = this.tgtSelector.getSelectedSDK();
     let userOpt: string = "";
     // Get settings to open terminal as root or not
     const conf = vscode.workspace.getConfiguration("ledgerDevTools");
     if (conf.get<boolean>("openContainerAsRoot") === true) {
       userOpt = `-u 0`;
     }
-    const exec = `docker exec -it ${userOpt} -e "BOLOS_SDK=${sdk}" ${this.containerName} bash`;
+    const exec = `docker exec -it ${userOpt} ${this.containerName} bash -c 'export BOLOS_SDK=${this.tgtSelector.getSelectedSDK()} && bash'`;
     return exec;
   }
 
@@ -601,7 +599,7 @@ export class TaskProvider implements vscode.TaskProvider {
       checkOpt = `-c ${checks.selected}`;
     }
     // Runs checks inside the docker container.
-    const exec = `docker exec -it ${userOpt} ${this.containerName} bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && /opt/enforcer.sh ${checkOpt}'`;
+    const exec = `docker exec -it ${userOpt} ${this.containerName} bash -c 'export BOLOS_SDK=${this.tgtSelector.getSelectedSDK()} && /opt/enforcer.sh ${checkOpt}'`;
     return exec;
   }
 

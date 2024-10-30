@@ -16,9 +16,12 @@ to allow developers to setup a build and test environment in a few minutes.
 * Build your app for all Ledger devices : Nano S, Nano S Plus, Nano X, Stax and Flex.
 * Supports C and Rust apps.
 * Stay up to date with the latest SDK.
-* Run tests on the device emulator ([Speculos](https://github.com/LedgerHQ/speculos)) or on a real device.
+* Run [tests](https://developers.ledger.com/docs/device-app/integration/requirements/development#tests)
+  on the device emulator ([Speculos](https://github.com/LedgerHQ/speculos)) or on a real device.
 * Supports multiple apps folders in the same workspace, each folder having its own Docker container.
 * See what's executed by the extension in VS Code's terminal panels.
+* Run [development guidelines](https://developers.ledger.com/docs/device-app/integration/requirements/development#workflows)
+  checks to ensure your app is ready to get deployed
 
 ## Features
 

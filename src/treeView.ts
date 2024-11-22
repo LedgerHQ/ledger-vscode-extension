@@ -20,7 +20,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
   }
 
   getTaskItemByLabel(label: string): TreeItem | undefined {
-    //Loop through all items in the tree that have children
+    // Loop through all items in the tree that have children
     for (let item of this.data) {
       if (item.children) {
         for (let child of item.children) {
@@ -52,7 +52,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
       arguments: [spec.name],
     };
     if (spec.group) {
-      let rootItem = this.data.find((item) => item.label === spec.group);
+      let rootItem = this.data.find(item => item.label === spec.group);
       if (!rootItem) {
         rootItem = new TreeItem(spec.group);
         if (rootItem.label?.toString().startsWith("Docker Container")) {
@@ -79,7 +79,8 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
         authority: "task",
         path: "/" + spec.name + "/" + spec.state,
       });
-    } else {
+    }
+    else {
       if (taskItem.label?.toString().startsWith("Run Guideline Enforcer")) {
         taskItem.iconPath = new vscode.ThemeIcon("symbol-ruler");
         taskItem.resourceUri = vscode.Uri.from({
@@ -97,7 +98,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
 
   public addAllTasksToTree(taskSpecs: TaskSpec[]): void {
     // Keep only default items
-    this.data = this.data.filter((item) => item.default);
+    this.data = this.data.filter(item => item.default);
     taskSpecs.forEach((spec) => {
       // Add only enabled tasks
       if (!(spec.state === "unavailable")) {
@@ -122,14 +123,14 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
 
   private addTestDependenciesTreeItem(): void {
     // Check functional tests root item exists
-    let testsRootItem = this.data.find((item) => item.label?.toString().startsWith("Functional"));
+    let testsRootItem = this.data.find(item => item.label?.toString().startsWith("Functional"));
     // Check if dependencies item already exists
-    let addTestReqsItem = testsRootItem?.children?.find((item) => item.label?.toString().startsWith("Add test prerequisites"));
+    let addTestReqsItem = testsRootItem?.children?.find(item => item.label?.toString().startsWith("Add test prerequisites"));
     if (testsRootItem && !addTestReqsItem) {
       // Add item to add new test requirements
       let addTestReqsItem = new TreeItem("Add test prerequisites");
-      addTestReqsItem.tooltip =
-        "Add Python tests prerequisites for current app (for instance 'apk add python3-protobuf'). This will be saved in your global configuration.";
+      addTestReqsItem.tooltip
+        = "Add Python tests prerequisites for current app (for instance 'apk add python3-protobuf'). This will be saved in your global configuration.";
       addTestReqsItem.command = {
         // Command that let's user input string saved for each app present in workspace
         command: "addTestsPrerequisites",
@@ -145,7 +146,8 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
       });
 
       testsRootItem.addChild(addTestReqsItem);
-    } else if (testsRootItem && addTestReqsItem) {
+    }
+    else if (testsRootItem && addTestReqsItem) {
       // Move addTestReqsItem item to the end of the list
       testsRootItem.children?.splice(testsRootItem.children?.indexOf(addTestReqsItem), 1);
     }
@@ -158,7 +160,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     let itemSuffix: string = "";
     let itemIcon = new vscode.ThemeIcon("vm");
     if (currentApp) {
-      let containerItem = this.data.find((item) => item.label && item.label.toString().startsWith("Docker Container"));
+      let containerItem = this.data.find(item => item.label && item.label.toString().startsWith("Docker Container"));
       if (containerItem) {
         switch (status) {
           case DevImageStatus.running:
@@ -188,17 +190,17 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
   public updateDynamicLabels(): void {
     const currentApp = getSelectedApp();
     if (currentApp) {
-      let selectTargetItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select target"));
-      let selectAppItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select app"));
-      let functionalTestsItem = this.data.find((item) => item.label && item.label.toString().startsWith("Functional"));
-      let buidUseCaseItem = this.data.find((item) => item.label && item.label.toString().startsWith("Build"));
-      let selectVariantItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select variant"));
-      let checkItem = this.data.find((item) => item.label && item.label.toString().startsWith("Run Guideline Enforcer"));
-      let devOprItem = this.data.find((item) => item.label && item.label.toString().startsWith("Device Operations"));
+      let selectTargetItem = this.data.find(item => item.label && item.label.toString().startsWith("Select target"));
+      let selectAppItem = this.data.find(item => item.label && item.label.toString().startsWith("Select app"));
+      let functionalTestsItem = this.data.find(item => item.label && item.label.toString().startsWith("Functional"));
+      let buidUseCaseItem = this.data.find(item => item.label && item.label.toString().startsWith("Build"));
+      let selectVariantItem = this.data.find(item => item.label && item.label.toString().startsWith("Select variant"));
+      let checkItem = this.data.find(item => item.label && item.label.toString().startsWith("Run Guideline Enforcer"));
+      let devOprItem = this.data.find(item => item.label && item.label.toString().startsWith("Device Operations"));
 
       this.data.forEach((item) => {
         if (item.label?.toString().startsWith("Docker Container")) {
-          const terminalItem = item.children?.find((child) => child.label && child.label.toString().startsWith("Open terminal"));
+          const terminalItem = item.children?.find(child => child.label && child.label.toString().startsWith("Open terminal"));
           if (terminalItem) {
             const conf = vscode.workspace.getConfiguration("ledgerDevTools");
             terminalItem.label = conf.get<boolean>("openContainerAsRoot") ? "Open terminal [root]" : "Open terminal";
@@ -208,7 +210,8 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
       if (devOprItem) {
         if (this.targetSelector.getSelectedTarget() === "Nano X") {
           devOprItem.label = `Device Operations [Unsupported on Nano X]`;
-        } else {
+        }
+        else {
           devOprItem.label = `Device Operations`;
         }
       }
@@ -224,25 +227,29 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
       if (functionalTestsItem) {
         if (currentApp.selectedTestUseCase) {
           functionalTestsItem.label = `Functional Tests [${currentApp.selectedTestUseCase.name}]`;
-        } else {
+        }
+        else {
           functionalTestsItem.label = `Functional Tests`;
         }
       }
       if (buidUseCaseItem) {
         if (currentApp.selectedBuildUseCase) {
           buidUseCaseItem.label = `Build [${currentApp.selectedBuildUseCase.name}]`;
-        } else {
+        }
+        else {
           buidUseCaseItem.label = `Build`;
         }
       }
       if (selectVariantItem) {
         if (currentApp.variants?.values && currentApp.variants?.values.length > 1 && currentApp.variants?.selected) {
           selectVariantItem.label = `Select variant [${currentApp.variants?.selected}]`;
-        } else {
+        }
+        else {
           selectVariantItem.label = `Select variant`;
         }
       }
-    } else {
+    }
+    else {
       // Remove all tree items. The welcome view will be displayed instead.
       this.data = [];
     }
@@ -251,9 +258,9 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
 
   public addDefaultTreeItems(): void {
     // Check select app and select target items don't already exist
-    const selectAppItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select app"));
-    const selectTargetItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select target"));
-    const selectVariantItem = this.data.find((item) => item.label && item.label.toString().startsWith("Select variant"));
+    const selectAppItem = this.data.find(item => item.label && item.label.toString().startsWith("Select app"));
+    const selectTargetItem = this.data.find(item => item.label && item.label.toString().startsWith("Select target"));
+    const selectVariantItem = this.data.find(item => item.label && item.label.toString().startsWith("Select variant"));
 
     if (!selectAppItem) {
       let selectApp = new TreeItem("Select app");
@@ -296,8 +303,9 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
         };
         console.log("Ledger: Adding selectVariant to tree");
         this.data.push(selectVariant);
-      } else if (selectVariantItem &&
-          ((currentApp.variants && currentApp.variants.values.length <= 1) || !currentApp.variants)) {
+      }
+      else if (selectVariantItem
+        && ((currentApp.variants && currentApp.variants.values.length <= 1) || !currentApp.variants)) {
         const index = this.data.indexOf(selectVariantItem, 0);
         if (index > -1) {
           console.log("Ledger: Removing selectVariant from tree");
@@ -337,6 +345,7 @@ export class ViewFileDecorationProvider implements vscode.FileDecorationProvider
   private readonly _onDidChangeFileDecorations: vscode.EventEmitter<vscode.Uri | vscode.Uri[]> = new vscode.EventEmitter<
     vscode.Uri | vscode.Uri[]
   >();
+
   readonly onDidChangeFileDecorations: vscode.Event<vscode.Uri | vscode.Uri[]> = this._onDidChangeFileDecorations.event;
 
   async refreshTaskItemDecoration(uri: vscode.Uri | undefined): Promise<void> {

@@ -72,7 +72,8 @@ export class StatusBarManager {
       }
       this.devImageItem.tooltip = statusText + imageToolTip;
       this.devImageItem.show();
-    } else {
+    }
+    else {
       this.devImageItem.hide();
     }
   }

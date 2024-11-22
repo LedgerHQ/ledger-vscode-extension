@@ -49,6 +49,9 @@ export interface App {
   language: AppLanguage;
   // If the manifest has a pytest_directory property, it is parsed here
   functionalTestsDir?: string;
+  // If the app has a functional tests directory, the tests list is parsed here
+  functionalTestsList?: string[];
+  selectedTests?: string[];
   // The new manifest format allows to specify the compatible devices
   compatibleDevices: LedgerDevice[];
   // If the app is a Rust app, the package name is parsed from the Cargo.toml
@@ -79,6 +82,9 @@ export const onUseCaseSelectedEvent: vscode.Event<string> = useCaseSelectedEmitt
 let variantSelectedEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
 export const onVariantSelectedEvent: vscode.Event<void> = variantSelectedEmitter.event;
 
+let testsSelectedEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+export const onTestsSelectedEvent: vscode.Event<void> = testsSelectedEmitter.event;
+
 export function getSelectedBuidUseCase(): string {
   if (selectedApp && selectedApp.selectedBuildUseCase) {
     return selectedApp.selectedBuildUseCase.name;
@@ -101,7 +107,7 @@ export function setBuildUseCase(name: string) {
 }
 
 export async function showBuildUseCase() {
-  const buildUseCaseNames = selectedApp?.buildUseCases?.map((buildUseCases) => buildUseCases.name);
+  const buildUseCaseNames = selectedApp?.buildUseCases?.map(buildUseCases => buildUseCases.name);
   let result = undefined;
   if (buildUseCaseNames) {
     result = await vscode.window.showQuickPick(buildUseCaseNames, {
@@ -149,22 +155,24 @@ export async function showVariant() {
 }
 
 function detectAppType(appFolder: vscode.Uri): [AppType?, string?] {
-  const searchPatterns = APP_DETECTION_FILES.map((file) => path.join(appFolder.fsPath, `**/${file}`).replace(/\\/g, "/"));
+  const searchPatterns = APP_DETECTION_FILES.map(file => path.join(appFolder.fsPath, `**/${file}`).replace(/\\/g, "/"));
   const makefileOrToml = fg.sync(searchPatterns, { onlyFiles: true, deep: 2 });
 
   let appTypeAndFile: [AppType?, string?] = [undefined, undefined];
 
   if (makefileOrToml.length > 0) {
-    const manifest = makefileOrToml.find((file) => file.endsWith("ledger_app.toml"));
+    const manifest = makefileOrToml.find(file => file.endsWith("ledger_app.toml"));
     if (manifest) {
       const fileContent = fs.readFileSync(manifest, "utf-8");
       const tomlContent = toml.parse(fileContent);
       if (tomlContent["rust-app"]) {
         appTypeAndFile = ["legacyManifest", manifest];
-      } else {
+      }
+      else {
         appTypeAndFile = ["manifest", manifest];
       }
-    } else {
+    }
+    else {
       for (let file of makefileOrToml) {
         const fileContent = fs.readFileSync(file, "utf-8");
         if (fileContent.includes(C_APP_DETECTION_STRING)) {
@@ -194,7 +202,6 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
   let buildUseCases = undefined;
   let variants = undefined;
   let buildDirPath = "./";
-
   let found = true;
 
   try {
@@ -215,7 +222,8 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
         [appLanguage, buildDirPath, compatibleDevices, testsDir, testsUseCases, buildUseCases] = parseManifest(tomlContent);
         if (appLanguage === "C") {
           appName = getAppName(folderUri.fsPath);
-        } else {
+        }
+        else {
           let hostBuildDirPath = buildDirPath.startsWith("./") ? path.join(appFolderUri.fsPath, buildDirPath) : buildDirPath;
           [appName, packageName] = parseCargoToml(path.join(hostBuildDirPath, "Cargo.toml"));
         }
@@ -241,11 +249,13 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
         found = false;
         break;
     }
-  } catch (error) {
+  }
+  catch (error) {
     let err = new Error();
     if (!(error instanceof Error)) {
       err.message = String(error);
-    } else {
+    }
+    else {
       err = error;
     }
     pushError("App detection failed in " + appFolderName + ". " + err.message);
@@ -258,14 +268,18 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
       variants = getAppVariants(folderUri.fsPath, appName, appFolderUri);
       if (variants.values.length > 1) {
         vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", true);
-      } else {
+      }
+      else {
         vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", false);
       }
-    } else {
+    }
+    else {
       vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", false);
     }
     // Log all found fields
-    console.log(`Found app '${appName}' in folder '${appFolderName}' with buildDirPath '${buildDirPath}' and language '${appLanguage}'`);
+    console.log(
+      `Found app '${appName}' in folder '${appFolderName}' with buildDirPath '${buildDirPath}' and language '${appLanguage}'`,
+    );
 
     // Retrieve last use case name from settings
     let selectedBuildUseCase = getAppUseCases(buildUseCases, folderUri);
@@ -309,27 +323,71 @@ export function findAppsInWorkspace(): App[] | undefined {
 }
 
 export async function showAppSelectorMenu(targetSelector: TargetSelector) {
-  const appFolderNames = appList.map((app) => app.folderName);
+  const appFolderNames = appList.map(app => app.folderName);
   const result = await vscode.window.showQuickPick(appFolderNames, {
     placeHolder: "Please select an app",
   });
   if (result) {
-    setSelectedApp(appList.find((app) => app.folderName === result));
+    setSelectedApp(appList.find(app => app.folderName === result));
     appSelectedEmitter.fire();
   }
   getAndBuildAppTestsDependencies(targetSelector);
   return result;
 }
 
+export async function showTestsSelectorMenu() {
+  if (selectedApp && selectedApp.functionalTestsList) {
+    // Get previously selected items (if not undefined and length not 0) or default to full list
+    let selectedItems: string[]
+      = selectedApp.selectedTests && selectedApp.selectedTests.length > 0
+        ? selectedApp.selectedTests
+        : selectedApp.functionalTestsList || [];
+
+    console.log(`Selected tests: ${selectedItems}`);
+    const qp = vscode.window.createQuickPick();
+    qp.canSelectMany = true;
+    const quickPickItems = selectedApp.functionalTestsList.map(test => ({
+      label: test,
+    }));
+    qp.items = quickPickItems;
+    // Pre-select items by finding matching QuickPickItems
+    qp.selectedItems = quickPickItems.filter(item => selectedItems.includes(item.label));
+    qp.placeholder = "Please select the functional tests to run";
+    // Set up event handlers before showing the QuickPick
+    qp.onDidAccept(() => {
+      if (selectedApp) {
+        selectedApp.selectedTests = undefined;
+        if (qp.selectedItems.length !== selectedApp.functionalTestsList!.length) {
+          selectedApp.selectedTests = qp.selectedItems.map(item => item.label);
+        }
+        console.log(`Selected tests on accept: ${selectedApp.selectedTests}`);
+        testsSelectedEmitter.fire();
+      }
+      qp.dispose();
+    });
+    qp.onDidChangeSelection((items) => {
+      if (selectedApp) {
+        selectedApp.selectedTests = undefined;
+        if (qp.selectedItems.length !== selectedApp.functionalTestsList!.length) {
+          selectedApp.selectedTests = items.map(item => item.label);
+        }
+        testsSelectedEmitter.fire();
+        console.log(`Selected tests changed: ${selectedApp.selectedTests}`);
+      }
+    });
+    qp.show();
+  }
+}
+
 export async function showTestUseCaseSelectorMenu(targetSelector: TargetSelector) {
-  const testUseCaseNames = selectedApp?.testsUseCases?.map((testUseCase) => testUseCase.name);
-  let result:string | undefined = undefined;
+  const testUseCaseNames = selectedApp?.testsUseCases?.map(testUseCase => testUseCase.name);
+  let result: string | undefined = undefined;
   if (testUseCaseNames) {
     result = await vscode.window.showQuickPick(testUseCaseNames, {
       placeHolder: "Please select a test use case",
     });
     if (result) {
-      selectedApp!.selectedTestUseCase = selectedApp!.testsUseCases?.find((testUseCase) => testUseCase.name === result);
+      selectedApp!.selectedTestUseCase = selectedApp!.testsUseCases?.find(testUseCase => testUseCase.name === result);
       testUseCaseSelected.fire();
     }
   }
@@ -347,10 +405,12 @@ export function setSelectedApp(app: App | undefined) {
     vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", true);
     if (app.testsUseCases.length > 1) {
       vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTestUseCase", true);
-    } else {
+    }
+    else {
       vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTestUseCase", false);
     }
-  } else {
+  }
+  else {
     vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", false);
     vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTestUseCase", false);
   }
@@ -387,11 +447,12 @@ export function setAppTestsPrerequisites(taskProvider: TaskProvider) {
             console.log(
               `Ledger: additionalReqsPerApp configuration found (current value: ${additionalReqsPerApp[
                 currentApp.folderName
-              ].toString()}), updating it with ${currentApp.folderName}:${value}`
+              ].toString()}), updating it with ${currentApp.folderName}:${value}`,
             );
-          } else {
+          }
+          else {
             console.log(
-              `Ledger: no additionalReqsPerApp configuration found, creating it with ${currentApp.folderName}:${value}`
+              `Ledger: no additionalReqsPerApp configuration found, creating it with ${currentApp.folderName}:${value}`,
             );
             conf.update("additionalReqsPerApp", { [currentApp.folderName]: value }, vscode.ConfigurationTarget.Global);
           }
@@ -414,7 +475,7 @@ async function showManifestWarning(appFolderName: string, deprecated: boolean) {
   if (openDoc) {
     vscode.commands.executeCommand(
       "vscode.open",
-      vscode.Uri.parse("https://github.com/LedgerHQ/ledgered/blob/master/doc/manifest.md")
+      vscode.Uri.parse("https://github.com/LedgerHQ/ledgered/blob/master/doc/manifest.md"),
     );
   }
 }
@@ -435,7 +496,7 @@ function manifestDevicesToLedgerDevices(manifestDevices: string): LedgerDevice[]
         case "stax":
           return "Stax";
         case "flex":
-            return "Flex";
+          return "Flex";
         default:
           throw new Error("Invalid device in manifest : " + device);
       }
@@ -455,7 +516,7 @@ function getAppName(appdir: string): string {
   const image = conf.get<string>("dockerImage") || "";
 
   // BOLOS_SDK value doesn't impact the APPNAME
-  let cleanCmd:string = `docker run --rm -v '${appdir}:/app' ${image} bash -c "BOLOS_SDK=/opt/stax-secure-sdk make listinfo | grep ${C_APP_NAME_MAKEFILE_VAR}| cut -d'=' -f2"`;
+  let cleanCmd: string = `docker run --rm -v '${appdir}:/app' ${image} bash -c "BOLOS_SDK=/opt/stax-secure-sdk make listinfo | grep ${C_APP_NAME_MAKEFILE_VAR}| cut -d'=' -f2"`;
   return cp.execSync(cleanCmd, optionsExecSync).toString().trim();
 }
 
@@ -497,7 +558,7 @@ function getAppVariants(appdir: string, appName: string, folderUri: vscode.Uri):
   const image = conf.get<string>("dockerImage") || "";
 
   // BOLOS_SDK value doesn't impact the APPNAME
-  let cleanCmd:string = `docker run --rm -v '${appdir}:/app' ${image} bash -c "BOLOS_SDK=/opt/stax-secure-sdk make listvariants | grep ${C_VARIANT_MAKEFILE_VAR} | cut -d' ' -f2-"`;
+  let cleanCmd: string = `docker run --rm -v '${appdir}:/app' ${image} bash -c "BOLOS_SDK=/opt/stax-secure-sdk make listvariants | grep ${C_VARIANT_MAKEFILE_VAR} | cut -d' ' -f2-"`;
   let result = cp.execSync(cleanCmd, optionsExecSync).toString().trim().split(" ");
   // Variant name is the 2nd word, and the values are following from the 3rd word
   variants.name = result[0];
@@ -508,7 +569,8 @@ function getAppVariants(appdir: string, appName: string, folderUri: vscode.Uri):
     const selected = result.find(elt => elt.toLowerCase() === appName.toLowerCase());
     if (selected) {
       variants.selected = selected;
-    } else {
+    }
+    else {
       // Variant not found: Init with 1st element in the list
       variants.selected = result[1];
     }
@@ -518,6 +580,76 @@ function getAppVariants(appdir: string, appName: string, folderUri: vscode.Uri):
   return variants;
 }
 
+// Get pytest tests list
+export function getAppTestsList(targetSelector: TargetSelector) {
+  let testsList: string[] = [];
+  if (
+    selectedApp
+    && selectedApp.functionalTestsDir
+    && selectedApp.containerName
+    && targetSelector.getSelectedTarget() !== "All"
+  ) {
+    vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTests", false);
+    selectedApp.functionalTestsList = [];
+    selectedApp.selectedTests = [];
+    let device = targetSelector.getSelectedSpeculosModel();
+    let optionsExec: cp.ExecOptions = { cwd: selectedApp!.folderUri.fsPath, windowsHide: true };
+    // If platform is windows, set shell to powershell for cp exec.
+    if (platform === "win32") {
+      let shell: string = "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
+      optionsExec.shell = shell;
+    }
+    // Find the tests list with pytest :
+    // * Get the device option from pytest help (either --model or --device)
+    // * If the device option is found, run pytest with --collect-only and the device option
+    // * If the device option is not found, run pytest with --collect-only
+    let getTestsListCmd = `docker exec -u 0 ${selectedApp!.containerName} bash -c '
+            cd ${selectedApp.functionalTestsDir} &&
+            pip install -r requirements.txt > /dev/null 2>&1 &&
+            clear &&
+            device_option=$(pytest --help |
+                awk "/[C|c]ustom options/,/^$/" |
+                grep -E -- "--model|--device" |
+                head -n 1 |
+                tr " =" "\n" |
+                grep -v "^$" |
+                head -n 1
+            );
+            if [ -n "$device_option" ]; then
+                pytest --collect-only -q "$device_option" ${device}
+            else
+                pytest --collect-only -q
+            fi
+            '`;
+    // Executing the command with a callback
+    cp.exec(getTestsListCmd, optionsExec, (error, stdout, stderr) => {
+      if (error) {
+        pushError(`Error while getting tests list: ${error.message}`);
+        return;
+      }
+      else {
+        stdout.split("\n").forEach((line: string) => {
+          if (line.includes("::")) {
+            let parts = line.split("::");
+            if (parts.length === 2) {
+              let testName = parts[1].split("[")[0];
+              if (testName !== undefined && testName !== "") {
+                testsList.push(testName);
+              }
+            }
+          }
+        });
+        if (testsList.length > 1) {
+          selectedApp!.functionalTestsList = testsList;
+          vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTests", true);
+        }
+      }
+    });
+  }
+  else {
+    vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTests", false);
+  }
+}
 
 // Type guard function to check if a string is a valid app language
 function isValidLanguage(value: string): AppLanguage {
@@ -660,7 +792,8 @@ export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, 
         vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", false);
         vscode.commands.executeCommand("setContext", "ledgerDevTools.showrebuildTestUseCaseDepsSpin", true);
         cp.execSync(cleanCmd, optionsExecSync);
-      } catch (error) {
+      }
+      catch (error) {
         pushError(`Clean of test dependencies failed. ${error}`);
       }
       selectedApp.builtTestDependencies = false;
@@ -678,14 +811,15 @@ export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, 
 
         try {
           cp.execSync(execGitCloneCommand, optionsExecSync);
-        } catch (error) {
+        }
+        catch (error) {
           pushError(`Git clone of test dependency ${depFolderName} failed. ${error}`);
         }
 
         // Then, if the dependency is detected as an app, build it.
         let depApp = findAppInFolder(vscode.Uri.parse(path.join(selectedApp!.folderUri.fsPath, depFolderPath)));
         if (depApp) {
-          let depAppBuildUseCase = depApp.buildUseCases?.find((useCase) => useCase.name === dep.useCase);
+          let depAppBuildUseCase = depApp.buildUseCases?.find(useCase => useCase.name === dep.useCase);
           if (depAppBuildUseCase) {
             if (depApp.language === "C") {
               console.log(`Ledger: building C app ${depApp.name} in ${depFolderPath}`);
@@ -703,7 +837,7 @@ export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, 
                 targetSelector.setSelectedTarget(target);
                 buildCommand += `export BOLOS_SDK=$(echo ${targetSelector.getSelectedSDK()}) && make -C ${path.posix.join(
                   depFolderPath,
-                  depApp!.buildDirPath
+                  depApp!.buildDirPath,
                 )} -j ${depAppBuildUseCase!.options} ; `;
               });
               targetSelector.setSelectedTarget(target);
@@ -718,17 +852,19 @@ export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, 
                 if (error) {
                   pushError(`Build of test use case ${dep.useCase} dependency ${depApp!.folderName} failed. ${error}`);
                   return;
-                } else {
+                }
+                else {
                   selectedApp!.builtTestDependencies = true;
                   vscode.window.showInformationMessage(
-                    `Build of test dependency ${depApp!.folderName} for all supported targets succeeded.`
+                    `Build of test dependency ${depApp!.folderName} for all supported targets succeeded.`,
                   );
                 }
                 vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", true);
                 vscode.commands.executeCommand("setContext", "ledgerDevTools.showrebuildTestUseCaseDepsSpin", false);
               });
             }
-          } else {
+          }
+          else {
             pushError(`Build use case ${dep.useCase} not found in ${depApp.folderName} manifest. Cannot build test dependency.`);
           }
         }

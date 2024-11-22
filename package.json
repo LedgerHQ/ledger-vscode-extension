@@ -10,6 +10,7 @@
     "type": "git",
     "url": "https://github.com/LedgerHQ/ledger-vscode-extension/"
   },
+  "type": "module",
   "engines": {
     "vscode": "^1.79.0"
   },
@@ -51,6 +52,11 @@
         {
           "command": "selectCheck",
           "when": "view == mainView && viewItem == selectCheck && ledgerDevTools.contextAllTargets",
+          "group": "inline"
+        },
+        {
+          "command": "selectTests",
+          "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showSelectTests",
           "group": "inline"
         }
       ]
@@ -134,12 +140,12 @@
         "enablement": "ledgerDevTools.showSelectTestUseCase"
       },
       {
-        "command": "rebuildTestUseCaseDeps",
-        "title": "Rebuild test use case dependencies",
+        "command": "selectTests",
+        "title": "Select the functional tests you want to run",
         "category": "Ledger",
-        "tooltip": "Rebuild the dependencies for the selected test use case.",
-        "icon": "$(sync)",
-        "enablement": "ledgerDevTools.showRebuildTestUseCaseDeps"
+        "tooltip": "Select the functional tests you want to run.",
+        "icon": "$(checklist)",
+        "enablement": "ledgerDevTools.showSelectTests"
       },
       {
         "command": "rebuildTestUseCaseDepsSpin",
@@ -162,13 +168,21 @@
         "tooltip": "Add additional test dependencies to install for selected app."
       },
       {
-          "command": "selectCheck",
-          "title": "Select a Guideline Enforcer Check",
-          "category": "Ledger",
-          "tooltip": "Select the check you want to run, or All by default.",
-          "icon": "$(pass)",
-          "enablement": "ledgerDevTools.contextAllTargets"
-        }
+        "command": "selectCheck",
+        "title": "Select a Guideline Enforcer Check",
+        "category": "Ledger",
+        "tooltip": "Select the check you want to run, or All by default.",
+        "icon": "$(pass)",
+        "enablement": "ledgerDevTools.contextAllTargets"
+      },
+      {
+        "command": "rebuildTestUseCaseDeps",
+        "title": "Rebuild test use case dependencies",
+        "category": "Ledger",
+        "tooltip": "Rebuild the dependencies for the selected test use case.",
+        "icon": "$(sync)",
+        "enablement": "ledgerDevTools.showRebuildTestUseCaseDeps"
+      }
     ],
     "configuration": {
       "title": "Ledger Developer Tools",
@@ -255,27 +269,29 @@
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
-    "lint": "eslint src --ext ts",
+    "lint": "eslint . --format stylish",
+    "lint:fix": "eslint . --format stylish --fix",
     "test": "node ./out/test/runTest.js",
     "deploy": "vsce publish"
   },
   "devDependencies": {
     "@ltd/j-toml": "^1.38.0",
+    "@stylistic/eslint-plugin": "^2.11.0",
     "@types/glob": "^8.1.0",
-    "@types/mocha": "^10.0.1",
-    "@types/node": "20.2.5",
-    "@types/vscode": "^1.79.0",
-    "@typescript-eslint/eslint-plugin": "^5.59.8",
-    "@typescript-eslint/parser": "^5.59.8",
-    "@vscode/test-electron": "^2.3.9",
-    "eslint": "^8.41.0",
-    "fast-glob": "^3.3.0",
-    "glob": "^8.1.0",
-    "mocha": "^10.2.0",
-    "ts-loader": "^9.4.3",
-    "typescript": "^5.1.3",
-    "webpack": "^5.91.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.9.1",
+    "@types/vscode": "^1.95.0",
+    "@typescript-eslint/eslint-plugin": "^8.15.0",
+    "@typescript-eslint/parser": "^8.15.0",
+    "@vscode/test-electron": "^2.4.1",
+    "eslint": "^9.15.0",
+    "fast-glob": "^3.3.2",
+    "glob": "^11.0.0",
+    "mocha": "^10.8.2",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.6.3",
+    "webpack": "^5.96.1",
     "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^5.0.4"
+    "webpack-dev-server": "^5.1.0"
   }
 }

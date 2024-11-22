@@ -401,18 +401,21 @@ export function getSelectedApp() {
 
 export function setSelectedApp(app: App | undefined) {
   selectedApp = app;
-  if (app && app.testsUseCases) {
-    vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", true);
-    if (app.testsUseCases.length > 1) {
-      vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTestUseCase", true);
+  if (app) {
+    vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTests", false);
+    if (app.testsUseCases) {
+      vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", true);
+      if (app.testsUseCases.length > 1) {
+        vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTestUseCase", true);
+      }
+      else {
+        vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTestUseCase", false);
+      }
     }
     else {
+      vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", false);
       vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTestUseCase", false);
     }
-  }
-  else {
-    vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", false);
-    vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTestUseCase", false);
   }
 }
 
@@ -603,26 +606,28 @@ export function getAppTestsList(targetSelector: TargetSelector) {
     // * Get the device option from pytest help (either --model or --device)
     // * If the device option is found, run pytest with --collect-only and the device option
     // * If the device option is not found, run pytest with --collect-only
-    let getTestsListCmd = `docker exec -u 0 ${selectedApp!.containerName} bash -c '
-            cd ${selectedApp.functionalTestsDir} &&
-            pip install -r requirements.txt > /dev/null 2>&1 &&
-            clear &&
-            device_option=$(pytest --help |
-                awk "/[C|c]ustom options/,/^$/" |
-                grep -E -- "--model|--device" |
-                head -n 1 |
-                tr " =" "\n" |
-                grep -v "^$" |
-                head -n 1
-            );
-            if [ -n "$device_option" ]; then
-                pytest --collect-only -q "$device_option" ${device}
-            else
-                pytest --collect-only -q
-            fi
-            '`;
+    let getTestsListCmd = "docker";
+    let getTestsListArgs = [
+      "exec", "-u", "0", selectedApp!.containerName, "bash", "-c",
+      `cd ${selectedApp.functionalTestsDir} &&
+        pip install -r requirements.txt > /dev/null 2>&1 &&
+        clear &&
+        device_option=$(pytest --help |
+            awk "/[C|c]ustom options/,/^$/" |
+            grep -E -- "--model|--device" |
+            head -n 1 |
+            tr " =" "\n" |
+            grep -v "^$" |
+            head -n 1
+        );
+        if [ -n "$device_option" ]; then
+            pytest --collect-only -q "$device_option" ${device}
+        else
+            pytest --collect-only -q
+        fi`,
+    ];
     // Executing the command with a callback
-    cp.exec(getTestsListCmd, optionsExec, (error, stdout, stderr) => {
+    cp.execFile(getTestsListCmd, getTestsListArgs, optionsExec, (error, stdout, stderr) => {
       if (error) {
         pushError(`Error while getting tests list: ${error.message}`);
         return;
@@ -631,8 +636,8 @@ export function getAppTestsList(targetSelector: TargetSelector) {
         stdout.split("\n").forEach((line: string) => {
           if (line.includes("::")) {
             let parts = line.split("::");
-            if (parts.length === 2) {
-              let testName = parts[1].split("[")[0];
+            if (parts.length > 0) {
+              let testName = parts[parts.length - 1].split("[")[0];
               if (testName !== undefined && testName !== "") {
                 testsList.push(testName);
               }

@@ -10,7 +10,6 @@
     "type": "git",
     "url": "https://github.com/LedgerHQ/ledger-vscode-extension/"
   },
-  "type": "module",
   "engines": {
     "vscode": "^1.79.0"
   },
@@ -277,7 +276,6 @@
   "devDependencies": {
     "@ltd/j-toml": "^1.38.0",
     "@stylistic/eslint-plugin": "^2.11.0",
-    "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.9.1",
     "@types/vscode": "^1.95.0",

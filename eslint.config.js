@@ -4,7 +4,7 @@ import tsPlugin from "@typescript-eslint/eslint-plugin";
 
 export default [
   {
-    ignores: ["out", "dist", "**/*.d.ts"],
+    ignores: ["out", "dist", "**/*.d.ts", "node_modules", ".vscode-test", ".vscode"],
   },
   {
     files: ["**/*.ts"],

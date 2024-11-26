@@ -137,13 +137,13 @@ export function activate(context: vscode.ExtensionContext) {
           else {
             vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", false);
           }
-          const variant = getSetting("selectedVariant", selectedApp.folderUri);
+          const variant = getSetting("selectedVariant", selectedApp.folderUri) as string;
           selectedApp.variants.selected = variant;
         }
         else {
           vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", false);
         }
-        const target = getSetting("selectedDevice", selectedApp.folderUri, "defaultDevice");
+        const target = getSetting("selectedDevice", selectedApp.folderUri, "defaultDevice") as string;
         if (target) {
           targetSelector.setSelectedTarget(target);
           statusBarManager.updateTargetItem(target);
@@ -323,9 +323,9 @@ export async function deactivate() {
   console.log(`Ledger: extension deactivated`);
 }
 
-export function updateSetting(key: string, value: string, folderUri: vscode.Uri) {
+export function updateSetting(key: string, value: string | string[], folderUri: vscode.Uri) {
   const conf = vscode.workspace.getConfiguration("ledgerDevTools", folderUri);
-  const appSettings = conf.get<Record<string, string>>("appSettings");
+  const appSettings = conf.get<Record<string, string | string[]>>("appSettings");
   if (appSettings) {
     if (appSettings[key] !== value) {
       if (appSettings[key]) {
@@ -344,15 +344,15 @@ export function updateSetting(key: string, value: string, folderUri: vscode.Uri)
   }
 }
 
-export function getSetting(key: string, folderUri: vscode.Uri, defaultKey?: string): string {
+export function getSetting(key: string, folderUri: vscode.Uri, defaultKey?: string): string | string[] {
   const conf = vscode.workspace.getConfiguration("ledgerDevTools", folderUri);
-  const appSettings = conf.get<Record<string, string>>("appSettings");
-  let value: string = "";
+  const appSettings = conf.get<Record<string, string | string[]>>("appSettings");
+  let value: string | string[] = "";
   if (appSettings && appSettings[key]) {
     value = appSettings[key];
   }
   else if (defaultKey) {
-    const inspect = conf.inspect<string>(defaultKey);
+    const inspect = conf.inspect<string | string[]>(defaultKey);
     if (inspect && inspect.defaultValue) {
       value = inspect.defaultValue;
     }

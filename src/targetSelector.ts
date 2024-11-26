@@ -61,7 +61,7 @@ export class TargetSelector {
       return;
     }
 
-    const dev = getSetting("selectedDevice", selectedApp.folderUri, "defaultDevice");
+    const dev = getSetting("selectedDevice", selectedApp.folderUri, "defaultDevice") as string;
     if (dev) {
       this.updateTargetsInfos();
       this.setSelectedTarget(dev);

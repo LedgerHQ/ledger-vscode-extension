@@ -360,6 +360,8 @@ export async function showTestsSelectorMenu() {
         if (qp.selectedItems.length !== selectedApp.functionalTestsList!.length) {
           selectedApp.selectedTests = qp.selectedItems.map(item => item.label);
         }
+        let savedSelection = selectedApp.selectedTests ? selectedApp.selectedTests : [];
+        updateSetting("selectedTests", savedSelection, selectedApp.folderUri);
         console.log(`Selected tests on accept: ${selectedApp.selectedTests}`);
         testsSelectedEmitter.fire();
       }
@@ -371,6 +373,8 @@ export async function showTestsSelectorMenu() {
         if (qp.selectedItems.length !== selectedApp.functionalTestsList!.length) {
           selectedApp.selectedTests = items.map(item => item.label);
         }
+        let savedSelection = selectedApp.selectedTests ? selectedApp.selectedTests : [];
+        updateSetting("selectedTests", savedSelection, selectedApp.folderUri);
         testsSelectedEmitter.fire();
         console.log(`Selected tests changed: ${selectedApp.selectedTests}`);
       }
@@ -555,7 +559,7 @@ function getAppVariants(appdir: string, appName: string, folderUri: vscode.Uri):
     values: [],
   };
   // Retrieve the last selected variant from settings
-  variants.selected = getSetting("selectedVariant", folderUri);
+  variants.selected = getSetting("selectedVariant", folderUri) as string;
 
   const conf = vscode.workspace.getConfiguration("ledgerDevTools", folderUri);
   const image = conf.get<string>("dockerImage") || "";
@@ -592,6 +596,8 @@ export function getAppTestsList(targetSelector: TargetSelector) {
     && selectedApp.containerName
     && targetSelector.getSelectedTarget() !== "All"
   ) {
+    let lastTests = getSetting("testsList", selectedApp.folderUri) as string[];
+    let lastSelectedTests = getSetting("selectedTests", selectedApp.folderUri) as string[];
     vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTests", false);
     selectedApp.functionalTestsList = [];
     selectedApp.selectedTests = [];
@@ -607,25 +613,29 @@ export function getAppTestsList(targetSelector: TargetSelector) {
     // * If the device option is found, run pytest with --collect-only and the device option
     // * If the device option is not found, run pytest with --collect-only
     let getTestsListCmd = "docker";
+
+    const varPrefix = process.platform === "win32" ? "\`$" : "$";
+    const quotesAroundBashCommand = process.platform === "win32" ? "\"" : "";
     let getTestsListArgs = [
       "exec", "-u", "0", selectedApp!.containerName, "bash", "-c",
-      `cd ${selectedApp.functionalTestsDir} &&
+      `${quotesAroundBashCommand}cd ${selectedApp.functionalTestsDir} &&
         pip install -r requirements.txt > /dev/null 2>&1 &&
         clear &&
-        device_option=$(pytest --help |
-            awk "/[C|c]ustom options/,/^$/" |
-            grep -E -- "--model|--device" |
+        device_option=${varPrefix}(pytest --help |
+            awk '/[C|c]ustom options/,/^$/' |
+            grep -E -- '--model|--device' |
             head -n 1 |
-            tr " =" "\n" |
-            grep -v "^$" |
+            tr ' =' '\n' |
+            grep -v '^$' |
             head -n 1
         );
-        if [ -n "$device_option" ]; then
-            pytest --collect-only -q "$device_option" ${device}
+        if [ -n '${varPrefix}device_option' ]; then
+            pytest --collect-only -q ${varPrefix}device_option ${device}
         else
             pytest --collect-only -q
-        fi`,
+        fi${quotesAroundBashCommand}`,
     ];
+
     // Executing the command with a callback
     cp.execFile(getTestsListCmd, getTestsListArgs, optionsExec, (error, stdout, stderr) => {
       if (error) {
@@ -646,6 +656,12 @@ export function getAppTestsList(targetSelector: TargetSelector) {
         });
         if (testsList.length > 1) {
           selectedApp!.functionalTestsList = testsList;
+          if ((lastTests && lastTests.length > 0 && JSON.stringify(testsList) !== JSON.stringify(lastTests)) || !lastTests) {
+            updateSetting("testsList", testsList, selectedApp!.folderUri);
+          }
+          else if (lastTests && lastTests.length > 0 && JSON.stringify(testsList) === JSON.stringify(lastTests) && lastSelectedTests && lastSelectedTests.length > 0) {
+            selectedApp!.selectedTests = lastSelectedTests as string[];
+          }
           vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTests", true);
         }
       }

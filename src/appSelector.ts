@@ -652,13 +652,15 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
             pytest --collect-only -q ${varPrefix}device_option ${device}
         else
             pytest --collect-only -q
+        fi;
+        if [ $? -eq 5 ]; then
+            exit 0
         fi${quotesAroundBashCommand}`,
     ];
 
     // Executing the command with a callback
-    const noTestsCollectedReturnCode = 5;
     cp.execFile(getTestsListCmd, getTestsListArgs, optionsExec, (error, stdout, stderr) => {
-      if (error && error.code !== noTestsCollectedReturnCode) {
+      if (error) {
         pushError(`Error while getting tests list: ${error.message}`);
         return;
       }

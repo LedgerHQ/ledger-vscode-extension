@@ -57,6 +57,16 @@
           "command": "selectTests",
           "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showSelectTests",
           "group": "inline"
+        },
+        {
+            "command": "refreshTests",
+            "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showRefreshTests",
+            "group": "inline"
+        },
+        {
+            "command": "refreshTestsSpin",
+            "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showRefreshTestsSpin",
+            "group": "inline"
         }
       ]
     },
@@ -145,6 +155,22 @@
         "tooltip": "Select the functional tests you want to run.",
         "icon": "$(checklist)",
         "enablement": "ledgerDevTools.showSelectTests"
+      },
+      {
+        "command": "refreshTests",
+        "title": "Refresh the list of functional tests",
+        "category": "Ledger",
+        "tooltip": "Refresh the list of functional tests.",
+        "icon": "$(refresh)",
+        "enablement": "ledgerDevTools.showRefreshTests"
+      },
+      {
+        "command": "refreshTestsSpin",
+        "title": "Refreshing functional tests list...",
+        "category": "Ledger",
+        "tooltip": "Refreshing the list of functional tests.",
+        "icon": "$(loading~spin)",
+        "enablement": "ledgerDevTools.showRefreshTestsSpin"
       },
       {
         "command": "rebuildTestUseCaseDepsSpin",

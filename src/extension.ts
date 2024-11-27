@@ -130,6 +130,9 @@ export function activate(context: vscode.ExtensionContext) {
     onAppSelectedEvent(() => {
       const selectedApp = getSelectedApp();
       if (selectedApp) {
+        vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTests", false);
+        vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTestsSpin", false);
+        vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTests", false);
         if (selectedApp.variants) {
           if (selectedApp.variants.values.length > 1) {
             vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", true);
@@ -209,7 +212,15 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("selectTests", () => {
-      showTestsSelectorMenu();
+      showTestsSelectorMenu(targetSelector);
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("refreshTests", () => {
+      vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTests", false);
+      vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTestsSpin", true);
+      getAppTestsList(targetSelector);
     }),
   );
 
@@ -220,6 +231,7 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(vscode.commands.registerCommand("rebuildTestUseCaseDepsSpin", () => {}));
+  context.subscriptions.push(vscode.commands.registerCommand("refreshTestsSpin", () => {}));
 
   context.subscriptions.push(
     vscode.commands.registerCommand("showAppList", () => {

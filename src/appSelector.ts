@@ -335,7 +335,7 @@ export async function showAppSelectorMenu(targetSelector: TargetSelector) {
   return result;
 }
 
-export async function showTestsSelectorMenu() {
+export async function showTestsSelectorMenu(targetSelector: TargetSelector) {
   if (selectedApp && selectedApp.functionalTestsList) {
     // Get previously selected items (if not undefined and length not 0) or default to full list
     let selectedItems: string[]
@@ -345,10 +345,19 @@ export async function showTestsSelectorMenu() {
 
     console.log(`Selected tests: ${selectedItems}`);
     const qp = vscode.window.createQuickPick();
+    // If there is only one test or less, dispose the QuickPick and return
+    if (selectedApp.functionalTestsList.length <= 1) {
+      qp.show();
+      qp.dispose();
+      return;
+    }
     qp.canSelectMany = true;
     const quickPickItems = selectedApp.functionalTestsList.map(test => ({
       label: test,
     }));
+    qp.title = "Select functional tests to run";
+    const refreshButton: vscode.QuickInputButton = { iconPath: new vscode.ThemeIcon("refresh"), tooltip: "Refresh tests list. Selection will be reset if list has changed." };
+    qp.buttons = [refreshButton];
     qp.items = quickPickItems;
     // Pre-select items by finding matching QuickPickItems
     qp.selectedItems = quickPickItems.filter(item => selectedItems.includes(item.label));
@@ -367,6 +376,15 @@ export async function showTestsSelectorMenu() {
       }
       qp.dispose();
     });
+
+    qp.onDidTriggerButton((button) => {
+      if (button === refreshButton) {
+        getAppTestsList(targetSelector, true);
+        qp.title = "Refreshing...";
+        qp.show();
+      }
+    });
+
     qp.onDidChangeSelection((items) => {
       if (selectedApp) {
         selectedApp.selectedTests = undefined;
@@ -379,6 +397,7 @@ export async function showTestsSelectorMenu() {
         console.log(`Selected tests changed: ${selectedApp.selectedTests}`);
       }
     });
+
     qp.show();
   }
 }
@@ -588,7 +607,7 @@ function getAppVariants(appdir: string, appName: string, folderUri: vscode.Uri):
 }
 
 // Get pytest tests list
-export function getAppTestsList(targetSelector: TargetSelector) {
+export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolean = false) {
   let testsList: string[] = [];
   if (
     selectedApp
@@ -637,8 +656,9 @@ export function getAppTestsList(targetSelector: TargetSelector) {
     ];
 
     // Executing the command with a callback
+    const noTestsCollectedReturnCode = 5;
     cp.execFile(getTestsListCmd, getTestsListArgs, optionsExec, (error, stdout, stderr) => {
-      if (error) {
+      if (error && error.code !== noTestsCollectedReturnCode) {
         pushError(`Error while getting tests list: ${error.message}`);
         return;
       }
@@ -662,8 +682,17 @@ export function getAppTestsList(targetSelector: TargetSelector) {
           else if (lastTests && lastTests.length > 0 && JSON.stringify(testsList) === JSON.stringify(lastTests) && lastSelectedTests && lastSelectedTests.length > 0) {
             selectedApp!.selectedTests = lastSelectedTests as string[];
           }
+          vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTests", false);
+          vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTestsSpin", false);
           vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTests", true);
         }
+        else {
+          vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTestsSpin", false);
+          vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTests", true);
+        }
+      }
+      if (showMenu) {
+        showTestsSelectorMenu(targetSelector);
       }
     });
   }

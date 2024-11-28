@@ -1,8 +1,5 @@
 import * as vscode from "vscode";
-import { StatusBarManager } from "./statusBar";
-import { TaskProvider } from "./taskProvider";
-import { TreeDataProvider } from "./treeView";
-import { getSelectedApp, setBuildUseCase } from "./appSelector";
+import { getSelectedApp } from "./appSelector";
 import { updateSetting, getSetting } from "./extension";
 
 // Define valid devices
@@ -64,8 +61,8 @@ export class TargetSelector {
       return;
     }
 
-    const dev = getSetting("selectedDevice", selectedApp.folderUri, "defaultDevice");
-    if (dev){
+    const dev = getSetting("selectedDevice", selectedApp.folderUri, "defaultDevice") as string;
+    if (dev) {
       this.updateTargetsInfos();
       this.setSelectedTarget(dev);
     }
@@ -95,7 +92,7 @@ export class TargetSelector {
         // Fallback to compatible device
         this.selectedTarget = currentApp.compatibleDevices[0];
         vscode.window.showWarningMessage(
-          `Incompatible device set for current app. Fallback to compatible device (${this.selectedTarget})`
+          `Incompatible device set for current app. Fallback to compatible device (${this.selectedTarget})`,
         );
       }
 
@@ -104,7 +101,8 @@ export class TargetSelector {
       this.selectedSDKModel = this.sdkModelsArray[this.selectedTarget];
       this.selectedTargetId = targetIds[this.selectedTarget];
       vscode.commands.executeCommand("setContext", "ledgerDevTools.contextAllTargets", true);
-    } else {
+    }
+    else {
       vscode.commands.executeCommand("setContext", "ledgerDevTools.contextAllTargets", false);
     }
   }
@@ -118,13 +116,14 @@ export class TargetSelector {
       this.targetsArray = currentApp.compatibleDevices;
       // Define sdkModelsArray based on the targetsArray
       this.targetsArray.forEach((target) => {
-        this.sdkModelsArray[target] =
-          target === "Nano S Plus" && currentApp.language === "Rust" ? "nanosplus" : sdkModels[target];
+        this.sdkModelsArray[target]
+          = target === "Nano S Plus" && currentApp.language === "Rust" ? "nanosplus" : sdkModels[target];
       });
 
       if (this.targetsArray.length > 1) {
         vscode.commands.executeCommand("setContext", "ledgerDevTools.showToggleAllTargets", true);
-      } else {
+      }
+      else {
         vscode.commands.executeCommand("setContext", "ledgerDevTools.showToggleAllTargets", false);
       }
     }
@@ -140,7 +139,8 @@ export class TargetSelector {
     if (this.selectedTarget === specialAllDevice) {
       this.setSelectedTarget(this.prevSelectedApp);
       this.prevSelectedApp = "";
-    } else {
+    }
+    else {
       this.prevSelectedApp = this.selectedTarget;
       this.setSelectedTarget(specialAllDevice);
     }

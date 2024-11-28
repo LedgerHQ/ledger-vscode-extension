@@ -600,7 +600,7 @@ export class TaskProvider implements vscode.TaskProvider {
     return exec;
   }
 
-  private functionalTestsExec(): string {
+  private getSelectedTests(): string {
     let testsSelection = "";
     if (this.selectedTests) {
       testsSelection = "-k \"";
@@ -610,6 +610,11 @@ export class TaskProvider implements vscode.TaskProvider {
       }
       testsSelection += this.selectedTests[this.selectedTests.length - 1] + "\"";
     }
+    return testsSelection;
+  }
+
+  private functionalTestsExec(): string {
+    let testsSelection = this.getSelectedTests();
     // Runs functional tests inside the docker container (with Qt display disabled).
     const exec = `docker exec -it ${this.containerName} bash -c 'pytest ${
       this.functionalTestsDir
@@ -618,15 +623,7 @@ export class TaskProvider implements vscode.TaskProvider {
   }
 
   private functionalTestsDisplayExec(): string {
-    let testsSelection = "";
-    if (this.selectedTests) {
-      testsSelection = "-k \"";
-      // Create list with "or" separator for pytest selection (the last 'or' is not needed)
-      for (let i = 0; i < this.selectedTests.length - 1; i++) {
-        testsSelection += this.selectedTests[i] + " or ";
-      }
-      testsSelection += this.selectedTests[this.selectedTests.length - 1] + "\"";
-    }
+    let testsSelection = this.getSelectedTests();
     // Runs functional tests inside the docker container (with Qt display enabled).
     const exec = `docker exec -it ${this.containerName} bash -c 'pytest ${
       this.functionalTestsDir
@@ -635,15 +632,7 @@ export class TaskProvider implements vscode.TaskProvider {
   }
 
   private functionalTestsGoldenRunExec(): string {
-    let testsSelection = "";
-    if (this.selectedTests) {
-      testsSelection = "-k \"";
-      // Create list with "or" separator for pytest selection (the last 'or' is not needed)
-      for (let i = 0; i < this.selectedTests.length - 1; i++) {
-        testsSelection += this.selectedTests[i] + " or ";
-      }
-      testsSelection += this.selectedTests[this.selectedTests.length - 1] + "\"";
-    }
+    let testsSelection = this.getSelectedTests();
     // Runs functional tests inside the docker container (with Qt display disabled and '--golden_run' option).
     const exec = `docker exec -it ${this.containerName} bash -c 'pytest ${
       this.functionalTestsDir
@@ -652,15 +641,7 @@ export class TaskProvider implements vscode.TaskProvider {
   }
 
   private functionalTestsDisplayOnDeviceExec(): string {
-    let testsSelection = "";
-    if (this.selectedTests) {
-      testsSelection = "-k \"";
-      // Create list with "or" separator for pytest selection (the last 'or' is not needed)
-      for (let i = 0; i < this.selectedTests.length - 1; i++) {
-        testsSelection += this.selectedTests[i] + " or ";
-      }
-      testsSelection += this.selectedTests[this.selectedTests.length - 1] + "\"";
-    }
+    let testsSelection = this.getSelectedTests();
     // Runs functional tests inside the docker container (with Qt display enabled) on real device.
     const exec = `docker exec -it ${this.containerName} bash -c 'pytest ${
       this.functionalTestsDir

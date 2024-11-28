@@ -153,7 +153,7 @@
         "title": "Select the functional tests you want to run",
         "category": "Ledger",
         "tooltip": "Select the functional tests you want to run.",
-        "icon": "$(checklist)",
+        "icon": "$(filter)",
         "enablement": "ledgerDevTools.showSelectTests"
       },
       {

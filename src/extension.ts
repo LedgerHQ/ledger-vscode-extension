@@ -15,6 +15,7 @@ import {
   showAppSelectorMenu,
   showTestsSelectorMenu,
   onTestsSelectedEvent,
+  onTestsListRefreshedEvent,
   setAppTestsPrerequisites,
   onAppSelectedEvent,
   showTestUseCaseSelectorMenu,
@@ -96,6 +97,15 @@ export function activate(context: vscode.ExtensionContext) {
         "Run tests with display - on device",
         "Generate golden snapshots",
       ]);
+      treeProvider.updateDynamicLabels();
+    }),
+  );
+
+  // Event listener for tests list refresh.
+  // This event is fired when the tests list is refreshed
+  context.subscriptions.push(
+    onTestsListRefreshedEvent(() => {
+      treeProvider.updateDynamicLabels();
     }),
   );
 

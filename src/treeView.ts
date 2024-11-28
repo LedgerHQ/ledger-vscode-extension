@@ -225,11 +225,14 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
         selectTargetItem.label = `Select target [${this.targetSelector.getSelectedTarget()}]`;
       }
       if (functionalTestsItem) {
-        if (currentApp.selectedTestUseCase) {
-          functionalTestsItem.label = `Functional Tests [${currentApp.selectedTestUseCase.name}]`;
+        functionalTestsItem.iconPath = new vscode.ThemeIcon("test-view-icon");
+        functionalTestsItem.label = `Functional Tests`;
+        if (currentApp.selectedTests && currentApp.selectedTests.length > 0) {
+          functionalTestsItem.iconPath = new vscode.ThemeIcon("filter");
+          functionalTestsItem.label = `${functionalTestsItem.label} [${currentApp.selectedTests.length}]`;
         }
-        else {
-          functionalTestsItem.label = `Functional Tests`;
+        if (currentApp.selectedTestUseCase) {
+          functionalTestsItem.label = `${functionalTestsItem.label} [${currentApp.selectedTestUseCase.name}]`;
         }
       }
       if (buidUseCaseItem) {

@@ -85,6 +85,9 @@ export const onVariantSelectedEvent: vscode.Event<void> = variantSelectedEmitter
 let testsSelectedEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
 export const onTestsSelectedEvent: vscode.Event<void> = testsSelectedEmitter.event;
 
+let testsListRefreshedEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+export const onTestsListRefreshedEvent: vscode.Event<void> = testsListRefreshedEmitter.event;
+
 export function getSelectedBuidUseCase(): string {
   if (selectedApp && selectedApp.selectedBuildUseCase) {
     return selectedApp.selectedBuildUseCase.name;
@@ -692,6 +695,7 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
           vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTestsSpin", false);
           vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTests", true);
         }
+        testsListRefreshedEmitter.fire();
       }
       if (showMenu) {
         showTestsSelectorMenu(targetSelector);

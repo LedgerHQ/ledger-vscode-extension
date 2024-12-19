@@ -686,6 +686,7 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
           }
           else if (lastTests && lastTests.length > 0 && JSON.stringify(testsList) === JSON.stringify(lastTests) && lastSelectedTests && lastSelectedTests.length > 0) {
             selectedApp!.selectedTests = lastSelectedTests as string[];
+            console.log(`Selected tests from settings: ${selectedApp!.selectedTests}`);
           }
           vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTests", false);
           vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTestsSpin", false);

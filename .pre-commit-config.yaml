@@ -34,11 +34,14 @@ repos:
         types_or: [markdown]
 
   - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v9.2.0
+    rev: v9.15.0
     hooks:
       - id: eslint
         types_or: [javascript, jsx, ts, tsx]
-        args: ['--config=./.eslintrc.json']
+        args: ['.', '--config=./eslint.config.js', '--format=stylish']
         additional_dependencies: [
-          'eslint@8.41.0'
+          'eslint@9.15.0',
+          '@typescript-eslint/eslint-plugin',
+          '@typescript-eslint/parser',
+          '@stylistic/eslint-plugin'
         ]

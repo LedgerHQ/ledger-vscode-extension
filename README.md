@@ -78,7 +78,13 @@ This extension contributes the following settings:
 
 ## Release Notes
 
-## [0.8.0]
+## 0.9.0
+
+* Add new functional tests selection menu, with refresh buttons.
+* Optimize task generation by factorizing some loops.
+* Update packages used by the extension.
+
+## 0.8.0
 
 * Add new setting to Open Terminal as `root` (enabled by default).
 * Add item to run the `Guideline Enforcer`, with possibility to run a single check or all (by default)

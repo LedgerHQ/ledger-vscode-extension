@@ -595,7 +595,7 @@ export class TaskProvider implements vscode.TaskProvider {
     else {
       // Assume windows
       // Side loads the app APDU file using ledgerblue runScript.
-      exec = `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.hostOnboard --apdu --id 0 --pin ${this.onboardPin} --prefix=\"\" --passphrase=\"\" --words \"${this.onboardSeed}\"'`;
+      exec = `cmd.exe /C '.\\ledger\\Scripts\\activate.bat && python -m ledgerblue.hostOnboard --apdu --id 0 --pin ${this.onboardPin} --prefix=\"\" --passphrase=\"\" --words \\\"${this.onboardSeed}\\\"'`;
     }
     return exec;
   }
@@ -603,12 +603,12 @@ export class TaskProvider implements vscode.TaskProvider {
   private getSelectedTests(): string {
     let testsSelection = "";
     if (this.selectedTests) {
-      testsSelection = "-k \"";
+      testsSelection = "-k \'";
       // Create list with "or" separator for pytest selection (the last 'or' is not needed)
       for (let i = 0; i < this.selectedTests.length - 1; i++) {
         testsSelection += this.selectedTests[i] + " or ";
       }
-      testsSelection += this.selectedTests[this.selectedTests.length - 1] + "\"";
+      testsSelection += this.selectedTests[this.selectedTests.length - 1] + "\'";
     }
     return testsSelection;
   }
@@ -616,36 +616,36 @@ export class TaskProvider implements vscode.TaskProvider {
   private functionalTestsExec(): string {
     let testsSelection = this.getSelectedTests();
     // Runs functional tests inside the docker container (with Qt display disabled).
-    const exec = `docker exec -it ${this.containerName} bash -c 'pytest ${
+    const exec = `docker exec -it ${this.containerName} bash -c \\\"pytest ${
       this.functionalTestsDir
-    } --tb=short -v --device ${this.tgtSelector.getSelectedSpeculosModel()} ${testsSelection}'`;
+    } --tb=short -v --device ${this.tgtSelector.getSelectedSpeculosModel()} ${testsSelection}\\\"`;
     return exec;
   }
 
   private functionalTestsDisplayExec(): string {
     let testsSelection = this.getSelectedTests();
     // Runs functional tests inside the docker container (with Qt display enabled).
-    const exec = `docker exec -it ${this.containerName} bash -c 'pytest ${
+    const exec = `docker exec -it ${this.containerName} bash -c \\\"pytest ${
       this.functionalTestsDir
-    } --tb=short -v --device ${this.tgtSelector.getSelectedSpeculosModel()} --display ${testsSelection}'`;
+    } --tb=short -v --device ${this.tgtSelector.getSelectedSpeculosModel()} --display ${testsSelection}\\\"`;
     return exec;
   }
 
   private functionalTestsGoldenRunExec(): string {
     let testsSelection = this.getSelectedTests();
     // Runs functional tests inside the docker container (with Qt display disabled and '--golden_run' option).
-    const exec = `docker exec -it ${this.containerName} bash -c 'pytest ${
+    const exec = `docker exec -it ${this.containerName} bash -c \\\"pytest ${
       this.functionalTestsDir
-    } --tb=short -v --device ${this.tgtSelector.getSelectedSpeculosModel()} --golden_run ${testsSelection}'`;
+    } --tb=short -v --device ${this.tgtSelector.getSelectedSpeculosModel()} --golden_run ${testsSelection}\\\"`;
     return exec;
   }
 
   private functionalTestsDisplayOnDeviceExec(): string {
     let testsSelection = this.getSelectedTests();
     // Runs functional tests inside the docker container (with Qt display enabled) on real device.
-    const exec = `docker exec -it ${this.containerName} bash -c 'pytest ${
+    const exec = `docker exec -it ${this.containerName} bash -c \\\"pytest ${
       this.functionalTestsDir
-    } --tb=short -v --device ${this.tgtSelector.getSelectedSpeculosModel()} --display --backend ledgerwallet ${testsSelection}'`;
+    } --tb=short -v --device ${this.tgtSelector.getSelectedSpeculosModel()} --display --backend ledgerwallet ${testsSelection}\\\"`;
     return exec;
   }
 

@@ -78,6 +78,10 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+## 0.9.2
+
+* Fix extension dependencies (again)
+
 ## 0.9.1
 
 * Fix extension dependencies

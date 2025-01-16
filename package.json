@@ -11,7 +11,7 @@
     "url": "https://github.com/LedgerHQ/ledger-vscode-extension/"
   },
   "engines": {
-    "vscode": "^1.79.0"
+    "vscode": "^1.96.1"
   },
   "categories": [
     "Other"

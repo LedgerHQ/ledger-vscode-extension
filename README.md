@@ -78,6 +78,10 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+## 0.9.1
+
+* Fix extension dependencies
+
 ## 0.9.0
 
 * Add new functional tests selection menu, with refresh buttons.

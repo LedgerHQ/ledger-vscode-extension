@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "Ledger Dev Tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",
@@ -299,8 +299,11 @@
     "test": "node ./out/test/runTest.js",
     "deploy": "vsce publish"
   },
+  "dependencies": {
+      "@ltd/j-toml": "^1.38.0",
+      "fast-glob": "^3.3.2"
+  },
   "devDependencies": {
-    "@ltd/j-toml": "^1.38.0",
     "@stylistic/eslint-plugin": "^2.11.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.9.1",
@@ -309,7 +312,6 @@
     "@typescript-eslint/parser": "^8.15.0",
     "@vscode/test-electron": "^2.4.1",
     "eslint": "^9.15.0",
-    "fast-glob": "^3.3.2",
     "glob": "^11.0.0",
     "mocha": "^10.8.2",
     "ts-loader": "^9.5.1",

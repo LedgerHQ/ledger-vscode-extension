@@ -11,7 +11,11 @@ import {
   findAppsInWorkspace,
   getSelectedApp,
   setSelectedApp,
+  getAppTestsList,
   showAppSelectorMenu,
+  showTestsSelectorMenu,
+  onTestsSelectedEvent,
+  onTestsListRefreshedEvent,
   setAppTestsPrerequisites,
   onAppSelectedEvent,
   showTestUseCaseSelectorMenu,
@@ -22,7 +26,6 @@ import {
   onVariantSelectedEvent,
   showVariant,
 } from "./appSelector";
-import { inspect } from "util";
 
 let outputChannel: vscode.OutputChannel;
 const appDetectionFiles = ["Cargo.toml", "ledger_app.toml", "Makefile"];
@@ -59,8 +62,9 @@ export function activate(context: vscode.ExtensionContext) {
       treeProvider.updateContainerLabel(data);
       if (data === DevImageStatus.running) {
         getAndBuildAppTestsDependencies(targetSelector);
+        getAppTestsList(targetSelector);
       }
-    })
+    }),
   );
 
   // Event listener for target selection.
@@ -71,7 +75,7 @@ export function activate(context: vscode.ExtensionContext) {
       statusBarManager.updateTargetItem(data);
       treeProvider.updateDynamicLabels();
       containerManager.manageContainer();
-    })
+    }),
   );
 
   // Event listener for variant selection.
@@ -80,7 +84,29 @@ export function activate(context: vscode.ExtensionContext) {
     onVariantSelectedEvent(() => {
       taskProvider.generateTasks();
       treeProvider.updateDynamicLabels();
-    })
+    }),
+  );
+
+  // Event listener for tests selection.
+  // This event is fired when the user selects tests to run
+  context.subscriptions.push(
+    onTestsSelectedEvent(() => {
+      taskProvider.regenerateSubset([
+        "Run tests",
+        "Run tests with display",
+        "Run tests with display - on device",
+        "Generate golden snapshots",
+      ]);
+      treeProvider.updateDynamicLabels();
+    }),
+  );
+
+  // Event listener for tests list refresh.
+  // This event is fired when the tests list is refreshed
+  context.subscriptions.push(
+    onTestsListRefreshedEvent(() => {
+      treeProvider.updateDynamicLabels();
+    }),
   );
 
   // Event listener for Guideline Enforcer check selection.
@@ -89,15 +115,14 @@ export function activate(context: vscode.ExtensionContext) {
     onCheckSelectedEvent(() => {
       taskProvider.generateTasks();
       treeProvider.updateDynamicLabels();
-    })
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("selectCheck", () => {
       showChecks();
-    })
+    }),
   );
-
 
   // Event listener for useCase selection.
   // This event is fired when the user selects a build useCase
@@ -106,7 +131,7 @@ export function activate(context: vscode.ExtensionContext) {
       taskProvider.generateTasks();
       statusBarManager.updateBuildUseCaseItem(data);
       treeProvider.updateDynamicLabels();
-    })
+    }),
   );
 
   // Event listener for app selection.
@@ -115,19 +140,24 @@ export function activate(context: vscode.ExtensionContext) {
     onAppSelectedEvent(() => {
       const selectedApp = getSelectedApp();
       if (selectedApp) {
+        vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTests", false);
+        vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTestsSpin", false);
+        vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTests", false);
         if (selectedApp.variants) {
           if (selectedApp.variants.values.length > 1) {
             vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", true);
-          } else {
+          }
+          else {
             vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", false);
           }
-          const variant = getSetting("selectedVariant", selectedApp.folderUri);
+          const variant = getSetting("selectedVariant", selectedApp.folderUri) as string;
           selectedApp.variants.selected = variant;
-        } else {
+        }
+        else {
           vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", false);
         }
-        const target = getSetting("selectedDevice", selectedApp.folderUri, "defaultDevice");
-        if (target){
+        const target = getSetting("selectedDevice", selectedApp.folderUri, "defaultDevice") as string;
+        if (target) {
           targetSelector.setSelectedTarget(target);
           statusBarManager.updateTargetItem(target);
         }
@@ -137,7 +167,7 @@ export function activate(context: vscode.ExtensionContext) {
       treeProvider.updateDynamicLabels();
       taskProvider.generateTasks();
       targetSelector.updateTargetsInfos();
-    })
+    }),
   );
 
   // Event listener for test use case selection.
@@ -145,63 +175,78 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     onTestUseCaseSelected(() => {
       treeProvider.updateDynamicLabels();
-    })
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("selectTarget", () => {
       targetSelector.showTargetSelectorMenu();
-    })
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("selectVariant", () => {
       showVariant();
-    })
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("buildUseCase", () => {
       showBuildUseCase();
-    })
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("addTestsPrerequisites", () => {
       setAppTestsPrerequisites(taskProvider);
-    })
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("executeTask", (taskName: string) => {
       taskProvider.executeTaskByName(taskName);
-    })
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("toggleAllTargets", () => {
       targetSelector.toggleAllTargetSelection();
-    })
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("selectTestUseCase", () => {
       showTestUseCaseSelectorMenu(targetSelector);
-    })
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("selectTests", () => {
+      showTestsSelectorMenu(targetSelector);
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("refreshTests", () => {
+      vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTests", false);
+      vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTestsSpin", true);
+      getAppTestsList(targetSelector);
+    }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("rebuildTestUseCaseDeps", () => {
       getAndBuildAppTestsDependencies(targetSelector, true);
-    })
+    }),
   );
 
   context.subscriptions.push(vscode.commands.registerCommand("rebuildTestUseCaseDepsSpin", () => {}));
+  context.subscriptions.push(vscode.commands.registerCommand("refreshTestsSpin", () => {}));
 
   context.subscriptions.push(
     vscode.commands.registerCommand("showAppList", () => {
       showAppSelectorMenu(targetSelector);
-    })
+    }),
   );
 
   vscode.tasks.onDidStartTask((event) => {
@@ -230,8 +275,10 @@ export function activate(context: vscode.ExtensionContext) {
   vscode.tasks.onDidEndTaskProcess((event) => {
     const taskName = event.execution.task.name;
     console.log(`Ledger: TaskProcess completed : "${taskName}". ExiCode=${event.exitCode}`);
-    if (((taskName === "Load app on device") || (taskName === "Delete app from device") || (taskName === "Update container")) &&
-      (event.exitCode === 0)) {
+    if (
+      (taskName === "Load app on device" || taskName === "Delete app from device" || taskName === "Update container")
+      && event.exitCode === 0
+    ) {
       const conf = vscode.workspace.getConfiguration("ledgerDevTools");
       if (conf.get<boolean>("keepTerminal") === false) {
         vscode.window.activeTerminal?.hide();
@@ -271,7 +318,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
     if (event.affectsConfiguration("ledgerDevTools.defaultDevice")) {
       targetSelector.setSelectedTarget(
-        vscode.workspace.getConfiguration("ledgerDevTools").get<string>("defaultDevice", "Nano S")
+        vscode.workspace.getConfiguration("ledgerDevTools").get<string>("defaultDevice", "Nano S"),
       );
       taskProvider.generateTasks();
       statusBarManager.updateTargetItem(targetSelector.getSelectedTarget());
@@ -298,34 +345,36 @@ export async function deactivate() {
   console.log(`Ledger: extension deactivated`);
 }
 
-
-export function updateSetting(key: string, value: string, folderUri: vscode.Uri) {
+export function updateSetting(key: string, value: string | string[], folderUri: vscode.Uri) {
   const conf = vscode.workspace.getConfiguration("ledgerDevTools", folderUri);
-  const appSettings = conf.get<Record<string, string>>("appSettings");
+  const appSettings = conf.get<Record<string, string | string[]>>("appSettings");
   if (appSettings) {
     if (appSettings[key] !== value) {
       if (appSettings[key]) {
         console.log(`Ledger: appSettings '${key}' found (${appSettings[key].toString()}), updating it with '${value}'`);
-      } else {
+      }
+      else {
         console.log(`Ledger: appSettings no '${key}' key exist yet, adding it with '${value}'`);
       }
       appSettings[key] = value;
       conf.update("appSettings", appSettings, vscode.ConfigurationTarget.WorkspaceFolder);
     }
-  } else {
+  }
+  else {
     console.log(`Ledger: no appSettings configuration, creating it with '${value}'`);
     conf.update("appSettings", { [key]: value }, vscode.ConfigurationTarget.WorkspaceFolder);
   }
 }
 
-export function getSetting(key: string, folderUri: vscode.Uri, defaultKey?: string): string {
+export function getSetting(key: string, folderUri: vscode.Uri, defaultKey?: string): string | string[] {
   const conf = vscode.workspace.getConfiguration("ledgerDevTools", folderUri);
-  const appSettings = conf.get<Record<string, string>>("appSettings");
-  let value: string = "";
+  const appSettings = conf.get<Record<string, string | string[]>>("appSettings");
+  let value: string | string[] = "";
   if (appSettings && appSettings[key]) {
     value = appSettings[key];
-  } else if (defaultKey) {
-    const inspect = conf.inspect<string>(defaultKey);
+  }
+  else if (defaultKey) {
+    const inspect = conf.inspect<string | string[]>(defaultKey);
     if (inspect && inspect.defaultValue) {
       value = inspect.defaultValue;
     }

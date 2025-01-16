@@ -56,7 +56,8 @@ export class ContainerManager {
         }
       }
       return false;
-    } catch (error: any) {
+    }
+    catch (error: any) {
       console.log(`Docker error : ${error.message}`);
       return false;
     }

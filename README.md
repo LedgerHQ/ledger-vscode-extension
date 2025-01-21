@@ -78,6 +78,12 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+## 0.x.x
+
+* Fix `getAppTestsList` creating `root` owned files
+* Fix `SCP_PRIVKEY` read at command execution instead of extension init
+* Fix test suite bad `glob` api
+
 ## 0.9.2
 
 * Fix extension dependencies (again)

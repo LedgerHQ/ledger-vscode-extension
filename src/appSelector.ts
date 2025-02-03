@@ -641,12 +641,13 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
     let getTestsListArgs = [
       "exec", "-u", "0", selectedApp!.containerName, "bash", "-c",
       `${quotesAroundBashCommand}cd ${selectedApp.functionalTestsDir} &&
-        pip install -r requirements.txt > /dev/null 2>&1 &&
+      owner=$(stat -c %u conftest.py);
+      pip install -r requirements.txt > /dev/null 2>&1 &&
         clear &&
         device_option=${varPrefix}(pytest --help |
             awk '/[C|c]ustom options/,/^$/' |
-            grep -E -- '--model|--device' |
-            head -n 1 |
+            grep -E -- '--model|--device'   |
+            head -n 1    |
             tr ' =' '\n' |
             grep -v '^$' |
             head -n 1
@@ -656,6 +657,8 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
         else
             pytest --collect-only -q
         fi;
+        chown -R ${varPrefix}owner:${varPrefix}owner __pycache__;
+        chown -R ${varPrefix}owner:${varPrefix}owner .pytest_cache/;
         if [ $? -eq 5 ]; then
             exit 0
         fi${quotesAroundBashCommand}`,

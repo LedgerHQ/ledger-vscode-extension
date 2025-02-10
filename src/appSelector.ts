@@ -673,7 +673,7 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
             let parts = line.split("::");
             if (parts.length > 0) {
               let testName = parts[parts.length - 1].split("[")[0];
-              if (testName !== undefined && testName !== "") {
+              if (testName !== undefined && testName !== "" && !testsList.includes(testName)) {
                 testsList.push(testName);
               }
             }

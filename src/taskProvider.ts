@@ -227,8 +227,6 @@ export class TaskProvider implements vscode.TaskProvider {
     },
   ];
 
-  private keyvarEnv: string = process.env.SCP_PRIVKEY as string;
-
   constructor(treeProvider: TreeDataProvider, targetSelector: TargetSelector) {
     this.treeProvider = treeProvider;
     this.tgtSelector = targetSelector;
@@ -521,7 +519,8 @@ export class TaskProvider implements vscode.TaskProvider {
     const tgtBuildDir = this.tgtSelector.getTargetBuildDirName();
 
     if (this.scpConfig === true) {
-      keyconfig = `--rootPrivateKey ${this.keyvarEnv}`;
+      const keyvarEnv: string = process.env.SCP_PRIVKEY as string;
+      keyconfig = `--rootPrivateKey ${keyvarEnv}`;
     }
 
     if (platform === "linux") {
@@ -550,7 +549,8 @@ export class TaskProvider implements vscode.TaskProvider {
     let keyconfig = "";
 
     if (this.scpConfig === true) {
-      keyconfig = `--rootPrivateKey ${this.keyvarEnv}`;
+      const keyvarEnv: string = process.env.SCP_PRIVKEY as string;
+      keyconfig = `--rootPrivateKey ${keyvarEnv}`;
     }
 
     if (platform === "linux") {

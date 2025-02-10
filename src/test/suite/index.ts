@@ -13,7 +13,7 @@ export async function run(): Promise<void> {
 
   try {
     // Use glob's promise-based API to find test files
-    const files = await glob("**/*.test.js", { cwd: testsRoot });
+    const files = glob.sync("**/*.test.js", { cwd: testsRoot });
 
     // Add each test file to the Mocha test suite
     files.forEach(file => mocha.addFile(path.resolve(testsRoot, file)));

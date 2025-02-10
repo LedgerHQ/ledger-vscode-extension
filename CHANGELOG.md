@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.x.x]
+
+### Fixed
+
+* Fix `getAppTestsList` creating `root` owned files
+* Fix `SCP_PRIVKEY` read at command execution instead of extension init
+* Fix test suite bad `glob` api
+
 ## [0.9.2]
 
 ### Fixed

@@ -116,7 +116,7 @@ export class TaskProvider implements vscode.TaskProvider {
       group: "Docker Container",
       name: "Open compose terminal",
       builders: { ["Both"]: this.openComposeTerminalExec },
-      toolTip: "Open terminal in container with docker-compose.yml configuration (service 'app')",
+      toolTip: "Open terminal in container with 'docker-compose.yml' configuration",
       state: "disabled",
       allSelectedBehavior: "disable",
     },
@@ -476,7 +476,8 @@ export class TaskProvider implements vscode.TaskProvider {
     if (conf.get<boolean>("openContainerAsRoot") === true) {
       userOpt = `-u 0`;
     }
-    const exec = `docker compose run --rm --remove-orphans ${userOpt} app`;
+    const serviceName = this.treeProvider.getComposeServiceName();
+    const exec = `docker compose run --rm --remove-orphans ${userOpt} ${serviceName}`;
     return exec;
   }
 

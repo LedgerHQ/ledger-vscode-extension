@@ -3,6 +3,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
+import * as fg from "fast-glob";
 import { platform } from "node:process";
 import { TargetSelector, specialAllDevice } from "./targetSelector";
 import { getSelectedApp, App, AppLanguage } from "./appSelector";
@@ -110,6 +111,14 @@ export class TaskProvider implements vscode.TaskProvider {
       toolTip: "Open terminal in container with default configuration",
       state: "enabled",
       allSelectedBehavior: "enable",
+    },
+    {
+      group: "Docker Container",
+      name: "Open compose terminal",
+      builders: { ["Both"]: this.openComposeTerminalExec },
+      toolTip: "Open terminal in container with docker-compose.yml configuration (service 'app')",
+      state: "disabled",
+      allSelectedBehavior: "disable",
     },
     {
       group: "Build",
@@ -460,6 +469,17 @@ export class TaskProvider implements vscode.TaskProvider {
     return exec;
   }
 
+  private openComposeTerminalExec(): string {
+    let userOpt: string = "";
+    // Get settings to open terminal as root or not
+    const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+    if (conf.get<boolean>("openContainerAsRoot") === true) {
+      userOpt = `-u 0`;
+    }
+    const exec = `docker compose run --rm --remove-orphans ${userOpt} app`;
+    return exec;
+  }
+
   private runInSpeculosExec(): string {
     // Runs the app on the speculos emulator for the selected device model, in the docker container.
     const exec = `docker exec -it ${
@@ -778,6 +798,22 @@ export class TaskProvider implements vscode.TaskProvider {
           && !item.name.includes("emulator")
         ) {
           item.state = "unavailable";
+        }
+
+        // Check docker-compose.yml availability
+        if (item.name === "Open compose terminal") {
+          const dockerComposeFile: string = "docker-compose.yml";
+          const appDir = this.currentApp!.folderUri.fsPath;
+          const searchPatterns = path.join(appDir, `**/${dockerComposeFile}`).replace(/\\/g, "/");
+          const dockerCompose = fg.sync(searchPatterns, { onlyFiles: true, deep: 2 });
+          // check if docker-compose.yml file is found
+          if (dockerCompose.length > 0) {
+            console.log("Ledger: docker-compose.yml found");
+          }
+          else {
+            console.log("Ledger: docker-compose.yml not found");
+            item.state = "unavailable";
+          }
         }
 
         // Check target selection conditions

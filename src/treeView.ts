@@ -200,10 +200,10 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
 
       this.data.forEach((item) => {
         if (item.label?.toString().startsWith("Docker Container")) {
-          const terminalItem = item.children?.find(child => child.label && child.label.toString().startsWith("Open terminal"));
+          const terminalItem = item.children?.find(child => child.label && child.label.toString().startsWith("Open default terminal"));
           if (terminalItem) {
             const conf = vscode.workspace.getConfiguration("ledgerDevTools");
-            terminalItem.label = conf.get<boolean>("openContainerAsRoot") ? "Open terminal [root]" : "Open terminal";
+            terminalItem.label = conf.get<boolean>("openContainerAsRoot") ? "Open default terminal [root]" : "Open default terminal";
           }
         }
       });

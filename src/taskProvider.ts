@@ -105,9 +105,9 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Docker Container",
-      name: "Open terminal",
-      builders: { ["Both"]: this.openTerminalExec },
-      toolTip: "Open terminal in container",
+      name: "Open default terminal",
+      builders: { ["Both"]: this.openDefaultTerminalExec },
+      toolTip: "Open terminal in container with default configuration",
       state: "enabled",
       allSelectedBehavior: "enable",
     },
@@ -447,7 +447,7 @@ export class TaskProvider implements vscode.TaskProvider {
     return exec;
   }
 
-  private openTerminalExec(): string {
+  private openDefaultTerminalExec(): string {
     let userOpt: string = "";
     // Get settings to open terminal as root or not
     const conf = vscode.workspace.getConfiguration("ledgerDevTools");

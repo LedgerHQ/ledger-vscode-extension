@@ -214,7 +214,7 @@
       "properties": {
         "ledgerDevTools.dockerImage": {
           "type": "string",
-          "default": "ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest",
+          "default": "ghcr.io/apaillier-ledger/ledger-app-builder/ledger-app-dev-tools:latest",
           "description": "Ledger developer tools Docker image."
         },
         "ledgerDevTools.dockerRunArgs": {
@@ -235,9 +235,7 @@
         },
         "ledgerDevTools.additionalReqsPerApp": {
           "type": "object",
-          "default": {
-            "app-boilerplate": "apk add gcc musl-dev python3-dev"
-          },
+          "default": {},
           "scope": "application",
           "description": "Additional functional tests prerequisites to install in the current app's docker container."
         },

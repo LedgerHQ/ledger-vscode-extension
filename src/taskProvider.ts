@@ -702,7 +702,7 @@ export class TaskProvider implements vscode.TaskProvider {
       console.log(`Ledger: Installing additional dependencies : ${addReqsExec}`);
     }
     const reqFilePath = this.functionalTestsDir + "/requirements.txt";
-    const exec = `docker exec -it -u 0 ${this.containerName} bash -c '${addReqsExec} [ -f ${reqFilePath} ] && pip install -r ${reqFilePath}'`;
+    const exec = `docker exec -it -u 0 ${this.containerName} bash -c '${addReqsExec} [ -f ${reqFilePath} ] && pip install --break-system-packages -r ${reqFilePath}'`;
     return exec;
   }
 

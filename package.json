@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "Ledger Dev Tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "0.10.0",
+  "version": "1.0.0",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",
@@ -235,9 +235,7 @@
         },
         "ledgerDevTools.additionalReqsPerApp": {
           "type": "object",
-          "default": {
-            "app-boilerplate": "apk add gcc musl-dev python3-dev"
-          },
+          "default": {},
           "scope": "application",
           "description": "Additional functional tests prerequisites to install in the current app's docker container."
         },

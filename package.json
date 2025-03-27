@@ -214,7 +214,7 @@
       "properties": {
         "ledgerDevTools.dockerImage": {
           "type": "string",
-          "default": "ghcr.io/apaillier-ledger/ledger-app-builder/ledger-app-dev-tools:latest",
+          "default": "ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest",
           "description": "Ledger developer tools Docker image."
         },
         "ledgerDevTools.dockerRunArgs": {

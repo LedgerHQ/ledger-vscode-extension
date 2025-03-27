@@ -642,8 +642,7 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
       "exec", "-u", "0", selectedApp!.containerName, "bash", "-c",
       `${quotesAroundBashCommand}cd ${selectedApp.functionalTestsDir} &&
       owner=$(stat -c %u conftest.py);
-      pip install -r requirements.txt > /dev/null 2>&1 &&
-        clear &&
+      pip install --break-system-packages -r requirements.txt > /dev/null 2>&1 &&
         device_option=${varPrefix}(pytest --help |
             awk '/[C|c]ustom options/,/^$/' |
             grep -E -- '--model|--device'   |

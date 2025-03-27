@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
-import * as path from "path";
+import { platform } from "node:process";
+import * as cp from "child_process";
 import { TargetSelector } from "./targetSelector";
 import { getSelectedApp } from "./appSelector";
 import { TaskSpec, checks } from "./taskProvider";
@@ -187,6 +188,19 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     this.refresh();
   }
 
+  public getComposeServiceName(): string {
+    let optionsExecSync: cp.ExecSyncOptions = { stdio: "pipe", encoding: "utf-8" };
+    // If platform is windows, set shell to powershell for cp exec.
+    if (platform === "win32") {
+      let shell: string = "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
+      optionsExecSync.shell = shell;
+    }
+
+    let cleanCmd: string = `docker compose config --services`;
+    const output = cp.execSync(cleanCmd, optionsExecSync).toString().trim();
+    return output.split("\n")[0];
+  }
+
   public updateDynamicLabels(): void {
     const currentApp = getSelectedApp();
     if (currentApp) {
@@ -200,10 +214,15 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
 
       this.data.forEach((item) => {
         if (item.label?.toString().startsWith("Docker Container")) {
-          const terminalItem = item.children?.find(child => child.label && child.label.toString().startsWith("Open terminal"));
+          const terminalItem = item.children?.find(child => child.label && child.label.toString().startsWith("Open default terminal"));
           if (terminalItem) {
             const conf = vscode.workspace.getConfiguration("ledgerDevTools");
-            terminalItem.label = conf.get<boolean>("openContainerAsRoot") ? "Open terminal [root]" : "Open terminal";
+            terminalItem.label = conf.get<boolean>("openContainerAsRoot") ? "Open default terminal [root]" : "Open default terminal";
+          }
+          const composeItem = item.children?.find(child => child.label && child.label.toString().startsWith("Open compose terminal"));
+          if (composeItem) {
+            const serviceName = this.getComposeServiceName();
+            composeItem.label = `Open compose terminal [${serviceName}]`;
           }
         }
       });

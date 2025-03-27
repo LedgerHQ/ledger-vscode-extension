@@ -3,6 +3,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
+import * as fg from "fast-glob";
 import { platform } from "node:process";
 import { TargetSelector, specialAllDevice } from "./targetSelector";
 import { getSelectedApp, App, AppLanguage } from "./appSelector";
@@ -105,11 +106,19 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Docker Container",
-      name: "Open terminal",
-      builders: { ["Both"]: this.openTerminalExec },
-      toolTip: "Open terminal in container",
+      name: "Open default terminal",
+      builders: { ["Both"]: this.openDefaultTerminalExec },
+      toolTip: "Open terminal in container with default configuration",
       state: "enabled",
       allSelectedBehavior: "enable",
+    },
+    {
+      group: "Docker Container",
+      name: "Open compose terminal",
+      builders: { ["Both"]: this.openComposeTerminalExec },
+      toolTip: "Open terminal in container with 'docker-compose.yml' configuration",
+      state: "disabled",
+      allSelectedBehavior: "disable",
     },
     {
       group: "Build",
@@ -447,7 +456,7 @@ export class TaskProvider implements vscode.TaskProvider {
     return exec;
   }
 
-  private openTerminalExec(): string {
+  private openDefaultTerminalExec(): string {
     let userOpt: string = "";
     // Get settings to open terminal as root or not
     const conf = vscode.workspace.getConfiguration("ledgerDevTools");
@@ -457,6 +466,18 @@ export class TaskProvider implements vscode.TaskProvider {
     const exec = `docker exec -it ${userOpt} ${
       this.containerName
     } bash -c 'export BOLOS_SDK=${this.tgtSelector.getSelectedSDK()} && bash'`;
+    return exec;
+  }
+
+  private openComposeTerminalExec(): string {
+    let userOpt: string = "";
+    // Get settings to open terminal as root or not
+    const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+    if (conf.get<boolean>("openContainerAsRoot") === true) {
+      userOpt = `-u 0`;
+    }
+    const serviceName = this.treeProvider.getComposeServiceName();
+    const exec = `docker compose run --rm --remove-orphans ${userOpt} ${serviceName}`;
     return exec;
   }
 
@@ -778,6 +799,22 @@ export class TaskProvider implements vscode.TaskProvider {
           && !item.name.includes("emulator")
         ) {
           item.state = "unavailable";
+        }
+
+        // Check docker-compose.yml availability
+        if (item.name === "Open compose terminal") {
+          const dockerComposeFile: string = "docker-compose.yml";
+          const appDir = this.currentApp!.folderUri.fsPath;
+          const searchPatterns = path.join(appDir, `**/${dockerComposeFile}`).replace(/\\/g, "/");
+          const dockerCompose = fg.sync(searchPatterns, { onlyFiles: true, deep: 2 });
+          // check if docker-compose.yml file is found
+          if (dockerCompose.length > 0) {
+            console.log("Ledger: docker-compose.yml found");
+          }
+          else {
+            console.log("Ledger: docker-compose.yml not found");
+            item.state = "unavailable";
+          }
         }
 
         // Check target selection conditions

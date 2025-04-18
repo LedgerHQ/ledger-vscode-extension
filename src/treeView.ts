@@ -190,6 +190,11 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
 
   public getComposeServiceName(): string {
     let optionsExecSync: cp.ExecSyncOptions = { stdio: "pipe", encoding: "utf-8" };
+    const currentApp = getSelectedApp();
+    if (currentApp) {
+      const uri = vscode.Uri.parse(currentApp.folderUri.toString());
+      optionsExecSync.cwd = uri.fsPath;
+    }
     // If platform is windows, set shell to powershell for cp exec.
     if (platform === "win32") {
       let shell: string = "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";

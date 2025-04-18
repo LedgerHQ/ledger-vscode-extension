@@ -117,7 +117,7 @@ export class TargetSelector {
       // Define sdkModelsArray based on the targetsArray
       this.targetsArray.forEach((target) => {
         this.sdkModelsArray[target]
-          = target === "Nano S Plus" && currentApp.language === "Rust" ? "nanosplus" : sdkModels[target];
+          = target === "Nano S Plus" && currentApp.language === "rust" ? "nanosplus" : sdkModels[target];
       });
 
       if (this.targetsArray.length > 1) {

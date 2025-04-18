@@ -123,7 +123,7 @@ export class TaskProvider implements vscode.TaskProvider {
     {
       group: "Build",
       name: "Build incremental",
-      builders: { ["C"]: this.cBuildExec, ["Rust"]: this.rustBuildExec },
+      builders: { ["c"]: this.cBuildExec, ["rust"]: this.rustBuildExec },
       toolTip: "Build app (incremental mode)",
       dependsOn: this.appSubmodulesInitExec,
       state: "enabled",
@@ -132,7 +132,7 @@ export class TaskProvider implements vscode.TaskProvider {
     {
       group: "Build",
       name: "Build full",
-      builders: { ["C"]: this.cBuildFullExec },
+      builders: { ["c"]: this.cBuildFullExec },
       toolTip: "Build app (full rebuild)",
       dependsOn: this.appSubmodulesInitExec,
       state: "enabled",
@@ -149,7 +149,7 @@ export class TaskProvider implements vscode.TaskProvider {
     {
       group: "Build",
       name: "Clean all the build files",
-      builders: { ["C"]: this.cCleanAllExec, ["Rust"]: this.rustCleanAllExec },
+      builders: { ["c"]: this.cCleanAllExec, ["rust"]: this.rustCleanAllExec },
       toolTip: "Clean the app build files for all targets",
       state: "enabled",
       allSelectedBehavior: "enable",
@@ -247,7 +247,7 @@ export class TaskProvider implements vscode.TaskProvider {
   constructor(treeProvider: TreeDataProvider, targetSelector: TargetSelector) {
     this.treeProvider = treeProvider;
     this.tgtSelector = targetSelector;
-    this.appLanguage = "C";
+    this.appLanguage = "c";
     this.appName = "";
     this.containerName = "";
     this.workspacePath = "";

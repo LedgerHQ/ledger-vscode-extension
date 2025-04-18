@@ -261,6 +261,11 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
         else {
           buidUseCaseItem.label = `Build`;
         }
+        // Update clean target label
+        const cleanItem = buidUseCaseItem.children?.find(child => child.label && child.label.toString().startsWith("Clean the "));
+        if (cleanItem) {
+          cleanItem.label = `Clean the ${this.targetSelector.getSelectedTarget()} build files`;
+        }
       }
       if (selectVariantItem) {
         if (currentApp.variants?.values && currentApp.variants?.values.length > 1 && currentApp.variants?.selected) {

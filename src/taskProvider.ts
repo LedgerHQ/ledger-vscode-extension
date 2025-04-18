@@ -140,9 +140,17 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Build",
-      name: "Clean the build files",
-      builders: { ["C"]: this.cCleanExec, ["Rust"]: this.rustCleanExec },
-      toolTip: "Clean the app build files",
+      name: "Clean the target build files",
+      builders: { ["c"]: this.cCleanTargetExec },
+      toolTip: "Clean the app build files for the selected target",
+      state: "enabled",
+      allSelectedBehavior: "disable",
+    },
+    {
+      group: "Build",
+      name: "Clean all the build files",
+      builders: { ["C"]: this.cCleanAllExec, ["Rust"]: this.rustCleanAllExec },
+      toolTip: "Clean the app build files for all targets",
       state: "enabled",
       allSelectedBehavior: "enable",
     },
@@ -444,13 +452,19 @@ export class TaskProvider implements vscode.TaskProvider {
     return exec;
   }
 
-  private cCleanExec(): string {
+  private cCleanTargetExec(): string {
+    // Cleans all app build files (for the selected device model).
+    const exec = `docker exec -it ${this.containerName} bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make -C ${this.buildDir} clean_target'`;
+    return exec;
+  }
+
+  private cCleanAllExec(): string {
     // Cleans all app build files (for all device models).
     const exec = `docker exec -it ${this.containerName} bash -c 'make -C ${this.buildDir} clean'`;
     return exec;
   }
 
-  private rustCleanExec(): string {
+  private rustCleanAllExec(): string {
     // Cleans all app build files (for all device models).
     const exec = `docker exec -it -u 0 ${this.containerName} bash -c 'cd ${this.buildDir} && cargo clean ; rm -rf build'`;
     return exec;

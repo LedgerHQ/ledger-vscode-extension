@@ -122,8 +122,17 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Build",
+      name: "Build",
+      builders: { ["rust"]: this.rustBuildExec },
+      toolTip: "Build app",
+      dependsOn: this.appSubmodulesInitExec,
+      state: "enabled",
+      allSelectedBehavior: "executeForEveryTarget",
+    },
+    {
+      group: "Build",
       name: "Build incremental",
-      builders: { ["c"]: this.cBuildExec, ["rust"]: this.rustBuildExec },
+      builders: { ["c"]: this.cBuildExec },
       toolTip: "Build app (incremental mode)",
       dependsOn: this.appSubmodulesInitExec,
       state: "enabled",

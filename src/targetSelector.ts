@@ -100,10 +100,6 @@ export class TargetSelector {
       this.selectedSpeculosModel = speculosModels[this.selectedTarget];
       this.selectedSDKModel = this.sdkModelsArray[this.selectedTarget];
       this.selectedTargetId = targetIds[this.selectedTarget];
-      vscode.commands.executeCommand("setContext", "ledgerDevTools.contextAllTargets", true);
-    }
-    else {
-      vscode.commands.executeCommand("setContext", "ledgerDevTools.contextAllTargets", false);
     }
   }
 

@@ -50,7 +50,7 @@
         },
         {
           "command": "selectCheck",
-          "when": "view == mainView && viewItem == selectCheck && ledgerDevTools.contextAllTargets",
+          "when": "view == mainView && viewItem == selectCheck",
           "group": "inline"
         },
         {
@@ -197,8 +197,7 @@
         "title": "Select a Guideline Enforcer Check",
         "category": "Ledger",
         "tooltip": "Select the check you want to run, or All by default.",
-        "icon": "$(pass)",
-        "enablement": "ledgerDevTools.contextAllTargets"
+        "icon": "$(pass)"
       },
       {
         "command": "rebuildTestUseCaseDeps",

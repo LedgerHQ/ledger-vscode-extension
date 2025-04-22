@@ -249,7 +249,7 @@ export class TaskProvider implements vscode.TaskProvider {
       toolTip:
         "Run Guideline Enforcer checks. These checks are also run in the app's repository CI and must pass before the app can be deployed.",
       state: "enabled",
-      allSelectedBehavior: "disable",
+      allSelectedBehavior: "enable",
     },
   ];
 
@@ -709,6 +709,13 @@ export class TaskProvider implements vscode.TaskProvider {
     // Retrieve the selected check, if any
     if (checks.selected !== "All") {
       checkOpt = `-c ${checks.selected}`;
+    }
+
+    if (this.tgtSelector.getSelectedTarget() !== specialAllDevice) {
+      if (checkOpt) {
+        checkOpt += " ";
+      }
+      checkOpt += `-t ${this.tgtSelector.getSelectedSDKModel()}`;
     }
     // Runs checks inside the docker container.
     const exec = `docker exec -it ${userOpt} ${

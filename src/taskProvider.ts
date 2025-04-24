@@ -2,6 +2,7 @@
 
 import * as vscode from "vscode";
 import * as path from "path";
+import * as os from "os";
 import * as fs from "fs";
 import * as fg from "fast-glob";
 import { platform } from "node:process";
@@ -13,8 +14,8 @@ export const taskType = "L";
 
 // Udev rules (for Linux app loading requirements)
 const udevRulesFilePath = "/etc/udev/rules.d/";
-const udevRulesFile = "20-ledger.ledgerblue.rules";
-const udevRules = `SUBSYSTEMS=="usb", KERNEL=="hidraw*", ATTRS{idVendor}=="2c97", MODE="0666", ATTRS{idProduct}=="0006|6000|6001|6002|6003|6004|6005|6006|6007|6008|6009|600a|600b|600c|600d|600e|600f|6010|6011|6012|6013|6014|6015|6016|6017|6018|6019|601a|601b|601c|601d|601e|601f", TAG+="uaccess", TAG+="udev-acl"`;
+const udevRulesUrl = "https://raw.githubusercontent.com/LedgerHQ/udev-rules/master/20-hw1.rules";
+let udevRulesDone: boolean = false;
 
 type CustomTaskFunction = () => void;
 type ExecBuilder = () => string | [string, CustomTaskFunction];
@@ -47,6 +48,25 @@ export async function showChecks() {
     checkSelectedEmitter.fire();
   }
   return result;
+}
+
+// Cache the Promise to ensure the function is only executed once
+let appLoadRequirementsPromise: Promise<string> | null = null;
+
+// Fetch the udev rules file from the URL and write it to a temporary file
+async function fetchUdevRules(): Promise<string> {
+  const response = await fetch(udevRulesUrl);
+  const udevRulesFile = path.basename(udevRulesUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch udev rules: ${response.statusText}`);
+  }
+  const tempFilePath = path.join(os.tmpdir(), udevRulesFile);
+  const rulesContent = await response.text();
+
+  // Write the content to a temporary file
+  fs.writeFileSync(tempFilePath, rulesContent, { encoding: "utf8" });
+
+  return tempFilePath; // Return the path to the temporary file
 }
 
 export interface TaskSpec {
@@ -518,30 +538,93 @@ export class TaskProvider implements vscode.TaskProvider {
     return exec;
   }
 
-  private appLoadRequirementsExec(): string | [string, CustomTaskFunction] {
+  private setUdevRulesLinux(tempFilePath: string) {
+    // Dedicated function to set the udev rules on Linux
+    const udevRulesFile = path.basename(udevRulesUrl);
+    let setUdevRules: boolean = false;
+    if (fs.existsSync(`${udevRulesFilePath}${udevRulesFile}`)) {
+      const existingContent = fs.readFileSync(`${udevRulesFilePath}${udevRulesFile}`, "utf8");
+      const newContent = fs.readFileSync(tempFilePath, "utf8");
+      // Compare the existing content with the new content
+      if (existingContent !== newContent) {
+        setUdevRules = true;
+      }
+      else {
+        console.log("Ledger: udev rules are up to date");
+      }
+    }
+    else {
+      console.log("Ledger: No rules detected");
+      setUdevRules = true;
+    }
+    if (setUdevRules) {
+      // Show the warning message
+      const warningMessage = vscode.window.showWarningMessage(
+        `Udev rules need to be updated for sideloading to be executed properly. Please enter your password in the terminal panel to update ${udevRulesFilePath}${udevRulesFile}.`,
+      );
+
+      // Add a marker to indicate when the command finishes
+      const markerFilePath = path.join(os.tmpdir(), "udev_rules_update_done.marker");
+      const execCommand = `sudo mv ${tempFilePath} ${udevRulesFilePath} && sudo udevadm control --reload-rules && sudo udevadm trigger && echo "done" > ${markerFilePath}`;
+
+      // Check if any terminal exists
+      let terminal: vscode.Terminal;
+      if (vscode.window.terminals.length > 0) {
+        // Reuse the first existing terminal
+        terminal = vscode.window.terminals[0];
+      }
+      else {
+        // Create a new terminal if none exist
+        terminal = vscode.window.createTerminal("Update Udev Rules");
+      }
+      // Send the command (requesting the sudo password) to the terminal
+      terminal.show();
+      terminal.sendText(execCommand);
+
+      // Simulate dismissing the warning message after a delay
+      setTimeout(() => {
+        warningMessage.then(() => {
+          // No action needed, this ensures the message is dismissed
+        });
+      }, 10000);
+
+      // Poll for the marker file and close the terminal when the command is done
+      const checkInterval = setInterval(() => {
+        if (fs.existsSync(markerFilePath)) {
+          clearInterval(checkInterval); // Stop polling
+          fs.unlinkSync(markerFilePath); // Clean up the marker file
+          terminal.dispose(); // Close the terminal
+        }
+      }, 1000); // Check every second
+    }
+  }
+
+  private appLoadRequirementsExec(): string {
     let exec = "";
     if (platform === "linux") {
       // Linux
-      // Copies the ledger udev rule file to the /etc/udev/rules.d/ directory if it does not exist or if the content needs to be updated, then reloads the rules and triggers udev.
-      exec = `if [ ! -f '${udevRulesFilePath}${udevRulesFile}' ] || ! cmp -s '${udevRulesFilePath}${udevRulesFile}' <(echo -n '${udevRules}') ; then echo -n '${udevRules}' > ${udevRulesFile} && sudo mv ${udevRulesFile} ${udevRulesFilePath} && sudo udevadm control --reload-rules && sudo udevadm trigger; fi`;
-      const customFunction = () => {
-        let showSudoMsg: boolean = false;
-        if (fs.existsSync(`${udevRulesFilePath}${udevRulesFile}`)) {
-          const filesContent = fs.readFileSync(`${udevRulesFilePath}${udevRulesFile}`, "utf8");
-          if (filesContent !== udevRules) {
-            showSudoMsg = true;
-          }
+
+      // If the Promise already exists, return it
+      if (appLoadRequirementsPromise) {
+        return "";
+      }
+
+      // Create a new Promise and cache it
+      appLoadRequirementsPromise = new Promise((resolve, reject) => {
+        if (udevRulesDone) {
+          resolve(""); // If rules are already applied, resolve immediately
+          return;
         }
-        else {
-          showSudoMsg = true;
-        }
-        if (showSudoMsg) {
-          vscode.window.showWarningMessage(
-            `Udev rules need to be updated for sideloading to be executed properly. Please enter your password in the terminal panel to update ${udevRulesFilePath}${udevRulesFile}.`,
-          );
-        }
-      };
-      return [exec, customFunction];
+
+        udevRulesDone = true;
+        fetchUdevRules().then((tempFilePath) => {
+          this.setUdevRulesLinux(tempFilePath); // Call the function to set udev rules
+          resolve(""); // Resolve the Promise after execution
+        }).catch((error) => {
+          console.error("Error fetching udev rules:", error);
+          reject(error); // Reject the Promise on error
+        });
+      });
     }
     else if (platform === "darwin") {
       // macOS
@@ -744,12 +827,15 @@ export class TaskProvider implements vscode.TaskProvider {
       let dependFunc: CustomTaskFunction | undefined;
       if (item.dependsOn) {
         let dependResult = item.dependsOn.call(this);
-        if (typeof dependResult === "string") {
-          dependExec = dependResult + " ; ";
-        }
-        else {
-          dependExec = dependResult[0] + " ; ";
-          dependFunc = dependResult[1];
+        // Check if the result is not empty
+        if (dependResult) {
+          if (typeof dependResult === "string") {
+            dependExec = dependResult + " ; ";
+          }
+          else {
+            dependExec = dependResult[0] + " ; ";
+            dependFunc = dependResult[1];
+          }
         }
       }
       const builderResult = item.builders[this.appLanguage]?.call(this) || item.builders["Both"]?.call(this) || "";

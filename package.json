@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "Ledger Dev Tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",
@@ -59,14 +59,14 @@
           "group": "inline"
         },
         {
-            "command": "refreshTests",
-            "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showRefreshTests",
-            "group": "inline"
+          "command": "refreshTests",
+          "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showRefreshTests",
+          "group": "inline"
         },
         {
-            "command": "refreshTestsSpin",
-            "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showRefreshTestsSpin",
-            "group": "inline"
+          "command": "refreshTestsSpin",
+          "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showRefreshTestsSpin",
+          "group": "inline"
         }
       ]
     },
@@ -97,7 +97,8 @@
       "ledger-tools": [
         {
           "id": "mainView",
-          "name": ""
+          "name": "",
+          "icon": "resources/ledger-square.png"
         }
       ]
     },
@@ -297,13 +298,13 @@
     "deploy": "vsce publish"
   },
   "dependencies": {
-      "@ltd/j-toml": "^1.38.0",
-      "fast-glob": "^3.3.2"
+    "@ltd/j-toml": "^1.38.0",
+    "fast-glob": "^3.3.2"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "^2.11.0",
     "@types/mocha": "^10.0.10",
-    "@types/node": "22.9.1",
+    "@types/node": "^22.14.1",
     "@types/vscode": "^1.95.0",
     "@typescript-eslint/eslint-plugin": "^8.15.0",
     "@typescript-eslint/parser": "^8.15.0",

@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0]
+
+### Added
+
+* Add clean 'target' entry to only remove build files for the selected target.
+
+### Changed
+
+* Separate Build Incremental for Rust for clarity
+* Update guideline enforcer to run scan-build on selected target only, or All in loop
+* Update packages used by the extension.
+
+### Fixed
+
+* Fix #69: wrong detection of the SDK (lowercase vs uppercase)
+* Fix #71: obsolete udev rules
+* Robustify docker-compose analyze, using the app current path
+
 ## [1.0.0]
 
 ### Added

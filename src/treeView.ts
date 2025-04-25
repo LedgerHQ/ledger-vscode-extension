@@ -3,7 +3,7 @@ import { platform } from "node:process";
 import * as cp from "child_process";
 import { TargetSelector } from "./targetSelector";
 import { getSelectedApp } from "./appSelector";
-import { TaskSpec, checks } from "./taskProvider";
+import { TaskSpec, checks, buildMode } from "./taskProvider";
 import { DevImageStatus } from "./containerManager";
 
 export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
@@ -266,10 +266,19 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
         else {
           buidUseCaseItem.label = `Build`;
         }
-        // Update clean target label
-        const cleanItem = buidUseCaseItem.children?.find(child => child.label && child.label.toString().startsWith("Clean the "));
-        if (cleanItem) {
-          cleanItem.label = `Clean the ${this.targetSelector.getSelectedTarget()} build files`;
+
+        // if C app is selected
+        if (currentApp.language === "c") {
+          // Update Clean Target label
+          const cleanItem = buidUseCaseItem.children?.find(child => child.label && child.label.toString().startsWith("Clean the "));
+          if (cleanItem) {
+            cleanItem.label = `Clean the ${this.targetSelector.getSelectedTarget()} build files`;
+          }
+          // Update Build App label
+          const buildItem = buidUseCaseItem.children?.find(child => child.label && child.label.toString().startsWith("Build app"));
+          if (buildItem) {
+            buildItem.label = `build app [${buildMode.selected}]`;
+          }
         }
       }
       if (selectVariantItem) {

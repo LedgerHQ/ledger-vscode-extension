@@ -292,7 +292,6 @@ export class TaskProvider implements vscode.TaskProvider {
     if (this.currentApp && configReqs && configReqs[this.currentApp.folderName]) {
       this.additionalReqs = configReqs[this.currentApp.folderName];
     }
-    this.generateTasks();
   }
 
   private resetVars() {

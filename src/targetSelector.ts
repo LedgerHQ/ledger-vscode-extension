@@ -100,10 +100,6 @@ export class TargetSelector {
       this.selectedSpeculosModel = speculosModels[this.selectedTarget];
       this.selectedSDKModel = this.sdkModelsArray[this.selectedTarget];
       this.selectedTargetId = targetIds[this.selectedTarget];
-      vscode.commands.executeCommand("setContext", "ledgerDevTools.contextAllTargets", true);
-    }
-    else {
-      vscode.commands.executeCommand("setContext", "ledgerDevTools.contextAllTargets", false);
     }
   }
 
@@ -117,7 +113,7 @@ export class TargetSelector {
       // Define sdkModelsArray based on the targetsArray
       this.targetsArray.forEach((target) => {
         this.sdkModelsArray[target]
-          = target === "Nano S Plus" && currentApp.language === "Rust" ? "nanosplus" : sdkModels[target];
+          = target === "Nano S Plus" && currentApp.language === "rust" ? "nanosplus" : sdkModels[target];
       });
 
       if (this.targetsArray.length > 1) {

@@ -17,7 +17,7 @@ const PYTEST_DETECTION_FILE: string = "conftest.py";
 type AppType = "manifest" | "legacyManifest" | "makefile";
 
 // Define valid app languages
-const validLanguages = ["Rust", "C"] as const;
+const validLanguages = ["rust", "c"] as const;
 // Define the AppLanguage type
 export type AppLanguage = (typeof validLanguages)[number];
 
@@ -197,7 +197,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
   const containerName = `${appFolderName}-container`;
 
   let appName = "unknown";
-  let appLanguage: AppLanguage = "C";
+  let appLanguage: AppLanguage = "c";
   let testsDir = undefined;
   let packageName = undefined;
   let compatibleDevices: LedgerDevice[] = ["Nano S", "Nano S Plus", "Nano X", "Stax", "Flex"];
@@ -223,7 +223,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
         console.log("Found manifest in " + appFolderName);
         let tomlContent = toml.parse(fileContent);
         [appLanguage, buildDirPath, compatibleDevices, testsDir, testsUseCases, buildUseCases] = parseManifest(tomlContent);
-        if (appLanguage === "C") {
+        if (appLanguage === "c") {
           appName = getAppName(folderUri.fsPath);
         }
         else {
@@ -238,7 +238,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
         [buildDirPath, appName, packageName] = parseLegacyRustManifest(tomlContent, appFolderUri);
         testsDir = findFunctionalTestsWithoutManifest(appFolderUri);
         compatibleDevices = ["Nano S", "Nano S Plus", "Nano X"];
-        appLanguage = "Rust";
+        appLanguage = "rust";
         showManifestWarning(appFolderName, true);
         break;
       }
@@ -267,7 +267,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
 
   // Add the app to the list
   if (found) {
-    if (appLanguage === "C") {
+    if (appLanguage === "c") {
       variants = getAppVariants(folderUri.fsPath, appName, appFolderUri);
       if (variants.values.length > 1) {
         vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", true);
@@ -712,10 +712,10 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
 
 // Type guard function to check if a string is a valid app language
 function isValidLanguage(value: string): AppLanguage {
-  if (!validLanguages.includes(value as AppLanguage)) {
+  if (!validLanguages.includes(value.toLowerCase() as AppLanguage)) {
     throw new Error(`Invalid language: ${value} in manifest`);
   }
-  return value as AppLanguage;
+  return value.toLowerCase() as AppLanguage;
 }
 
 // Parse Cargo.toml and return app name and package name
@@ -880,7 +880,7 @@ export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, 
         if (depApp) {
           let depAppBuildUseCase = depApp.buildUseCases?.find(useCase => useCase.name === dep.useCase);
           if (depAppBuildUseCase) {
-            if (depApp.language === "C") {
+            if (depApp.language === "c") {
               console.log(`Ledger: building C app ${depApp.name} in ${depFolderPath}`);
 
               // Execute git command in cmd.exe on host, no docker

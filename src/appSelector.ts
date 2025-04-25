@@ -225,10 +225,12 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
         [appLanguage, buildDirPath, compatibleDevices, testsDir, testsUseCases, buildUseCases] = parseManifest(tomlContent);
         if (appLanguage === "c") {
           appName = getAppName(folderUri.fsPath);
+          vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectBuildMode", true);
         }
         else {
           let hostBuildDirPath = buildDirPath.startsWith("./") ? path.join(appFolderUri.fsPath, buildDirPath) : buildDirPath;
           [appName, packageName] = parseCargoToml(path.join(hostBuildDirPath, "Cargo.toml"));
+          vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectBuildMode", false);
         }
         break;
       }

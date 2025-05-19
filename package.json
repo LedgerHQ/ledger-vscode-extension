@@ -274,13 +274,15 @@
         },
         "ledgerDevTools.defaultDevice": {
           "type": "string",
-          "default": "Nano S",
+          "default": "Nano S Plus",
           "enum": [
             "Nano S",
             "Nano S Plus",
             "Nano X",
             "Stax",
-            "Flex"
+            "Flex",
+            "Apex p",
+            "Apex m"
           ],
           "markdownDescription": "Select the default Device"
         },

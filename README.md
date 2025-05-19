@@ -13,7 +13,7 @@ applications for [Ledger](https://www.ledger.com/) devices.
 The extension uses Ledger's own [Docker image](https://github.com/LedgerHQ/ledger-app-builder/blob/master/dev-tools/Dockerfile)
 to allow developers to setup a build and test environment in a few minutes.
 
-* Build your app for all Ledger devices : Nano S, Nano S Plus, Nano X, Stax and Flex.
+* Build your app for all Ledger devices.
 * Supports C and Rust apps.
 * Stay up to date with the latest SDK.
 * Run [tests](https://developers.ledger.com/docs/device-app/integration/requirements/development#tests)

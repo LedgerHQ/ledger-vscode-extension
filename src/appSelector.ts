@@ -199,7 +199,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
   let appLanguage: AppLanguage = "c";
   let testsDir = undefined;
   let packageName = undefined;
-  let compatibleDevices: LedgerDevice[] = ["Nano S", "Nano S Plus", "Nano X", "Stax", "Flex"];
+  let compatibleDevices: LedgerDevice[] = ["Nano S", "Nano S Plus", "Nano X", "Stax", "Flex", "Apex p", "Apex m"];
   let testsUseCases = undefined;
   let buildUseCases = undefined;
   let variants = undefined;
@@ -527,6 +527,10 @@ function manifestDevicesToLedgerDevices(manifestDevices: string): LedgerDevice[]
           return "Stax";
         case "flex":
           return "Flex";
+        case "apex_p":
+          return "Apex p";
+        case "apex_m":
+          return "Apex m";
         default:
           throw new Error("Invalid device in manifest : " + device);
       }

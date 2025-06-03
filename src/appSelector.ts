@@ -784,7 +784,6 @@ function parseTestsUsesCasesFromManifest(tomlContent: any): TestUseCase[] | unde
 function parseBuildUseCasesFromManifest(tomlContent: any): BuildUseCase[] | undefined {
   let useCasesSection = getProperty(tomlContent, "use_cases");
   let buildUseCases: BuildUseCase[] | undefined = undefined;
-  let debugFlagFound: Boolean = false;
   let debugNameFound: Boolean = false;
 
   buildUseCases = [];
@@ -803,12 +802,8 @@ function parseBuildUseCasesFromManifest(tomlContent: any): BuildUseCase[] | unde
         name: useCase,
       };
       useCaseFlags = getPropertyOrThrow(useCasesSection, useCase);
-      if (useCaseFlags === "DEBUG=1") {
-        // A debug use case already exists
-        debugFlagFound = true;
-      }
       if (buildUseCase.name === "debug") {
-        // A use case with name 'debug' already exists
+        // A use case with name 'debug' exists in the manifest
         debugNameFound = true;
       }
       buildUseCases.push(buildUseCase);
@@ -817,13 +812,10 @@ function parseBuildUseCasesFromManifest(tomlContent: any): BuildUseCase[] | unde
   }
 
   // Add a default 'debug' use case if not found in the manifest
-  if (debugFlagFound === false) {
+  if (debugNameFound === false) {
     let buildUseCase: BuildUseCase = {
       name: "debug",
     };
-    if (debugNameFound === true) {
-      buildUseCase.name = "debug_default";
-    }
     buildUseCases.push(buildUseCase);
   }
   return buildUseCases;

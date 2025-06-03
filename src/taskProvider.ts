@@ -425,10 +425,6 @@ export class TaskProvider implements vscode.TaskProvider {
           case "release":
             // Default release use-case requires no options
             break;
-          case "debug_default":
-            // Default debug use-case when a debug use-case name is already defined in the manifest
-            buildOpt = "DEBUG=1";
-            break;
           case "debug":
             // Check if this use-case name is defined in the manifest
             if ((this.currentApp.buildUseCases) && ("debug" in this.currentApp.buildUseCases)) {

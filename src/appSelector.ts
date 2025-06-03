@@ -32,7 +32,6 @@ export interface TestUseCase {
 }
 export interface BuildUseCase {
   name: string;
-  options: string;
 }
 export interface VariantList {
   name: string;
@@ -790,9 +789,9 @@ function parseBuildUseCasesFromManifest(tomlContent: any): BuildUseCase[] | unde
 
   buildUseCases = [];
   // Add a default 'release' use case, to build in release mode, without any flag
+  let useCaseFlags: string = "";
   let buildUseCase: BuildUseCase = {
     name: "release",
-    options: "",
   };
   buildUseCases.push(buildUseCase);
 
@@ -802,9 +801,9 @@ function parseBuildUseCasesFromManifest(tomlContent: any): BuildUseCase[] | unde
     for (let useCase of useCases) {
       let buildUseCase: BuildUseCase = {
         name: useCase,
-        options: getPropertyOrThrow(useCasesSection, useCase),
       };
-      if (buildUseCase.options === "DEBUG=1") {
+      useCaseFlags = getPropertyOrThrow(useCasesSection, useCase);
+      if (useCaseFlags === "DEBUG=1") {
         // A debug use case already exists
         debugFlagFound = true;
       }
@@ -813,7 +812,7 @@ function parseBuildUseCasesFromManifest(tomlContent: any): BuildUseCase[] | unde
         debugNameFound = true;
       }
       buildUseCases.push(buildUseCase);
-      console.log(`Found build use_case '${useCase}' with options ${JSON.stringify(buildUseCase.options)}`);
+      console.log(`Found build use_case '${useCase}' with options ${JSON.stringify(useCaseFlags)}`);
     }
   }
 
@@ -821,7 +820,6 @@ function parseBuildUseCasesFromManifest(tomlContent: any): BuildUseCase[] | unde
   if (debugFlagFound === false) {
     let buildUseCase: BuildUseCase = {
       name: "debug",
-      options: "DEBUG=1",
     };
     if (debugNameFound === true) {
       buildUseCase.name = "debug_default";
@@ -899,7 +897,7 @@ export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, 
                 buildCommand += `export BOLOS_SDK=$(echo ${targetSelector.getSelectedSDK()}) && make -C ${path.posix.join(
                   depFolderPath,
                   depApp!.buildDirPath,
-                )} -j ${depAppBuildUseCase!.options} ; `;
+                )} -j ${depAppBuildUseCase!.name} ; `;
               });
               targetSelector.setSelectedTarget(target);
 

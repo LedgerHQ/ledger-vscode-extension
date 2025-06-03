@@ -419,9 +419,30 @@ export class TaskProvider implements vscode.TaskProvider {
   private cBuildExec(): string {
     let buildOpt: string = "";
     if (this.currentApp) {
-      if (this.currentApp.selectedBuildUseCase?.options) {
-        // Add build option of the selected the useCase
-        buildOpt = this.currentApp.selectedBuildUseCase?.options;
+      if (this.currentApp.selectedBuildUseCase?.name) {
+        // Handle Default cases
+        switch (this.currentApp.selectedBuildUseCase.name) {
+          case "release":
+            // Default release use-case requires no options
+            break;
+          case "debug_default":
+            // Default debug use-case when a debug use-case name is already defined in the manifest
+            buildOpt = "DEBUG=1";
+            break;
+          case "debug":
+            // Check if this use-case name is defined in the manifest
+            if ((this.currentApp.buildUseCases) && ("debug" in this.currentApp.buildUseCases)) {
+              buildOpt = this.currentApp.selectedBuildUseCase.name;
+            }
+            else {
+            // Default debug use-case
+              buildOpt = "DEBUG=1";
+            }
+            break;
+          default:
+            // For other use cases, just use the name as the build option
+            buildOpt = this.currentApp.selectedBuildUseCase.name;
+        }
       }
 
       // Add build option for the selected variant

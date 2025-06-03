@@ -50,6 +50,29 @@ export async function showChecks() {
   return result;
 }
 
+export interface BuildModeList {
+  selected: string;
+  values: string[];
+}
+const validBuildMode: string[] = ["Incremental", "Full"];
+export const buildMode: BuildModeList = {
+  selected: "Incremental",
+  values: validBuildMode,
+};
+
+let buildModeSelectedEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+export const onBuildModeSelectedEvent: vscode.Event<void> = buildModeSelectedEmitter.event;
+
+export async function toggleBuildMode() {
+  if (buildMode.selected === "Incremental") {
+    buildMode.selected = "Full";
+  }
+  else {
+    buildMode.selected = "Incremental";
+  }
+  buildModeSelectedEmitter.fire();
+}
+
 // Cache the Promise to ensure the function is only executed once
 let appLoadRequirementsPromise: Promise<string> | null = null;
 
@@ -142,27 +165,9 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Build",
-      name: "Build",
-      builders: { ["rust"]: this.rustBuildExec },
+      name: "Build app",
+      builders: { ["c"]: this.cBuildExec, ["rust"]: this.rustBuildExec },
       toolTip: "Build app",
-      dependsOn: this.appSubmodulesInitExec,
-      state: "enabled",
-      allSelectedBehavior: "executeForEveryTarget",
-    },
-    {
-      group: "Build",
-      name: "Build incremental",
-      builders: { ["c"]: this.cBuildExec },
-      toolTip: "Build app (incremental mode)",
-      dependsOn: this.appSubmodulesInitExec,
-      state: "enabled",
-      allSelectedBehavior: "executeForEveryTarget",
-    },
-    {
-      group: "Build",
-      name: "Build full",
-      builders: { ["c"]: this.cBuildFullExec },
-      toolTip: "Build app (full rebuild)",
       dependsOn: this.appSubmodulesInitExec,
       state: "enabled",
       allSelectedBehavior: "executeForEveryTarget",
@@ -292,7 +297,6 @@ export class TaskProvider implements vscode.TaskProvider {
     if (this.currentApp && configReqs && configReqs[this.currentApp.folderName]) {
       this.additionalReqs = configReqs[this.currentApp.folderName];
     }
-    this.generateTasks();
   }
 
   private resetVars() {
@@ -415,41 +419,42 @@ export class TaskProvider implements vscode.TaskProvider {
   private cBuildExec(): string {
     let buildOpt: string = "";
     if (this.currentApp) {
-      if (this.currentApp.selectedBuildUseCase?.options) {
-        // Add build option of the selected the useCase
-        buildOpt = this.currentApp.selectedBuildUseCase?.options;
+      if (this.currentApp.selectedBuildUseCase?.name) {
+        // Handle Default cases
+        switch (this.currentApp.selectedBuildUseCase.name) {
+          case "release":
+            // Default release use-case requires no options
+            break;
+          case "debug":
+            // Check if this use-case name is defined in the manifest
+            if ((this.currentApp.buildUseCases) && ("debug" in this.currentApp.buildUseCases)) {
+              buildOpt = this.currentApp.selectedBuildUseCase.name;
+            }
+            else {
+            // Default debug use-case
+              buildOpt = "DEBUG=1";
+            }
+            break;
+          default:
+            // For other use cases, just use the name as the build option
+            buildOpt = this.currentApp.selectedBuildUseCase.name;
+        }
       }
 
       // Add build option for the selected variant
       if (this.currentApp.variants && this.currentApp.variants.selected) {
         buildOpt += " " + this.currentApp.variants.name + "=" + this.currentApp.variants.selected;
       }
+    }
+
+    // Retrieve the selected build mode, if any
+    if (buildMode.selected === "Full") {
+      buildOpt += " -B";
     }
 
     const exec = `docker exec -it ${
       this.containerName
     } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make -C ${this.buildDir} -j ${buildOpt}'`;
-    // Builds the app using the make command, inside the docker container.
-    return exec;
-  }
-
-  private cBuildFullExec(): string {
-    let buildOpt: string = "";
-    if (this.currentApp) {
-      if (this.currentApp.selectedBuildUseCase?.options) {
-        // Add build option of the selected the useCase
-        buildOpt = this.currentApp.selectedBuildUseCase?.options;
-      }
-
-      // Add build option for the selected variant
-      if (this.currentApp.variants && this.currentApp.variants.selected) {
-        buildOpt += " " + this.currentApp.variants.name + "=" + this.currentApp.variants.selected;
-      }
-    }
-
-    const exec = `docker exec -it ${
-      this.containerName
-    } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make -C ${this.buildDir} -B -j ${buildOpt}'`;
     // Builds the app using the make command, inside the docker container.
     return exec;
   }

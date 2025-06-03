@@ -1,7 +1,14 @@
 "use strict";
 
 import * as vscode from "vscode";
-import { TaskProvider, taskType, onCheckSelectedEvent, showChecks } from "./taskProvider";
+import {
+  TaskProvider,
+  taskType,
+  onCheckSelectedEvent,
+  showChecks,
+  onBuildModeSelectedEvent,
+  toggleBuildMode,
+} from "./taskProvider";
 import { TreeDataProvider } from "./treeView";
 import { TargetSelector } from "./targetSelector";
 import { StatusBarManager } from "./statusBar";
@@ -121,6 +128,21 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("selectCheck", () => {
       showChecks();
+    }),
+  );
+
+  // Event listener for Build Mode selection.
+  // This event is fired when the user selects a Build Mode
+  context.subscriptions.push(
+    onBuildModeSelectedEvent(() => {
+      taskProvider.generateTasks();
+      treeProvider.updateDynamicLabels();
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("toggleBuildMode", () => {
+      toggleBuildMode();
     }),
   );
 

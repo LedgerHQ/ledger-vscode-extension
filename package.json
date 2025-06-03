@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "Ledger Dev Tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",
@@ -56,6 +56,11 @@
         {
           "command": "selectTests",
           "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showSelectTests",
+          "group": "inline"
+        },
+        {
+          "command": "toggleBuildMode",
+          "when": "view == mainView && viewItem == buildUseCase && ledgerDevTools.showSelectBuildMode",
           "group": "inline"
         },
         {
@@ -199,6 +204,14 @@
         "category": "Ledger",
         "tooltip": "Select the check you want to run, or All by default.",
         "icon": "$(pass)"
+      },
+      {
+        "command": "toggleBuildMode",
+        "title": "Toggle the build mode between Full and Incrememental",
+        "category": "Ledger",
+        "tooltip": "Select the mode you want to use.",
+        "icon": "$(pass-filled)",
+        "enablement": "ledgerDevTools.showSelectBuildMode"
       },
       {
         "command": "rebuildTestUseCaseDeps",

@@ -8,27 +8,6 @@ on:
       - '*'
 
 jobs:
-  # check_tag:
-  #   name: Check triggering tag
-  #   runs-on: ubuntu-latest
-  #   if: startsWith(github.ref, 'refs/tags/')
-  #   steps:
-  #   - name: Clone
-  #     uses: actions/checkout@v4
-
-  #   - name: Registry public GPG keys
-  #     run: |
-  #       # GPG key IDs for: Alexis, Charles-Edouard, François, Lucas, Salvatore, Thibault, Jerome, Alexandre
-  #       for KEY_ID in "379AF176C6D52F83E9736990A79EF4F0F526AE4A C03916B76970ED7AB902D52BF12296941B7BB9C6 763B76BB1B926101964E382C055EEF69B9C236CE AF9CF33EAE2B3BD439F7E11D5F1747DCE1C18102 9F4011447A639254CE48657674060FF81B33E4F8 38AA2C508024B54225F5692873292661EA52A368 464D20F010CB38828F38E6C91EEAE88A0B76D420 1CFD49E93E9D1F8E9681D2B56A43DCB4AD8ED025"; \
-  #         do \
-  #           gpg --keyserver hkps://keyserver.ledgerlabs.net --recv-keys ${KEY_ID}; \
-  #         done
-
-  #   - name: Verify the tag
-  #     run: |
-  #       git fetch -aptf
-  #       git tag -v ${{ github.ref_name }}
-
   check_changelog:
     name: Check changelog versions
     runs-on: ubuntu-latest
@@ -52,7 +31,6 @@ jobs:
   publish:
     name: Publish the extension
     runs-on: ubuntu-latest
-    # needs: [check_tag, check_changelog]
     needs: [check_changelog]
     if: startsWith(github.ref, 'refs/tags/')
     steps:

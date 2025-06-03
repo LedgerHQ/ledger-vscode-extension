@@ -32,7 +32,6 @@ export interface TestUseCase {
 }
 export interface BuildUseCase {
   name: string;
-  options: string;
 }
 export interface VariantList {
   name: string;
@@ -225,10 +224,12 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
         [appLanguage, buildDirPath, compatibleDevices, testsDir, testsUseCases, buildUseCases] = parseManifest(tomlContent);
         if (appLanguage === "c") {
           appName = getAppName(folderUri.fsPath);
+          vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectBuildMode", true);
         }
         else {
           let hostBuildDirPath = buildDirPath.startsWith("./") ? path.join(appFolderUri.fsPath, buildDirPath) : buildDirPath;
           [appName, packageName] = parseCargoToml(path.join(hostBuildDirPath, "Cargo.toml"));
+          vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectBuildMode", false);
         }
         break;
       }
@@ -783,14 +784,13 @@ function parseTestsUsesCasesFromManifest(tomlContent: any): TestUseCase[] | unde
 function parseBuildUseCasesFromManifest(tomlContent: any): BuildUseCase[] | undefined {
   let useCasesSection = getProperty(tomlContent, "use_cases");
   let buildUseCases: BuildUseCase[] | undefined = undefined;
-  let debugFlagFound: Boolean = false;
   let debugNameFound: Boolean = false;
 
   buildUseCases = [];
   // Add a default 'release' use case, to build in release mode, without any flag
+  let useCaseFlags: string = "";
   let buildUseCase: BuildUseCase = {
     name: "release",
-    options: "",
   };
   buildUseCases.push(buildUseCase);
 
@@ -800,30 +800,22 @@ function parseBuildUseCasesFromManifest(tomlContent: any): BuildUseCase[] | unde
     for (let useCase of useCases) {
       let buildUseCase: BuildUseCase = {
         name: useCase,
-        options: getPropertyOrThrow(useCasesSection, useCase),
       };
-      if (buildUseCase.options === "DEBUG=1") {
-        // A debug use case already exists
-        debugFlagFound = true;
-      }
+      useCaseFlags = getPropertyOrThrow(useCasesSection, useCase);
       if (buildUseCase.name === "debug") {
-        // A use case with name 'debug' already exists
+        // A use case with name 'debug' exists in the manifest
         debugNameFound = true;
       }
       buildUseCases.push(buildUseCase);
-      console.log(`Found build use_case '${useCase}' with options ${JSON.stringify(buildUseCase.options)}`);
+      console.log(`Found build use_case '${useCase}' with options ${JSON.stringify(useCaseFlags)}`);
     }
   }
 
   // Add a default 'debug' use case if not found in the manifest
-  if (debugFlagFound === false) {
+  if (debugNameFound === false) {
     let buildUseCase: BuildUseCase = {
       name: "debug",
-      options: "DEBUG=1",
     };
-    if (debugNameFound === true) {
-      buildUseCase.name = "debug_default";
-    }
     buildUseCases.push(buildUseCase);
   }
   return buildUseCases;
@@ -897,7 +889,7 @@ export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, 
                 buildCommand += `export BOLOS_SDK=$(echo ${targetSelector.getSelectedSDK()}) && make -C ${path.posix.join(
                   depFolderPath,
                   depApp!.buildDirPath,
-                )} -j ${depAppBuildUseCase!.options} ; `;
+                )} -j ${depAppBuildUseCase!.name} ; `;
               });
               targetSelector.setSelectedTarget(target);
 

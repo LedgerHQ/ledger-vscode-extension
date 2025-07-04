@@ -193,6 +193,24 @@
         "tooltip": "Select the app you want to build."
       },
       {
+        "command": "selectFuzzingHarness",
+        "title": "Select fuzzing harness",
+        "category": "Ledger",
+        "tooltip": "Select the harness you want to use for fuzzing."
+      },
+      {
+        "command": "inspectCoverageCommand",
+        "title": "Inspect coverage",
+        "category": "Ledger",
+        "tooltip": "Inspect the generated coverage of an harness."
+      },
+      {
+        "command": "selectFuzzingCrash",
+        "title": "Select fuzzing crash",
+        "category": "Ledger",
+        "tooltip": "Select the crash to analyse."
+      },
+      {
         "command": "additionalReqsPerApp",
         "title": "Add test dependencies",
         "category": "Ledger",

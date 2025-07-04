@@ -242,6 +242,30 @@ export class TaskProvider implements vscode.TaskProvider {
       allSelectedBehavior: "executeForEveryTarget",
     },
     {
+      group: "Fuzzing",
+      name: "Build fuzzer",
+      builders: { ["Both"]: this.runBuildFuzzingExec },
+      toolTip: "Builds fuzzer localted in fuzzing folder.",
+      state: "enabled",
+      allSelectedBehavior: "disable",
+    },
+    {
+      group: "Fuzzing",
+      name: "Run fuzzer",
+      builders: { ["Both"]: this.runFuzzingExec },
+      toolTip: "Runs selected harness using 4 cores.",
+      state: "disabled",
+      allSelectedBehavior: "disable",
+    },
+    {
+      group: "Fuzzing",
+      name: "Run crash",
+      builders: { ["Both"]: this.runFuzzingCrash },
+      toolTip: "Runs selected crash on selected harness.",
+      state: "disabled",
+      allSelectedBehavior: "disable",
+    },
+    {
       group: "Device Operations",
       name: "Load app on device",
       builders: { ["Both"]: this.appLoadExec },
@@ -395,12 +419,13 @@ export class TaskProvider implements vscode.TaskProvider {
 
   private runDevToolsImageExec(): string {
     let exec = "";
+    let BOLOS_SDK = "/home/gustavojs/fuzz/ledger-secure-sdk"; // WHILE WAITING FOR SDK's PR
 
     if (this.currentApp) {
       // Checks if a container with the name ${this.containerName} exists, and if it does, it is stopped and removed before a new container is created using the same name and other specified configuration parameters
       if (platform === "linux") {
         // Linux
-        exec = `xhost + ; docker ps -a --format '{{.Names}}' | grep -q ${this.containerName} && (docker container stop ${this.containerName} && docker container rm ${this.containerName}) ; docker pull ${this.image} && docker run --user $(id -u):$(id -g) --privileged -e DISPLAY=$DISPLAY -v '/dev/bus/usb:/dev/bus/usb' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' ${this.dockerRunArgs} -t -d --name ${this.containerName} ${this.image}`;
+        exec = `xhost + ; docker ps -a --format '{{.Names}}' | grep -q ${this.containerName} && (docker container stop ${this.containerName} && docker container rm ${this.containerName}) ; docker pull ${this.image} && docker run --user $(id -u):$(id -g) --privileged -e DISPLAY=$DISPLAY -v '/dev/bus/usb:/dev/bus/usb' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${BOLOS_SDK}:/ledger-secure-sdk' -v '${this.workspacePath}:/app' ${this.dockerRunArgs} -t -d --name ${this.containerName} ${this.image}`;
       }
       else if (platform === "darwin") {
         // macOS
@@ -414,6 +439,68 @@ export class TaskProvider implements vscode.TaskProvider {
     }
 
     return exec;
+  }
+
+  private runBuildFuzzingExec(): string {
+    let exec = "";
+    let targetDevice = this.tgtSelector.getSelectedTarget().toLowerCase().replace(/\s/g, "");
+
+    let buildFuzzingScript = `/ledger-secure-sdk/fuzzing/local_run.sh --build=1 --TARGET_DEVICE=${targetDevice} --BOLOS_SDK=/ledger-secure-sdk --run-fuzzer=0 --compute-coverage=0`;
+
+    if (this.currentApp) {
+      exec = `docker exec -iu root -it ${this.containerName} bash -c 'apt-get update && apt-get install -y bear libclang-rt-dev && make clean' && docker exec -it ${
+        this.containerName
+      } bash -c 'cd ${this.currentApp.fuzzingDirPath} && ${buildFuzzingScript}'`;
+    }
+    else {
+      vscode.window.showWarningMessage("No app found, check if the container is running.");
+      return `echo 'No app found, check if the container is running.'`;
+    }
+    return exec;
+  }
+
+  private runFuzzingExec(): string {
+    this.currentApp = getSelectedApp();
+    const target = this.tgtSelector.getSelectedTarget()?.toLowerCase().replace(/\s/g, "");
+
+    if (this.currentApp) {
+      if (!this.currentApp.fuzzingHarness) {
+        // vscode.window.showWarningMessage("runFuzzingExec - No harness selected.");
+        return `echo 'runFuzzingExec - No harness selected'`;
+      }
+
+      const runFuzzingScript = `/ledger-secure-sdk/fuzzing/local_run.sh --build=0 --re-generate-macros=0 --TARGET_DEVICE=${target} --fuzzer=build/${this.currentApp.fuzzingHarness} --BOLOS_SDK=/ledger-secure-sdk --j=4 --run-fuzzer=1 --compute-coverage=0`;
+
+      return `docker exec -it ${this.containerName} bash -c 'cd ${this.currentApp.fuzzingDirPath} && ${runFuzzingScript}'`;
+    }
+    else {
+      vscode.window.showWarningMessage(`No app selected`);
+      return `echo 'No app selected'`;
+    }
+  }
+
+  private runFuzzingCrash(): string {
+    this.currentApp = getSelectedApp();
+    const target = this.tgtSelector.getSelectedTarget()?.toLowerCase().replace(/\s/g, "");
+
+    if (this.currentApp) {
+      if (!this.currentApp.fuzzingHarness) {
+        // vscode.window.showWarningMessage("runFuzzingCrash - No harness selected.");
+        return `echo 'runFuzzingCrash - No harness selected'`;
+      }
+      if (!this.currentApp.fuzzingCrash) {
+        // vscode.window.showWarningMessage("No crash selected.");
+        return `echo 'No crash selected'`;
+      }
+
+      const runFuzzingCrashScript = `/ledger-secure-sdk/fuzzing/local_run.sh --TARGET_DEVICE=${target} --fuzzer=build/${this.currentApp.fuzzingHarness} --BOLOS_SDK=/ledger-secure-sdk --run-crash=${this.currentApp.fuzzingCrash}`;
+
+      return `docker exec -it ${this.containerName} bash -c 'cd ${this.currentApp.fuzzingDirPath} && ${runFuzzingCrashScript}'`;
+    }
+    else {
+      vscode.window.showWarningMessage(`No app selected`);
+      return `echo 'No app selected'`;
+    }
   }
 
   private cBuildExec(): string {

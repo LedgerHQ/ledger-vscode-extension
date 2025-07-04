@@ -64,6 +64,10 @@ export interface App {
   selectedBuildUseCase?: BuildUseCase;
   // Supported variants
   variants?: VariantList;
+  // Fuzzing
+  fuzzingHarness?: string;
+  fuzzingCrash?: string;
+  fuzzingDirPath?: string;
 }
 
 let appList: App[] = [];
@@ -205,7 +209,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
   let variants = undefined;
   let buildDirPath = "./";
   let found = true;
-
+  let fuzzingDirPath = undefined;
   try {
     let [appType, appFile] = detectAppType(folderUri);
 
@@ -216,6 +220,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
 
     buildDirPath = path.relative(folderUri.fsPath, path.dirname(appFile || ""));
     buildDirPath = buildDirPath === "" ? "./" : buildDirPath;
+    fuzzingDirPath = findFuzzingDirectory(appFolderUri);
 
     switch (appType) {
       case "manifest": {
@@ -304,6 +309,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
       buildUseCases: buildUseCases,
       selectedBuildUseCase: selectedBuildUseCase,
       variants: variants,
+      fuzzingDirPath: fuzzingDirPath,
     };
   }
 
@@ -337,6 +343,158 @@ export async function showAppSelectorMenu(targetSelector: TargetSelector) {
   }
   getAndBuildAppTestsDependencies(targetSelector);
   return result;
+}
+
+export async function setFuzzingHarness() {
+  const currentApp = getSelectedApp();
+  if (!currentApp) {
+    vscode.window.showErrorMessage("No selected app found.");
+    return;
+  }
+  if (!currentApp.fuzzingDirPath) {
+    vscode.window.showErrorMessage("No fuzzing folder found.");
+    return;
+  }
+
+  const harnessPath = path.posix.join("/app/", currentApp.fuzzingDirPath, "build");
+  const listCommand = `docker exec ${currentApp.containerName} bash -c "cd '${harnessPath}' && ls -l"`;
+
+  let stdout: string;
+  try {
+    stdout = cp.execSync(listCommand, {
+      encoding: "utf-8",
+    });
+  }
+  catch (err) {
+    vscode.window.showErrorMessage(`Failed to list harness directory in container: ${err}`);
+    return;
+  }
+
+  const files: string[] = stdout
+    .split("\n")
+    .filter((line) => {
+      const parts = line.trim().split(/\s+/);
+      // line must be a file (starts with "-") and executable (has 'x' in permissions)
+      return parts.length > 0 && parts[0].startsWith("-") && parts[0].includes("x");
+    })
+    .map((line) => {
+      const parts = line.trim().split(/\s+/);
+      return parts[parts.length - 1];
+    });
+
+  if (files.length === 0) {
+    vscode.window.showWarningMessage("No harness files found.");
+    return;
+  }
+
+  const result = await vscode.window.showQuickPick(files, {
+    placeHolder: "Please select the target harness",
+  });
+
+  if (result) {
+    currentApp.fuzzingHarness = result.split(".")[0].replace(/\s/g, "");
+    vscode.window.showInformationMessage(`Fuzzing harness set to: ${result}`);
+  }
+}
+
+async function getCoverage(): Promise<string> {
+  let targetSelector = new TargetSelector();
+  const currentApp = getSelectedApp();
+  if (!currentApp) {
+    // vscode.window.showErrorMessage("No selected app found.");
+    return "No app selected";
+  }
+  let optionsExecSync: cp.ExecSyncOptions = { stdio: "pipe", encoding: "utf-8" };
+  // If platform is windows, set shell to powershell for cp exec.
+  if (platform === "win32") {
+    let shell: string = "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
+    optionsExecSync.shell = shell;
+  }
+
+  const target = targetSelector.getSelectedTarget().toLowerCase().replace(/\s/g, "");
+  const coverageFuzzingScript = `/ledger-secure-sdk/fuzzing/local_run.sh --TARGET_DEVICE=${target} --fuzzer=build/${currentApp.fuzzingHarness} --BOLOS_SDK=/ledger-secure-sdk --compute-coverage=1`;
+
+  let computeCoverageCmd = `docker exec -u root ${currentApp.containerName} bash -c 'apt-get update && apt-get install -y libclang-rt-dev' && docker exec ${
+    currentApp.containerName
+  } bash -c 'cd ${currentApp.fuzzingDirPath} && ${coverageFuzzingScript}'`;
+
+  return cp.execSync(computeCoverageCmd, optionsExecSync).toString().trim();
+}
+
+export async function inspectCoverage() {
+  const currentApp = getSelectedApp();
+  if (!currentApp) {
+    vscode.window.showWarningMessage("No app selected.");
+    return `echo "No app selected!"`;
+  }
+  if (!currentApp.fuzzingHarness || !currentApp.fuzzingDirPath) {
+    vscode.window.showWarningMessage("No harness selected.");
+    return `echo "No harness selected!"`;
+  }
+  await getCoverage();
+  const appFolderPath = vscode.Uri.parse(currentApp.folderUri.toString()).fsPath;
+  const reportPath = path.join(appFolderPath, currentApp.fuzzingDirPath, "out", currentApp.fuzzingHarness, "index.html");
+  if (fs.existsSync(reportPath)) {
+    const reportUri = vscode.Uri.file(reportPath);
+    await vscode.env.openExternal(reportUri);
+    vscode.window.showInformationMessage(`Coverage report available in your browser`);
+  }
+  else {
+    console.log("REPORT NOT FOUND");
+    vscode.window.showErrorMessage(`Coverage report not found at ${reportPath}`);
+  }
+}
+
+export async function setFuzzingCrash() {
+  const currentApp = getSelectedApp();
+  if (!currentApp) {
+    vscode.window.showErrorMessage("No selected app found.");
+    return `echo "No app selected!"`;
+  }
+  if (!currentApp.fuzzingDirPath) {
+    vscode.window.showErrorMessage("No fuzzing folder found.");
+    return;
+  }
+
+  const crashPath = path.posix.join("/app/", currentApp.fuzzingDirPath, "crashes");
+  const listCommand = `docker exec ${currentApp.containerName} bash -c "cd '${crashPath}' && ls -l"`;
+
+  let stdout: string;
+  try {
+    stdout = cp.execSync(listCommand, {
+      encoding: "utf-8",
+    });
+  }
+  catch (err) {
+    vscode.window.showErrorMessage(`Failed to list crash directory in container: ${err}`);
+    return;
+  }
+
+  const files: string[] = stdout
+    .split("\n")
+    .filter((line) => {
+      const parts = line.trim().split(/\s+/);
+      // line must be a file (starts with "-") and executable (has 'x' in permissions)
+      return parts.length > 0 && parts[0].startsWith("-");
+    })
+    .map((line) => {
+      const parts = line.trim().split(/\s+/);
+      return parts[parts.length - 1];
+    });
+
+  if (files.length === 0) {
+    vscode.window.showWarningMessage("No crash files found.");
+    return;
+  }
+
+  const result = await vscode.window.showQuickPick(files, {
+    placeHolder: "Please select the crash",
+  });
+
+  if (result) {
+    currentApp.fuzzingCrash = result.split(".")[0].replace(/\s/g, "");
+    vscode.window.showInformationMessage(`Fuzzing crash set to: ${result}`);
+  }
 }
 
 export async function showTestsSelectorMenu(targetSelector: TargetSelector) {
@@ -743,6 +901,17 @@ function findFunctionalTestsWithoutManifest(appFolderUri: vscode.Uri): string | 
     testsDir = path.relative(appFolderUri.fsPath, path.dirname(conftestFile));
   }
   return testsDir;
+}
+
+function findFuzzingDirectory(appFolderUri: vscode.Uri): string | undefined {
+  const searchPattern = path.join(appFolderUri.fsPath, "**/fuzzing/").replace(/\\/g, "/");
+  const matches = fg.sync(searchPattern, { onlyDirectories: true, deep: 4 });
+
+  if (matches.length > 0) {
+    const fuzzingDir = path.relative(appFolderUri.fsPath, matches[0]);
+    return fuzzingDir;
+  }
+  return undefined;
 }
 
 // Get a nested property from a toml object, return undefined if not found

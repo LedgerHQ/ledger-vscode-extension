@@ -68,6 +68,7 @@ export interface App {
   fuzzingHarness?: string;
   fuzzingCrash?: string;
   fuzzingDirPath?: string;
+  fuzzingSanitizer?: string;
 }
 
 let appList: App[] = [];
@@ -210,6 +211,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
   let buildDirPath = "./";
   let found = true;
   let fuzzingDirPath = undefined;
+  let fuzzingSanitizer = "address";
   try {
     let [appType, appFile] = detectAppType(folderUri);
 
@@ -310,6 +312,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
       selectedBuildUseCase: selectedBuildUseCase,
       variants: variants,
       fuzzingDirPath: fuzzingDirPath,
+      fuzzingSanitizer: fuzzingSanitizer,
     };
   }
 
@@ -345,6 +348,82 @@ export async function showAppSelectorMenu(targetSelector: TargetSelector) {
   return result;
 }
 
+export function doCrashesExists(appFolderUri: vscode.Uri): boolean {
+  const currentApp = getSelectedApp();
+  if (!currentApp?.fuzzingDirPath || !currentApp.fuzzingHarness) {
+    return false;
+  }
+  try {
+    const crashDir = path.join(appFolderUri.fsPath, currentApp.fuzzingDirPath, "out", currentApp.fuzzingHarness, "crashes");
+    if (!fs.existsSync(crashDir)) {
+      return false;
+    }
+
+    const files = fs.readdirSync(crashDir);
+    for (const file of files) {
+      console.log(`In doCrashesExists files =  ${file}`);
+      const filePath = path.join(crashDir, file);
+      const stat = fs.statSync(filePath);
+
+      // Check if it's a file and executable
+      if (stat.isFile()) {
+        return true;
+      }
+    }
+  }
+  catch {
+    return false;
+  }
+  return false;
+}
+
+export function isHarnessCompiled(appFolderUri: vscode.Uri): boolean {
+  const currentApp = getSelectedApp();
+  if (!currentApp?.fuzzingDirPath) {
+    return false;
+  }
+  try {
+    const buildDir = path.join(appFolderUri.fsPath, currentApp.fuzzingDirPath, "build");
+    if (!fs.existsSync(buildDir)) {
+      return false;
+    }
+
+    const files = fs.readdirSync(buildDir);
+    for (const file of files) {
+      console.log(`In isHarnessCompiled files =  ${file}`);
+      const filePath = path.join(buildDir, file);
+      const stat = fs.statSync(filePath);
+
+      // Check if it's a file and executable
+      if (stat.isFile() && (stat.mode & 0o111)) {
+        return true;
+      }
+    }
+  }
+  catch {
+    return false;
+  }
+  return false;
+}
+
+
+export async function setFuzzingSanitizer() {
+  const currentApp = getSelectedApp();
+  if (!currentApp) {
+    vscode.window.showErrorMessage("No selected app found.");
+    return;
+  }
+  const sanitizers = ["address", "memory"];
+  const result = await vscode.window.showQuickPick(sanitizers, {
+    placeHolder: "Please select the sanitizer",
+  });
+
+  if (result) {
+    currentApp.fuzzingSanitizer = result.split(".")[0].replace(/\s/g, "");
+    vscode.window.showInformationMessage(`Fuzzing sanitizer set to: ${result}`);
+  }
+}
+
 export async function setFuzzingHarness() {
   const currentApp = getSelectedApp();
   if (!currentApp) {
@@ -356,44 +435,52 @@ export async function setFuzzingHarness() {
     return;
   }
 
-  const harnessPath = path.posix.join("/app/", currentApp.fuzzingDirPath, "build");
-  const listCommand = `docker exec ${currentApp.containerName} bash -c "cd '${harnessPath}' && ls -l"`;
+  if (isHarnessCompiled(currentApp.folderUri)) {
+    const harnessPath = path.posix.join("/app/", currentApp.fuzzingDirPath, "build");
+    const listCommand = `docker exec ${currentApp.containerName} bash -c "cd '${harnessPath}' && ls -l"`;
+    let stdout: string;
+    try {
+      stdout = cp.execSync(listCommand, {
+        encoding: "utf-8",
+      });
+    }
+    catch (err) {
+      vscode.window.showErrorMessage(`Failed to list harness directory in container: ${err}`);
+      return;
+    }
 
-  let stdout: string;
-  try {
-    stdout = cp.execSync(listCommand, {
-      encoding: "utf-8",
+    const files: string[] = stdout
+      .split("\n")
+      .filter((line) => {
+        const parts = line.trim().split(/\s+/);
+        // line must be a file (starts with "-") and executable (has 'x' in permissions)
+        return parts.length > 0 && parts[0].startsWith("-") && parts[0].includes("x");
+      })
+      .map((line) => {
+        const parts = line.trim().split(/\s+/);
+        return parts[parts.length - 1];
+      });
+
+    if (files.length === 0) {
+      vscode.window.showWarningMessage("No harness files found.");
+      return;
+    }
+
+    const result = await vscode.window.showQuickPick(files, {
+      placeHolder: "Please select the target harness",
     });
+
+    if (result) {
+      currentApp.fuzzingHarness = result.split(".")[0].replace(/\s/g, "");
+      if (currentApp.fuzzingCrash) {
+        currentApp.fuzzingCrash = undefined;
+      }
+      vscode.window.showInformationMessage(`Fuzzing harness set to: ${result}`);
+    }
   }
-  catch (err) {
-    vscode.window.showErrorMessage(`Failed to list harness directory in container: ${err}`);
+  else {
+    vscode.window.showErrorMessage(`No compiled harness.`);
     return;
-  }
-
-  const files: string[] = stdout
-    .split("\n")
-    .filter((line) => {
-      const parts = line.trim().split(/\s+/);
-      // line must be a file (starts with "-") and executable (has 'x' in permissions)
-      return parts.length > 0 && parts[0].startsWith("-") && parts[0].includes("x");
-    })
-    .map((line) => {
-      const parts = line.trim().split(/\s+/);
-      return parts[parts.length - 1];
-    });
-
-  if (files.length === 0) {
-    vscode.window.showWarningMessage("No harness files found.");
-    return;
-  }
-
-  const result = await vscode.window.showQuickPick(files, {
-    placeHolder: "Please select the target harness",
-  });
-
-  if (result) {
-    currentApp.fuzzingHarness = result.split(".")[0].replace(/\s/g, "");
-    vscode.window.showInformationMessage(`Fuzzing harness set to: ${result}`);
   }
 }
 
@@ -456,44 +543,54 @@ export async function setFuzzingCrash() {
     return;
   }
 
-  const crashPath = path.posix.join("/app/", currentApp.fuzzingDirPath, "crashes");
-  const listCommand = `docker exec ${currentApp.containerName} bash -c "cd '${crashPath}' && ls -l"`;
-
-  let stdout: string;
-  try {
-    stdout = cp.execSync(listCommand, {
-      encoding: "utf-8",
-    });
-  }
-  catch (err) {
-    vscode.window.showErrorMessage(`Failed to list crash directory in container: ${err}`);
+  if (!currentApp.fuzzingHarness) {
+    vscode.window.showErrorMessage("No fuzzing harness selected.");
     return;
   }
 
-  const files: string[] = stdout
-    .split("\n")
-    .filter((line) => {
-      const parts = line.trim().split(/\s+/);
-      // line must be a file (starts with "-") and executable (has 'x' in permissions)
-      return parts.length > 0 && parts[0].startsWith("-");
-    })
-    .map((line) => {
-      const parts = line.trim().split(/\s+/);
-      return parts[parts.length - 1];
+  if (doCrashesExists(currentApp.folderUri)) {
+    const crashPath = path.posix.join("/app/", currentApp.fuzzingDirPath, "out", currentApp.fuzzingHarness, "crashes");
+    const listCommand = `docker exec ${currentApp.containerName} bash -c "cd '${crashPath}' && ls -l"`;
+
+    let stdout: string;
+    try {
+      stdout = cp.execSync(listCommand, {
+        encoding: "utf-8",
+      });
+    }
+    catch (err) {
+      vscode.window.showErrorMessage(`Failed to list crash directory in container: ${err}`);
+      return;
+    }
+
+    const files: string[] = stdout
+      .split("\n")
+      .filter((line) => {
+        const parts = line.trim().split(/\s+/);
+        // line must be a file (starts with "-") and executable (has 'x' in permissions)
+        return parts.length > 0 && parts[0].startsWith("-");
+      })
+      .map((line) => {
+        const parts = line.trim().split(/\s+/);
+        return parts[parts.length - 1];
+      });
+
+    if (files.length === 0) {
+      vscode.window.showWarningMessage("No crash files found.");
+      return;
+    }
+
+    const result = await vscode.window.showQuickPick(files, {
+      placeHolder: "Please select the crash",
     });
 
-  if (files.length === 0) {
-    vscode.window.showWarningMessage("No crash files found.");
-    return;
+    if (result) {
+      currentApp.fuzzingCrash = result.split(".")[0].replace(/\s/g, "");
+      vscode.window.showInformationMessage(`Fuzzing crash set to: ${result}`);
+    }
   }
-
-  const result = await vscode.window.showQuickPick(files, {
-    placeHolder: "Please select the crash",
-  });
-
-  if (result) {
-    currentApp.fuzzingCrash = result.split(".")[0].replace(/\s/g, "");
-    vscode.window.showInformationMessage(`Fuzzing crash set to: ${result}`);
+  else {
+    vscode.window.showErrorMessage(`No crash found in out/${currentApp.fuzzingHarness}/crashes`);
   }
 }
 

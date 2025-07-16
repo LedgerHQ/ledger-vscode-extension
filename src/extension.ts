@@ -20,6 +20,7 @@ import {
   setSelectedApp,
   getAppTestsList,
   showAppSelectorMenu,
+  setFuzzingSanitizer,
   setFuzzingHarness,
   inspectCoverage,
   setFuzzingCrash,
@@ -267,6 +268,14 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(vscode.commands.registerCommand("rebuildTestUseCaseDepsSpin", () => {}));
   context.subscriptions.push(vscode.commands.registerCommand("refreshTestsSpin", () => {}));
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("selectFuzzingSanitizer", async () => {
+      await setFuzzingSanitizer();
+      taskProvider.regenerateSubset(["Build fuzzer"]);
+      treeProvider.updateDynamicLabels();
+    }),
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("selectFuzzingHarness", async () => {

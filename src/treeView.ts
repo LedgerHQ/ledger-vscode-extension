@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { platform } from "node:process";
 import * as cp from "child_process";
 import { TargetSelector } from "./targetSelector";
-import { getSelectedApp } from "./appSelector";
+import { doCrashesExists, getSelectedApp, isHarnessCompiled } from "./appSelector";
 import { TaskSpec, checks, buildMode } from "./taskProvider";
 import { DevImageStatus } from "./containerManager";
 
@@ -111,6 +111,9 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
           this.addTestDependenciesTreeItem();
         }
         if (spec.name.includes("Build fuzzer")) {
+          this.addSelectSanitizerTreeItem();
+        }
+        if (spec.name.includes("Build fuzzer")) {
           this.addSelectHarnessTreeItem();
         }
         if (spec.name.includes("Run fuzzer")) {
@@ -164,6 +167,36 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     else if (testsRootItem && addTestReqsItem) {
       // Move addTestReqsItem item to the end of the list
       testsRootItem.children?.splice(testsRootItem.children?.indexOf(addTestReqsItem), 1);
+    }
+  }
+
+  private addSelectSanitizerTreeItem(): void {
+    let fuzzingRootItem = this.data.find(item => item.label?.toString().startsWith("Fuzzing"));
+    let selectSanitizerItem = fuzzingRootItem?.children?.find(item => item.label?.toString().startsWith("Select sanitizer"));
+    if (fuzzingRootItem && !selectSanitizerItem) {
+      // Add item to select fuzzing harness
+      let selectSanitizerItem = new TreeItem("Select sanitizer");
+      selectSanitizerItem.tooltip
+        = "Select the fuzzing sanitizer to build.";
+      selectSanitizerItem.command = {
+        // Command that let's user input string saved for each app present in workspace
+        command: "selectFuzzingSanitizer",
+        title: "Select fuzzing sanitizer",
+        arguments: [],
+      };
+
+      selectSanitizerItem.iconPath = new vscode.ThemeIcon("circle-filled");
+      selectSanitizerItem.resourceUri = vscode.Uri.from({
+        scheme: "devtools-treeview",
+        authority: "task",
+        path: "/" + fuzzingRootItem.label + "/enabled",
+      });
+
+      fuzzingRootItem.addChild(selectSanitizerItem);
+    }
+    else if (fuzzingRootItem && selectSanitizerItem) {
+      // Move addselectSanitizerItem item to the end of the list
+      fuzzingRootItem.children?.splice(fuzzingRootItem.children?.indexOf(selectSanitizerItem), 1);
     }
   }
 
@@ -336,26 +369,32 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
           }
         }
         if (item.label?.toString().startsWith("Fuzzing")) {
+          let objComponents = {
+            scheme: "devtools-treeview",
+            authority: "task",
+            path: "",
+          };
           const selectHarnessItem = item.children?.find(child => child.label && child.label.toString().startsWith("Select harness"));
+          const selectCrashItem = item.children?.find(child => child.label && child.label.toString().startsWith("Select crash"));
+          const selectSanitizerItem = item.children?.find(child => child.label && child.label.toString().startsWith("Select sanitizer"));
+          if (selectSanitizerItem) {
+            selectSanitizerItem.label = `Select sanitizer [${currentApp.fuzzingSanitizer}]`;
+          }
           if (selectHarnessItem) {
             selectHarnessItem.label = currentApp.fuzzingHarness ? `Select harness [${currentApp.fuzzingHarness}]` : "Select harness";
-
+            selectHarnessItem.resourceUri = vscode.Uri.from(objComponents);
             const inspectCoverageItem = item.children?.find(child => child.label && child.label.toString().startsWith("Inspect coverage"));
             const runFuzzerItem = item.children?.find(child => child.label && child.label.toString().startsWith("Run fuzzer"));
             const fuzzingRootItem = this.data.find(item => item.label?.toString().startsWith("Fuzzing"));
 
-            if (inspectCoverageItem && runFuzzerItem && fuzzingRootItem) {
-              let objComponents = {
-                scheme: "devtools-treeview",
-                authority: "task",
-                path: "",
-              };
+            if (inspectCoverageItem && runFuzzerItem && fuzzingRootItem && selectCrashItem) {
               objComponents.path = currentApp.fuzzingHarness ? "/" + fuzzingRootItem.label + "/enabled" : "/" + fuzzingRootItem.label + "/disabled";
               inspectCoverageItem.resourceUri = vscode.Uri.from(objComponents);
               runFuzzerItem.resourceUri = vscode.Uri.from(objComponents);
+              objComponents.path = currentApp.fuzzingHarness ? "/" + fuzzingRootItem.label + "/enabled" : "/" + fuzzingRootItem.label + "/disabled";
+              selectCrashItem.resourceUri = vscode.Uri.from(objComponents);
             }
           }
-          const selectCrashItem = item.children?.find(child => child.label && child.label.toString().startsWith("Select crash"));
           if (selectCrashItem) {
             selectCrashItem.label = currentApp.fuzzingCrash ? `Select crash [${currentApp.fuzzingCrash}]` : "Select crash";
             const fuzzingRootItem = this.data.find(item => item.label?.toString().startsWith("Fuzzing"));

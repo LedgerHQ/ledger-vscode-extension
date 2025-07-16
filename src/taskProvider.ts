@@ -445,9 +445,8 @@ export class TaskProvider implements vscode.TaskProvider {
     let exec = "";
     let targetDevice = this.tgtSelector.getSelectedTarget().toLowerCase().replace(/\s/g, "");
 
-    let buildFuzzingScript = `/ledger-secure-sdk/fuzzing/local_run.sh --build=1 --TARGET_DEVICE=${targetDevice} --BOLOS_SDK=/ledger-secure-sdk --run-fuzzer=0 --compute-coverage=0`;
-
     if (this.currentApp) {
+      let buildFuzzingScript = `/ledger-secure-sdk/fuzzing/local_run.sh --build=1 --sanitizer=${this.currentApp.fuzzingSanitizer} --TARGET_DEVICE=${targetDevice} --BOLOS_SDK=/ledger-secure-sdk --run-fuzzer=0 --compute-coverage=0`;
       exec = `docker exec -iu root -it ${this.containerName} bash -c 'apt-get update && apt-get install -y bear libclang-rt-dev && make clean' && docker exec -it ${
         this.containerName
       } bash -c 'cd ${this.currentApp.fuzzingDirPath} && ${buildFuzzingScript}'`;

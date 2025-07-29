@@ -939,8 +939,8 @@ function parseManifest(tomlContent: any): [AppLanguage, string, LedgerDevice[], 
   // Parse compatible devices
   const compatibleDevices: LedgerDevice[] = manifestDevicesToLedgerDevices(getPropertyOrThrow(tomlContent, "app.devices"));
 
-  // Check if pytest functional tests are present
-  let functionalTestsDir = getProperty(tomlContent, "tests.pytest_directory");
+  // Check if pytest functional tests are present (new and legacy manifests)
+  let functionalTestsDir = getProperty(tomlContent, "pytest.standalone.directory") || getProperty(tomlContent, "tests.pytest_directory");
 
   // Parse test dependencies, if any.
   let testUseCases = parseTestsUsesCasesFromManifest(tomlContent);

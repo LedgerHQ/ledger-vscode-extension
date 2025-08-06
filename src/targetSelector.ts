@@ -3,7 +3,7 @@ import { getSelectedApp } from "./appSelector";
 import { updateSetting, getSetting } from "./extension";
 
 // Define valid devices
-const devices = ["Nano S", "Nano S Plus", "Nano X", "Stax", "Flex"] as const;
+const devices = ["Nano S", "Nano S Plus", "Nano X", "Stax", "Flex", "Apex p", "Apex m"] as const;
 
 export const specialAllDevice = "All";
 
@@ -12,7 +12,7 @@ type SpecialAllDevice = typeof specialAllDevice;
 // Define the LedgerDevice type
 export type LedgerDevice = (typeof devices)[number];
 
-const targetsArray: LedgerDevice[] = ["Nano S", "Nano S Plus", "Nano X", "Stax", "Flex"];
+const targetsArray: LedgerDevice[] = ["Nano S", "Nano S Plus", "Nano X", "Stax", "Flex", "Apex p", "Apex m"];
 
 const targetSDKs: Record<string, string> = {
   [targetsArray[0]]: "$NANOS_SDK",
@@ -20,6 +20,8 @@ const targetSDKs: Record<string, string> = {
   [targetsArray[2]]: "$NANOX_SDK",
   [targetsArray[3]]: "$STAX_SDK",
   [targetsArray[4]]: "$FLEX_SDK",
+  [targetsArray[5]]: "$APEX_P_SDK",
+  [targetsArray[6]]: "$APEX_M_SDK",
 };
 const speculosModels: Record<string, string> = {
   [targetsArray[0]]: "nanos",
@@ -27,6 +29,8 @@ const speculosModels: Record<string, string> = {
   [targetsArray[2]]: "nanox",
   [targetsArray[3]]: "stax",
   [targetsArray[4]]: "flex",
+  [targetsArray[5]]: "apex_p",
+  [targetsArray[6]]: "apex_m",
 };
 const sdkModels: Record<string, string> = {
   [targetsArray[0]]: "nanos",
@@ -34,6 +38,8 @@ const sdkModels: Record<string, string> = {
   [targetsArray[2]]: "nanox",
   [targetsArray[3]]: "stax",
   [targetsArray[4]]: "flex",
+  [targetsArray[5]]: "apex_p",
+  [targetsArray[6]]: "apex_m",
 };
 
 const targetIds: Record<string, string> = {
@@ -42,6 +48,8 @@ const targetIds: Record<string, string> = {
   [targetsArray[2]]: "0x33000004", // ST33
   [targetsArray[3]]: "0x33200004", // ST33K1M5
   [targetsArray[4]]: "0x33300004", // ST33K1M5
+  [targetsArray[5]]: "0x33400004", // ST33K1M5
+  [targetsArray[6]]: "0x33500004", // ST33K1M5
 };
 
 export class TargetSelector {

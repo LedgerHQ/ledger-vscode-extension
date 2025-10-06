@@ -499,9 +499,9 @@ async function getCoverage(): Promise<string> {
   }
 
   const target = targetSelector.getSelectedTarget().toLowerCase().replace(/\s/g, "");
-  const coverageFuzzingScript = `/ledger-secure-sdk/fuzzing/local_run.sh --TARGET_DEVICE=${target} --fuzzer=build/${currentApp.fuzzingHarness} --BOLOS_SDK=/ledger-secure-sdk --compute-coverage=1`;
+  const coverageFuzzingScript = `$\{BOLOS_SDK\}/fuzzing/local_run.sh --fuzzer=build/${currentApp.fuzzingHarness} --BOLOS_SDK=$\{BOLOS_SDK\} --compute-coverage=1`;
 
-  let computeCoverageCmd = `docker exec -u root ${currentApp.containerName} bash -c 'apt-get update && apt-get install -y libclang-rt-dev' && docker exec ${
+  let computeCoverageCmd = `docker exec -iu root ${currentApp.containerName} bash -c 'apt-get update && apt-get install -y libclang-rt-dev' && docker exec ${
     currentApp.containerName
   } bash -c 'cd ${currentApp.fuzzingDirPath} && ${coverageFuzzingScript}'`;
 

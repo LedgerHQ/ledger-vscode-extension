@@ -646,7 +646,7 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
     const quotesAroundBashCommand = process.platform === "win32" ? "\"" : "";
 
     // Extract the shell script for clarity
-    const getTestsListShellScript = `${quotesAroundBashCommand}cd ${selectedApp.functionalTestsDir} &&
+    const getTestsListShellScript = `${quotesAroundBashCommand}source /opt/venv/bin/activate && cd ${selectedApp.functionalTestsDir} &&
       owner=$(stat -c %u conftest.py);
       pip install -r requirements.txt > /dev/null 2>&1 &&
         device_option=${varPrefix}(pytest --help |

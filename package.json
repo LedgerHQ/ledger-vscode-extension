@@ -259,7 +259,7 @@
         },
         "ledgerDevTools.openContainerAsRoot": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "markdownDescription": "Open docker container using root user."
         },
         "ledgerDevTools.containerUpdateRetries": {

@@ -17,7 +17,8 @@ export function getDockerUserOpt(): string {
     const uid = execSync("id -u", { encoding: "utf-8" }).trim();
     const gid = execSync("id -g", { encoding: "utf-8" }).trim();
     return `--user ${uid}:${gid}`;
-  } catch (error) {
+  } 
+  catch (error) {
     // Fallback if id command fails
     return `--user 1000:1000`;
   }

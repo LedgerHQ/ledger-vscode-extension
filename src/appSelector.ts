@@ -5,6 +5,7 @@ import * as fg from "fast-glob";
 import * as toml from "@ltd/j-toml";
 import { platform } from "node:process";
 import * as cp from "child_process";
+import { getDockerUserOpt } from "./containerManager";
 import { TaskProvider } from "./taskProvider";
 import { LedgerDevice, TargetSelector } from "./targetSelector";
 import { pushError, updateSetting, getSetting } from "./extension";
@@ -550,7 +551,7 @@ function getAppName(appdir: string): string {
   const image = conf.get<string>("dockerImage") || "";
 
   // BOLOS_SDK value doesn't impact the APPNAME
-  let cleanCmd: string = `docker run --rm -v '${appdir}:/app' ${image} bash -c "BOLOS_SDK=/opt/stax-secure-sdk make listinfo | grep ${C_APP_NAME_MAKEFILE_VAR}| cut -d'=' -f2"`;
+  let cleanCmd: string = `docker run ${getDockerUserOpt()} --rm -v '${appdir}:/app' ${image} bash -c "BOLOS_SDK=/opt/stax-secure-sdk make listinfo | grep ${C_APP_NAME_MAKEFILE_VAR}| cut -d'=' -f2"`;
   return cp.execSync(cleanCmd, optionsExecSync).toString().trim();
 }
 
@@ -592,7 +593,7 @@ function getAppVariants(appdir: string, appName: string, folderUri: vscode.Uri):
   const image = conf.get<string>("dockerImage") || "";
 
   // BOLOS_SDK value doesn't impact the APPNAME
-  let cleanCmd: string = `docker run --rm -v '${appdir}:/app' ${image} bash -c "BOLOS_SDK=/opt/stax-secure-sdk make listvariants | grep ${C_VARIANT_MAKEFILE_VAR} | cut -d' ' -f2-"`;
+  let cleanCmd: string = `docker run ${getDockerUserOpt()} --rm -v '${appdir}:/app' ${image} bash -c "BOLOS_SDK=/opt/stax-secure-sdk make listvariants | grep ${C_VARIANT_MAKEFILE_VAR} | cut -d' ' -f2-"`;
   let result = cp.execSync(cleanCmd, optionsExecSync).toString().trim().split(" ");
   // Variant name is the 2nd word, and the values are following from the 3rd word
   variants.name = result[0];
@@ -643,11 +644,11 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
 
     const varPrefix = process.platform === "win32" ? "\`$" : "$";
     const quotesAroundBashCommand = process.platform === "win32" ? "\"" : "";
-    let getTestsListArgs = [
-      "exec", "-u", "0", selectedApp!.containerName, "bash", "-c",
-      `${quotesAroundBashCommand}cd ${selectedApp.functionalTestsDir} &&
+
+    // Extract the shell script for clarity
+    const getTestsListShellScript = `${quotesAroundBashCommand}source /opt/venv/bin/activate && cd ${selectedApp.functionalTestsDir} &&
       owner=$(stat -c %u conftest.py);
-      pip install --break-system-packages -r requirements.txt > /dev/null 2>&1 &&
+      pip install -r requirements.txt > /dev/null 2>&1 &&
         device_option=${varPrefix}(pytest --help |
             awk '/[C|c]ustom options/,/^$/' |
             grep -E -- '--model|--device'   |
@@ -661,11 +662,14 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
         else
             pytest --collect-only -q
         fi;
-        chown -R ${varPrefix}owner:${varPrefix}owner __pycache__;
-        chown -R ${varPrefix}owner:${varPrefix}owner .pytest_cache/;
         if [ $? -eq 5 ]; then
             exit 0
-        fi${quotesAroundBashCommand}`,
+        fi${quotesAroundBashCommand}`;
+
+    let getTestsListArgs = [
+      // Resolve UID and GID on the host
+      "exec", ...getDockerUserOpt().split(" "), selectedApp!.containerName, "bash", "-c",
+      getTestsListShellScript,
     ];
 
     // Executing the command with a callback
@@ -840,7 +844,7 @@ export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, 
     const testDepDirPath = path.posix.join(selectedApp.functionalTestsDir, testDepDir);
     // Clean the test dependencies folder if it exists and the clean flag is set
     if (clean) {
-      let cleanCmd = `docker exec ${
+      let cleanCmd = `docker exec ${getDockerUserOpt()} ${
         selectedApp!.containerName
       } bash -c "if [ -d '${testDepDirPath}' ]; then rm -rf ${testDepDirPath}; fi"`;
       try {
@@ -860,7 +864,7 @@ export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, 
         let depFolderName = path.basename(dep.gitRepoUrl, ".git") + "-" + dep.useCase;
         let depFolderPath = path.posix.join(testDepDirPath, depFolderName);
         let gitCloneCommand = `git clone ${dep.gitRepoUrl} --branch ${dep.gitRepoRef} ${depFolderPath}`;
-        let execGitCloneCommand = `docker exec ${
+        let execGitCloneCommand = `docker exec ${getDockerUserOpt()} ${
           selectedApp!.containerName
         } bash -c "if [ ! -d '${depFolderPath}' ]; then ${gitCloneCommand}; fi"`;
 
@@ -897,7 +901,7 @@ export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, 
               });
               targetSelector.setSelectedTarget(target);
 
-              let execBuildCommand = `${submodulesCommand} docker exec ${selectedApp!.containerName} bash -c '${buildCommand}'`;
+              let execBuildCommand = `${submodulesCommand} docker exec ${getDockerUserOpt()} ${selectedApp!.containerName} bash -c '${buildCommand}'`;
 
               vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", false);
               vscode.commands.executeCommand("setContext", "ledgerDevTools.showrebuildTestUseCaseDepsSpin", true);

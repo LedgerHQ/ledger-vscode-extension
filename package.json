@@ -34,11 +34,6 @@
           "group": "inline"
         },
         {
-          "command": "buildUseCase",
-          "when": "view == mainView && viewItem == buildUseCase",
-          "group": "inline"
-        },
-        {
           "command": "rebuildTestUseCaseDeps",
           "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showRebuildTestUseCaseDeps",
           "group": "inline"

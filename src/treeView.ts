@@ -339,7 +339,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
         selectVariant.tooltip = "Select the variant to build";
         selectVariant.command = {
           command: "selectVariant",
-          title: "Select target",
+          title: "Select variant",
           arguments: [],
         };
         console.log("Ledger: Adding selectVariant to tree");

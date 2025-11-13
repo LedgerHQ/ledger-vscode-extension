@@ -50,29 +50,6 @@ export async function showChecks() {
   return result;
 }
 
-export interface BuildModeList {
-  selected: string;
-  values: string[];
-}
-const validBuildMode: string[] = ["Incremental", "Full"];
-export const buildMode: BuildModeList = {
-  selected: "Incremental",
-  values: validBuildMode,
-};
-
-let buildModeSelectedEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
-export const onBuildModeSelectedEvent: vscode.Event<void> = buildModeSelectedEmitter.event;
-
-export async function toggleBuildMode() {
-  if (buildMode.selected === "Incremental") {
-    buildMode.selected = "Full";
-  }
-  else {
-    buildMode.selected = "Incremental";
-  }
-  buildModeSelectedEmitter.fire();
-}
-
 // Cache the Promise to ensure the function is only executed once
 let appLoadRequirementsPromise: Promise<string> | null = null;
 
@@ -165,9 +142,9 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Build",
-      name: "Build app",
+      name: "Build (incremental)",
       builders: { ["c"]: this.cBuildExec, ["rust"]: this.rustBuildExec },
-      toolTip: "Build app",
+      toolTip: "Build application incrementally (faster, only rebuilds changed files)",
       dependsOn: this.appSubmodulesInitExec,
       state: "enabled",
       allSelectedBehavior: "executeForEveryTarget",
@@ -445,11 +422,6 @@ export class TaskProvider implements vscode.TaskProvider {
       if (this.currentApp.variants && this.currentApp.variants.selected) {
         buildOpt += " " + this.currentApp.variants.name + "=" + this.currentApp.variants.selected;
       }
-    }
-
-    // Retrieve the selected build mode, if any
-    if (buildMode.selected === "Full") {
-      buildOpt += " -B";
     }
 
     const exec = `docker exec -it ${

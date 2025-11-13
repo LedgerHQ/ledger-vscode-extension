@@ -3,7 +3,7 @@ import { platform } from "node:process";
 import * as cp from "child_process";
 import { TargetSelector } from "./targetSelector";
 import { getSelectedApp } from "./appSelector";
-import { TaskSpec, checks, buildMode } from "./taskProvider";
+import { TaskSpec, checks } from "./taskProvider";
 import { DevImageStatus } from "./containerManager";
 
 export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
@@ -267,11 +267,6 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
           const cleanItem = buildUseCaseItem.children?.find(child => child.label && child.label.toString().startsWith("Clean the "));
           if (cleanItem) {
             cleanItem.label = `Clean the ${this.targetSelector.getSelectedTarget()} build files`;
-          }
-          // Update Build App label
-          const buildItem = buildUseCaseItem.children?.find(child => child.label && child.label.toString().startsWith("Build app"));
-          if (buildItem) {
-            buildItem.label = `Build app [${buildMode.selected}]`;
           }
         }
       }

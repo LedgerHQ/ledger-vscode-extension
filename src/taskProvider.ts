@@ -508,17 +508,15 @@ export class TaskProvider implements vscode.TaskProvider {
   }
 
   private openDefaultTerminalExec(): string {
-    const userOpt = getDockerUserOpt();
-    const exec = `docker exec -it ${userOpt} ${
+    const exec = `docker exec -it ${getDockerUserOpt()} ${
       this.containerName
     } bash -c 'export BOLOS_SDK=${this.tgtSelector.getSelectedSDK()} && bash'`;
     return exec;
   }
 
   private openComposeTerminalExec(): string {
-    const userOpt = getDockerUserOpt();
     const serviceName = this.treeProvider.getComposeServiceName();
-    const exec = `docker compose run --rm --remove-orphans ${userOpt} ${serviceName}`;
+    const exec = `docker compose run --rm --remove-orphans ${getDockerUserOpt()} ${serviceName}`;
     return exec;
   }
 
@@ -780,7 +778,6 @@ export class TaskProvider implements vscode.TaskProvider {
   }
 
   private runGuidelineEnforcer(): string {
-    const userOpt = getDockerUserOpt();
     let checkOpt: string = "";
     // Retrieve the selected check, if any
     if (checks.selected !== "All") {
@@ -794,7 +791,7 @@ export class TaskProvider implements vscode.TaskProvider {
       checkOpt += `-t ${this.tgtSelector.getSelectedSDKModel()}`;
     }
     // Runs checks inside the docker container.
-    const exec = `docker exec -it ${userOpt} ${
+    const exec = `docker exec -it ${getDockerUserOpt()} ${
       this.containerName
     } bash -c 'export BOLOS_SDK=${this.tgtSelector.getSelectedSDK()} && /opt/enforcer.sh ${checkOpt}'`;
     return exec;

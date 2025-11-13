@@ -5,7 +5,7 @@ import * as fg from "fast-glob";
 import * as toml from "@ltd/j-toml";
 import { platform } from "node:process";
 import * as cp from "child_process";
-import { getDockerUserOpt } from "./dockerUserOption";
+import { getDockerUserOpt } from "./containerManager";
 import { TaskProvider } from "./taskProvider";
 import { LedgerDevice, TargetSelector } from "./targetSelector";
 import { pushError, updateSetting, getSetting } from "./extension";

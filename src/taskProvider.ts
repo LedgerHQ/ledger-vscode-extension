@@ -6,7 +6,7 @@ import * as os from "os";
 import * as fs from "fs";
 import * as fg from "fast-glob";
 import { platform } from "node:process";
-import { getDockerUserOpt } from "./dockerUserOption";
+import { getDockerUserOpt } from "./containerManager";
 import { TargetSelector, specialAllDevice } from "./targetSelector";
 import { getSelectedApp, App, AppLanguage } from "./appSelector";
 import { TreeDataProvider } from "./treeView";

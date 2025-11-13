@@ -764,7 +764,7 @@ export class TaskProvider implements vscode.TaskProvider {
   private functionalTestsGoldenRunExec(): string {
     let [testsSelection, execQuotes] = this.getSelectedTests();
     // Runs functional tests inside the docker container (with Qt display disabled and '--golden_run' option).
-    const exec = `docker exec ${getDockerUserOpt()}-it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate && pytest ${
+    const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate && pytest ${
       this.functionalTestsDir
     } --tb=short -v --device ${this.tgtSelector.getSelectedSpeculosModel()} --golden_run ${testsSelection}${execQuotes}`;
     return exec;

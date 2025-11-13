@@ -4,12 +4,13 @@ import * as cp from "child_process";
 import { TargetSelector } from "./targetSelector";
 import { getSelectedApp } from "./appSelector";
 import { TaskSpec, checks } from "./taskProvider";
-import { DevImageStatus } from "./containerManager";
+import { DevImageStatus, ContainerManager } from "./containerManager";
 
 export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
   private data: TreeItem[];
   private targetSelector: TargetSelector;
   private fileDecorationProvider: ViewFileDecorationProvider;
+  private containerManager?: ContainerManager;
 
   constructor(targetSelector: TargetSelector) {
     this.data = [];
@@ -18,6 +19,10 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     this.updateDynamicLabels();
     this.fileDecorationProvider = new ViewFileDecorationProvider(this);
     vscode.window.registerFileDecorationProvider(this.fileDecorationProvider);
+  }
+
+  public setContainerManager(containerManager: ContainerManager) {
+    this.containerManager = containerManager;
   }
 
   getTaskItemByLabel(label: string): TreeItem | undefined {
@@ -53,11 +58,41 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
       arguments: [spec.name],
     };
     if (spec.group) {
-      let rootItem = this.data.find(item => item.label === spec.group);
+      // Find existing group by base group name (without any status suffix)
+      let rootItem = this.data.find((item) => {
+        const label = item.label?.toString() || "";
+        // Match by checking if label starts with the group name
+        // This handles cases where group label has status suffix like "Docker Container [running]"
+        return label === spec.group || label.startsWith(spec.group + " [");
+      });
       if (!rootItem) {
         rootItem = new TreeItem(spec.group);
         if (rootItem.label?.toString().startsWith("Docker Container")) {
-          rootItem.iconPath = new vscode.ThemeIcon("vm");
+          // Initialize Docker Container with current status
+          if (this.containerManager) {
+            const status = this.containerManager.getContainerStatus();
+            let statusSuffix = "";
+            let icon = new vscode.ThemeIcon("vm");
+            switch (status) {
+              case DevImageStatus.running:
+                statusSuffix = "running";
+                icon = new vscode.ThemeIcon("vm-active");
+                break;
+              case DevImageStatus.syncing:
+                statusSuffix = "syncing";
+                icon = new vscode.ThemeIcon("vm-connect");
+                break;
+              case DevImageStatus.stopped:
+                statusSuffix = "stopped";
+                icon = new vscode.ThemeIcon("vm-outline");
+                break;
+            }
+            rootItem.label = `Docker Container [${statusSuffix}]`;
+            rootItem.iconPath = icon;
+          }
+          else {
+            rootItem.iconPath = new vscode.ThemeIcon("vm");
+          }
         }
         if (rootItem.label?.toString().startsWith("Build")) {
           rootItem.iconPath = new vscode.ThemeIcon("tools");

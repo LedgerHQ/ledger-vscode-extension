@@ -118,15 +118,23 @@ export class TaskProvider implements vscode.TaskProvider {
   private taskSpecs: TaskSpec[] = [
     {
       group: "Docker Container",
-      name: "Update container",
-      builders: { ["Both"]: this.runDevToolsImageExec },
-      toolTip: "Update docker container (pull image and restart container)",
+      name: "Pull latest SDK",
+      builders: { ["Both"]: this.pullDockerImageExec },
+      toolTip: "Pull the latest Ledger SDK docker image from registry",
       state: "enabled",
       allSelectedBehavior: "enable",
     },
     {
       group: "Docker Container",
-      name: "Open default terminal",
+      name: "Start/Restart build container",
+      builders: { ["Both"]: this.startDockerContainerExec },
+      toolTip: "Start or restart the docker container for building this application",
+      state: "enabled",
+      allSelectedBehavior: "enable",
+    },
+    {
+      group: "Docker Container",
+      name: "Open terminal in container",
       builders: { ["Both"]: this.openDefaultTerminalExec },
       toolTip: "Open terminal in container with default configuration",
       state: "enabled",
@@ -370,23 +378,28 @@ export class TaskProvider implements vscode.TaskProvider {
     }
   }
 
-  private runDevToolsImageExec(): string {
+  private pullDockerImageExec(): string {
+    // Pulls the latest Ledger SDK docker image from registry
+    return `docker pull ${this.image}`;
+  }
+
+  private startDockerContainerExec(): string {
     let exec = "";
 
     if (this.currentApp) {
-      // Checks if a container with the name ${this.containerName} exists, and if it does, it is stopped and removed before a new container is created using the same name and other specified configuration parameters
+      // Checks if a container with the name ${this.containerName} exists, and if it does, it is stopped and removed before a new container is created
       if (platform === "linux") {
         // Linux
-        exec = `xhost + ; docker ps -a --format '{{.Names}}' | grep -q ${this.containerName} && (docker container stop ${this.containerName} && docker container rm ${this.containerName}) ; docker pull ${this.image} && docker run --user $(id -u):$(id -g) --privileged -e DISPLAY=$DISPLAY -v '/dev/bus/usb:/dev/bus/usb' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' ${this.dockerRunArgs} -t -d --name ${this.containerName} ${this.image}`;
+        exec = `xhost + ; docker ps -a --format '{{.Names}}' | grep -q ${this.containerName} && (docker container stop ${this.containerName} && docker container rm ${this.containerName}) ; docker run --user $(id -u):$(id -g) --privileged -e DISPLAY=$DISPLAY -v '/dev/bus/usb:/dev/bus/usb' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' ${this.dockerRunArgs} -t -d --name ${this.containerName} ${this.image}`;
       }
       else if (platform === "darwin") {
         // macOS
-        exec = `xhost + ; docker ps -a --format '{{.Names}}' | grep -q ${this.containerName} && (docker container stop ${this.containerName} && docker container rm ${this.containerName}) ; docker pull ${this.image} && docker run --user $(id -u):$(id -g) --privileged -e DISPLAY='host.docker.internal:0' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' ${this.dockerRunArgs} -t -d --name ${this.containerName} ${this.image}`;
+        exec = `xhost + ; docker ps -a --format '{{.Names}}' | grep -q ${this.containerName} && (docker container stop ${this.containerName} && docker container rm ${this.containerName}) ; docker run --user $(id -u):$(id -g) --privileged -e DISPLAY='host.docker.internal:0' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' ${this.dockerRunArgs} -t -d --name ${this.containerName} ${this.image}`;
       }
       else {
         // Assume windows
         const winWorkspacePath = this.workspacePath.substring(1); // Remove first '/' from windows workspace path URI. Otherwise it is not valid.
-        exec = `if (docker ps -a --format '{{.Names}}' | Select-String -Quiet ${this.containerName}) { docker container stop ${this.containerName}; docker container rm ${this.containerName} }; docker pull ${this.image}; docker run --privileged -e DISPLAY='host.docker.internal:0' -v '${winWorkspacePath}:/app' ${this.dockerRunArgs} -t -d --name ${this.containerName} ${this.image}`;
+        exec = `if (docker ps -a --format '{{.Names}}' | Select-String -Quiet ${this.containerName}) { docker container stop ${this.containerName}; docker container rm ${this.containerName} }; docker run --privileged -e DISPLAY='host.docker.internal:0' -v '${winWorkspacePath}:/app' ${this.dockerRunArgs} -t -d --name ${this.containerName} ${this.image}`;
       }
     }
 

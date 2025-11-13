@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * use_case selection is flattened alongside device and variant selection
 * removed C build [full] option as it is an inferior duplicate from clean + build
+* restart build docker is split from pull latest SDK docker
+
+### Fixed
+
+* Fixed docker container status when VSCode connects to already running image at startup
 
 ## [1.3.0]
 

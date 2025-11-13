@@ -54,11 +54,6 @@
           "group": "inline"
         },
         {
-          "command": "toggleBuildMode",
-          "when": "view == mainView && viewItem == buildUseCase && ledgerDevTools.showSelectBuildMode",
-          "group": "inline"
-        },
-        {
           "command": "refreshTests",
           "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showRefreshTests",
           "group": "inline"
@@ -199,14 +194,6 @@
         "category": "Ledger",
         "tooltip": "Select the check you want to run, or All by default.",
         "icon": "$(pass)"
-      },
-      {
-        "command": "toggleBuildMode",
-        "title": "Toggle the build mode between Full and Incrememental",
-        "category": "Ledger",
-        "tooltip": "Select the mode you want to use.",
-        "icon": "$(pass-filled)",
-        "enablement": "ledgerDevTools.showSelectBuildMode"
       },
       {
         "command": "rebuildTestUseCaseDeps",

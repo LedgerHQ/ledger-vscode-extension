@@ -153,7 +153,6 @@ export class TaskProvider implements vscode.TaskProvider {
       name: "Build (incremental)",
       builders: { ["c"]: this.cBuildExec, ["rust"]: this.rustBuildExec },
       toolTip: "Build application incrementally (faster, only rebuilds changed files)",
-      dependsOn: this.appSubmodulesInitExec,
       state: "enabled",
       allSelectedBehavior: "executeForEveryTarget",
     },
@@ -454,20 +453,6 @@ export class TaskProvider implements vscode.TaskProvider {
       this.packageName
     }.apdu build/${tgtBuildDir}/bin/app.apdu'`;
     // Builds the app in release mode using the make command, inside the docker container.
-    return exec;
-  }
-
-  private appSubmodulesInitExec(): string {
-    let exec = "";
-    // Init app git submodules (if any).
-    if (platform === "win32") {
-      // Execute git command in cmd.exe on host, no docker
-      exec = `cmd.exe /C git submodule update --init --recursive`;
-    }
-    else {
-      // Execute git command in bash on host, no docker
-      exec = `git submodule update --init --recursive`;
-    }
     return exec;
   }
 

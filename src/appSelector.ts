@@ -880,12 +880,6 @@ export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, 
             if (depApp.language === "c") {
               console.log(`Ledger: building C app ${depApp.name} in ${depFolderPath}`);
 
-              // Execute git command in cmd.exe on host, no docker
-              let submodulesCommand = `cd ${depFolderPath} && git submodule update --init --recursive;`;
-              if (platform === "win32") {
-                // Adapt the command for windows
-                submodulesCommand = `cd ${path.join(depFolderPath)} ; cmd.exe /c "git submodule update --init --recursive";`;
-              }
               // Build the app for all supported targets
               let buildCommand = "";
               let target = targetSelector.getSelectedTarget();
@@ -898,7 +892,7 @@ export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, 
               });
               targetSelector.setSelectedTarget(target);
 
-              let execBuildCommand = `${submodulesCommand} docker exec ${selectedApp!.containerName} bash -c '${buildCommand}'`;
+              let execBuildCommand = `docker exec ${selectedApp!.containerName} bash -c '${buildCommand}'`;
 
               vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", false);
               vscode.commands.executeCommand("setContext", "ledgerDevTools.showrebuildTestUseCaseDepsSpin", true);

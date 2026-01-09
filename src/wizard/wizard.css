@@ -1,0 +1,72 @@
+body {
+    background-color: var(--vscode-editor-background);
+    color: var(--vscode-editor-foreground);
+    font-family: var(--vscode-font-family);
+    padding: 20px;
+}
+.container { max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; position: relative; }
+
+vscode-textfield, vscode-single-select { width: 100%; display: block; margin-bottom: 10px; }
+vscode-label { display: block; margin-bottom: 5px; }
+vscode-button { width: 100%; margin-top: 20px; padding: 10px 0; }
+
+/* Custom Card-like Styling for Radios */
+vscode-radio-group {
+    display: flex;
+    gap: 15px;
+    width: 100%;
+}
+
+vscode-radio {
+    flex: 1;
+    background: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 6px;
+    padding: 15px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: flex-start; /* Align radio circle to top */
+}
+
+vscode-radio:hover {
+    background: var(--vscode-list-hoverBackground);
+    border-color: var(--vscode-focusBorder);
+}
+
+vscode-icon[close] {
+    position: absolute;
+    top: 10px;
+    right: 4px;
+}
+
+h2[title] {
+    margin-top: 10px;
+    margin-bottom: 15px;
+    font-size: 1.4em;
+}
+
+/* Active state styling - targeting attribute and class for safety */
+vscode-radio[checked], vscode-radio.selected {
+    background: var(--vscode-inputOption-activeBackground);
+    border-color: var(--vscode-focusBorder);
+    color: var(--vscode-inputOption-activeForeground);
+    outline: 1px solid var(--vscode-focusBorder);
+}
+
+.radio-content {
+    display: flex;
+    flex-direction: column;
+    margin-left: 5px;
+}
+
+.radio-title {
+    font-weight: 600;
+    font-size: 1.1em;
+    margin-bottom: 4px;
+}
+
+.radio-desc {
+    font-size: 0.85em;
+    opacity: 0.8;
+}

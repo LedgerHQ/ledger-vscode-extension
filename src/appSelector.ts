@@ -679,7 +679,7 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
         return;
       }
       else {
-        stdout.split("\n").forEach((line: string) => {
+        stdout.toString().split("\n").forEach((line: string) => {
           if (line.includes("::")) {
             let parts = line.split("::");
             if (parts.length > 0) {

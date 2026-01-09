@@ -32,6 +32,7 @@ import {
   showVariant,
   initializeAppSubmodulesIfNeeded,
 } from "./appSelector";
+import { WizardProvider } from "./wizard/wizard";
 
 let outputChannel: vscode.OutputChannel;
 const appDetectionFiles = ["Cargo.toml", "ledger_app.toml", "Makefile"];
@@ -40,6 +41,9 @@ console.log("Ledger: Loading extension");
 
 export function activate(context: vscode.ExtensionContext) {
   console.log(`Ledger: activating extension`);
+
+  // Initialize context for wizard visibility
+  vscode.commands.executeCommand("setContext", "myApp.showWizard", false);
 
   outputChannel = vscode.window.createOutputChannel("Ledger DevTools");
 
@@ -53,7 +57,33 @@ export function activate(context: vscode.ExtensionContext) {
   let targetSelector = new TargetSelector();
 
   let treeProvider = new TreeDataProvider(targetSelector);
-  vscode.window.registerTreeDataProvider("mainView", treeProvider);
+  const mainView = vscode.window.createTreeView("mainView", { treeDataProvider: treeProvider });
+  context.subscriptions.push(mainView);
+
+  let wizardProvider = new WizardProvider(context.extensionUri);
+  context.subscriptions.push(vscode.window.registerWebviewViewProvider("appWebView", wizardProvider));
+
+  // Function to check for apps and open walkthrough if none found
+  const checkAndOpenWalkthrough = () => {
+    const appList = findAppsInWorkspace();
+    if (!appList || appList.length === 0) {
+      vscode.commands.executeCommand("workbench.action.openWalkthrough", "LedgerHQ.ledger-dev-tools#ledgerOnboarding", false);
+    }
+  };
+
+  // On activation, check if we need to open the walkthrough, if mainView is visible
+  if (mainView.visible) {
+    checkAndOpenWalkthrough();
+  }
+
+  // On mainView visibility change, check if we need to open the walkthrough
+  context.subscriptions.push(
+    mainView.onDidChangeVisibility((e) => {
+      if (e.visible) {
+        checkAndOpenWalkthrough();
+      }
+    }),
+  );
 
   let taskProvider = new TaskProvider(treeProvider, targetSelector);
   context.subscriptions.push(vscode.tasks.registerTaskProvider(taskType, taskProvider));
@@ -260,6 +290,15 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("showAppList", () => {
       showAppSelectorMenu(targetSelector);
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("openWizard", async () => {
+      // Focus the container to ensure we're in the user's chosen location
+      await vscode.commands.executeCommand("workbench.view.extension.ledger-tools");
+      await vscode.commands.executeCommand("setContext", "myApp.showWizard", true);
+      await vscode.commands.executeCommand("appWebView.focus");
     }),
   );
 

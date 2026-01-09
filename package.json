@@ -83,7 +83,7 @@
       "activitybar": [
         {
           "id": "ledger-tools",
-          "title": "Ledger Developer Tools",
+          "title": "Ledger Dev Tools",
           "icon": "resources/ledger-square.png"
         }
       ]
@@ -93,7 +93,15 @@
         {
           "id": "mainView",
           "name": "",
-          "icon": "resources/ledger-square.png"
+          "icon": "resources/ledger-square.png",
+          "when": "!myApp.showWizard"
+        },
+        {
+          "id": "appWebView",
+          "type": "webview",
+          "icon": "resources/ledger-square.png",
+          "name": "",
+          "when": "myApp.showWizard"
         }
       ]
     },
@@ -202,6 +210,11 @@
         "tooltip": "Rebuild the dependencies for the selected test use case.",
         "icon": "$(sync)",
         "enablement": "ledgerDevTools.showRebuildTestUseCaseDeps"
+      },
+      {
+        "command": "openWizard",
+        "title": "Open Ledger App Creation Wizard",
+        "category": "Ledger"
       }
     ],
     "configuration": {
@@ -279,6 +292,68 @@
           "description": "Application dedicated settings."
         }
       }
+    },
+    "walkthroughs": [
+      {
+        "id": "ledgerOnboarding",
+        "title": "Welcome to Ledger Developer Tools",
+        "description": "Get started with building Ledger device apps.",
+        "steps": [
+          {
+            "id": "prerequisites",
+            "title": "Check Prerequisites",
+            "description": "$(docker-icon) **Docker**\n\nEnsure you have Docker installed and running so the extension can spawn development environment containers from Ledger's [developer tools image](https://github.com/LedgerHQ/ledger-app-builder/).\n\n[Get Docker](https://www.docker.com/)\n\n$(git-icon) **Git**\n\nMake sure Git is installed to allow the extension to clone Ledger app templates from Ledger's GitHub repositories.\n\n[Get Git](https://git-scm.com/)\n\n$(x11-icon) **X11 Server**\n\nThis extension requires an X11 display server to display the [Speculos](https://github.com/LedgerHQ/speculos) emulator. \n- Linux: Xorg or Wayland (via XWayland) is usually pre-installed. \n- macOS: Install [XQuartz](https://www.xquartz.org/). \n- Windows: Install [VcXsrv](https://sourceforge.net/projects/vcxsrv/).\n**Configure your X11 server to allow connections from clients.**",
+            "media": {
+              "svg": "resources/ledger-wordmark.svg",
+              "altText": "Ledger Logo"
+            }
+          },
+          {
+            "id": "learnMore",
+            "title": "Learn more",
+            "description": "Discover resources and documentation to help you get started with the development of Ledger device apps.\n\n[Go to Developer Portal](https://developers.ledger.com/docs/device-app/getting-started)",
+            "media": {
+              "svg": "resources/ledger-wordmark.svg",
+              "altText": "Ledger Logo"
+            }
+          },
+          {
+            "id": "createApp",
+            "title": "Create your Ledger app",
+            "description": "Ledger devices support applications written in C or Rust.\nGenerate and customize your app boilerplate.\n[Create New App](command:openWizard)",
+            "media": {
+              "svg": "resources/ledger-wordmark.svg",
+              "altText": "Ledger Logo"
+            },
+            "completionEvents": [
+              "onCommand:openWizard"
+            ]
+          }
+        ]
+      }
+    ],
+    "icons": {
+      "docker-icon": {
+        "description": "docker icon",
+        "default": {
+          "fontPath": "resources/icons.woff",
+          "fontCharacter": "\\f101"
+        }
+      },
+      "git-icon": {
+        "description": "git icon",
+        "default": {
+          "fontPath": "resources/icons.woff",
+          "fontCharacter": "\\f102"
+        }
+      },
+      "x11-icon": {
+        "description": "x11 icon",
+        "default": {
+          "fontPath": "resources/icons.woff",
+          "fontCharacter": "\\f103"
+        }
+      }
     }
   },
   "scripts": {
@@ -296,23 +371,28 @@
   },
   "dependencies": {
     "@ltd/j-toml": "^1.38.0",
-    "fast-glob": "^3.3.2"
+    "@vscode-elements/elements": "^2.4.0",
+    "fast-glob": "^3.3.3",
+    "simple-git": "^3.30.0"
   },
   "devDependencies": {
-    "@stylistic/eslint-plugin": "^2.11.0",
+    "@stylistic/eslint-plugin": "^2.13.0",
     "@types/mocha": "^10.0.10",
-    "@types/node": "^22.14.1",
-    "@types/vscode": "^1.95.0",
-    "@typescript-eslint/eslint-plugin": "^8.15.0",
-    "@typescript-eslint/parser": "^8.15.0",
-    "@vscode/test-electron": "^2.4.1",
-    "eslint": "^9.15.0",
-    "glob": "^11.0.0",
+    "@types/node": "^22.19.3",
+    "@types/vscode": "^1.107.0",
+    "@typescript-eslint/eslint-plugin": "^8.52.0",
+    "@typescript-eslint/parser": "^8.52.0",
+    "@vscode/test-electron": "^2.5.2",
+    "copy-webpack-plugin": "^13.0.1",
+    "eslint": "^9.39.2",
+    "glob": "^11.1.0",
     "mocha": "^10.8.2",
-    "ts-loader": "^9.5.1",
-    "typescript": "^5.6.3",
-    "webpack": "^5.96.1",
+    "svelte": "^5.46.1",
+    "svelte-loader": "^3.2.4",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3",
+    "webpack": "^5.104.1",
     "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^5.1.0"
+    "webpack-dev-server": "^5.2.2"
   }
 }

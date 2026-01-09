@@ -3,6 +3,7 @@
 "use strict";
 
 const path = require("path");
+const CopyPlugin = require("copy-webpack-plugin");
 
 // @ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
@@ -45,4 +46,34 @@ const extensionConfig = {
     level: "log", // enables logging required for problem matchers
   },
 };
-module.exports = [extensionConfig];
+
+/** @type WebpackConfig */
+const webviewConfig = {
+  target: "web", // Webviews run in a browser-like context
+  mode: "none",
+  entry: "./src/wizard/wizard.js",
+  output: {
+    path: path.resolve(__dirname, "dist"),
+    filename: "wizard.js",
+  },
+  resolve: {
+    extensions: [".js"],
+  },
+  plugins: [
+    new CopyPlugin({
+      patterns: [
+        {
+          from: "node_modules/@vscode/codicons/dist/codicon.css",
+          to: "codicon.css",
+        },
+        {
+          from: "node_modules/@vscode/codicons/dist/codicon.ttf",
+          to: "codicon.ttf",
+        },
+      ],
+    }),
+  ],
+  devtool: "nosources-source-map",
+};
+
+module.exports = [extensionConfig, webviewConfig];

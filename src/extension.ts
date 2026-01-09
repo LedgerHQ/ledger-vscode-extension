@@ -1,5 +1,4 @@
 "use strict";
-
 import * as vscode from "vscode";
 import {
   TaskProvider,
@@ -33,7 +32,7 @@ import {
   onVariantSelectedEvent,
   showVariant,
 } from "./appSelector";
-import { WizardProvider } from "./wizard/wizard";
+import { Wizard } from "./wizard";
 
 let outputChannel: vscode.OutputChannel;
 const appDetectionFiles = ["Cargo.toml", "ledger_app.toml", "Makefile"];
@@ -59,30 +58,7 @@ export function activate(context: vscode.ExtensionContext) {
   const mainView = vscode.window.createTreeView("mainView", { treeDataProvider: treeProvider });
   context.subscriptions.push(mainView);
 
-  let wizardProvider = new WizardProvider(context.extensionUri);
-  context.subscriptions.push(vscode.window.registerWebviewViewProvider("appWebView", wizardProvider));
-
-  // Function to check for apps and open walkthrough if none found
-  const checkAndOpenWalkthrough = () => {
-    const appList = findAppsInWorkspace();
-    if (!appList || appList.length === 0) {
-      vscode.commands.executeCommand("workbench.action.openWalkthrough", "LedgerHQ.ledger-dev-tools#ledgerOnboarding", false);
-    }
-  };
-
-  // On activation, check if we need to open the walkthrough, if mainView is visible
-  if (mainView.visible) {
-    checkAndOpenWalkthrough();
-  }
-
-  // On mainView visibility change, check if we need to open the walkthrough
-  context.subscriptions.push(
-    mainView.onDidChangeVisibility((e) => {
-      if (e.visible) {
-        checkAndOpenWalkthrough();
-      }
-    }),
-  );
+  new Wizard(context, mainView);
 
   let taskProvider = new TaskProvider(treeProvider, targetSelector);
   context.subscriptions.push(vscode.tasks.registerTaskProvider(taskType, taskProvider));

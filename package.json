@@ -338,14 +338,56 @@
           {
             "id": "createApp",
             "title": "Create your Ledger app",
-            "description": "Ledger devices support applications written in C or Rust.\nGenerate and customize your app boilerplate.\n[Create New App](command:openWizard)",
+            "description": "Ledger devices support applications written in C or Rust.\nGenerate and customize your app boilerplate.\n[Create C App](command:ledgerDevTools.newCApp)\n\n[Create Rust App](command:ledgerDevTools.newRustApp)",
             "media": {
               "svg": "resources/ledger-wordmark.svg",
               "altText": "Ledger Logo"
             },
             "completionEvents": [
-              "onCommand:openWizard"
+              "onCommand:ledgerDevTools.newCApp",
+              "onCommand:ledgerDevTools.newRustApp"
             ]
+          }
+        ]
+      },
+      {
+        "id": "cDeviceAppCustomization",
+        "title": "Customize your C Device App",
+        "description": "Learn how to customize your C device app created with the Ledger Developer Tools extension.",
+        "steps": [
+          {
+            "id": "cDeviceAppName",
+            "title": "Set your app name",
+            "description": "Choose a name for your Ledger device app.",
+            "media": {
+              "markdown": "resources/app-name.md"
+            }
+          },
+          {
+            "id": "cDeviceAppFlags",
+            "title": "Configure app flags",
+            "description": "Define specific flags for your app to enable or disable certain features during the build process.",
+            "media": {
+              "markdown": "resources/app-flags.md"
+            }
+          },
+          {
+            "id": "cDeviceAppDerivationPath",
+            "title": "Set derivation path & curves",
+            "description": "Specify the derivation path and cryptographic curves your app will support.",
+            "media": {
+              "svg": "resources/ledger-wordmark.svg",
+              "altText": "Ledger Logo"
+            }
+          },
+          {
+            "id": "cDeviceAppVariants",
+            "title": "Choose app variants",
+            "description": "Select different variants of your app to cater to various use cases or device capabilities.",
+            "media": {
+              "svg": "resources/ledger-wordmark.svg",
+              "altText": "Ledger Logo"
+            }
           }
         ]
       }
@@ -405,8 +447,8 @@
     "eslint": "^9.39.2",
     "glob": "^11.1.0",
     "mocha": "^10.8.2",
-    "svelte": "^5.46.1",
-    "svelte-loader": "^3.2.4",
+    "prettier": "^3.7.4",
+    "prettier-plugin-svelte": "^3.4.1",
     "ts-loader": "^9.5.4",
     "typescript": "^5.9.3",
     "webpack": "^5.104.1",

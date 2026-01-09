@@ -47,33 +47,4 @@ const extensionConfig = {
   },
 };
 
-/** @type WebpackConfig */
-const webviewConfig = {
-  target: "web", // Webviews run in a browser-like context
-  mode: "none",
-  entry: "./src/wizard/wizard.js",
-  output: {
-    path: path.resolve(__dirname, "dist"),
-    filename: "wizard.js",
-  },
-  resolve: {
-    extensions: [".js"],
-  },
-  plugins: [
-    new CopyPlugin({
-      patterns: [
-        {
-          from: "node_modules/@vscode/codicons/dist/codicon.css",
-          to: "codicon.css",
-        },
-        {
-          from: "node_modules/@vscode/codicons/dist/codicon.ttf",
-          to: "codicon.ttf",
-        },
-      ],
-    }),
-  ],
-  devtool: "nosources-source-map",
-};
-
-module.exports = [extensionConfig, webviewConfig];
+module.exports = [extensionConfig];

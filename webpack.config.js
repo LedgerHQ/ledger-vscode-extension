@@ -49,7 +49,7 @@ const extensionConfig = {
 
 /** @type WebpackConfig */
 const webviewConfig = {
-  target: "web", // Webviews run in a browser-like context
+  target: "web",
   mode: "none",
   entry: "./src/wizard/wizard.js",
   output: {
@@ -57,7 +57,22 @@ const webviewConfig = {
     filename: "wizard.js",
   },
   resolve: {
-    extensions: [".js"],
+    extensions: [".mjs", ".js", ".svelte"],
+    mainFields: ["svelte", "browser", "module", "main"],
+    conditionNames: ["svelte", "browser", "import"],
+  },
+  module: {
+    rules: [
+      {
+        test: /\.svelte$/,
+        use: {
+          loader: "svelte-loader",
+          options: {
+            emitCss: false,
+          },
+        },
+      },
+    ],
   },
   plugins: [
     new CopyPlugin({

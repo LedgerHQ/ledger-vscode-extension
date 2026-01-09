@@ -125,79 +125,27 @@ export class WizardProvider implements vscode.WebviewViewProvider {
   }
 
   /**
-   * Returns the HTML for the Form
+   * Returns the HTML shell for the Svelte webview
    */
   private _getHtmlForWebview(webview: vscode.Webview) {
     const nonce = this.getNonce();
 
     // Get the local path to main script run in the webview (bundled by webpack to dist/).
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "dist", "wizard.js"));
+    const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "dist", "codicon.css"));
 
-    // Do the same for the stylesheet.
-    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "src", "wizard", "wizard.css"));
-
-    // Codicon stylesheet for vscode-icon component
-    const codiconUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "dist", "codicon.css"));
-
+    // TODO : add security policies
     return /* html */ `
         <!DOCTYPE html>
         <html lang="en">
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <!--
-                Use a content security policy to only allow loading styles from our extension directory,
-                and only allow scripts that have a specific nonce.
-            -->
-            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; font-src ${webview.cspSource};">
-            <link href="${codiconUri}" rel="stylesheet" id="vscode-codicon-stylesheet" />
-            <link href="${styleUri}" rel="stylesheet" />
+            <link href="${codiconsUri}" rel="stylesheet" id="vscode-codicon-stylesheet" />
+            <title>Create Ledger App</title>
         </head>
         <body>
-            <div class="container">
-                <vscode-icon name="close" id="closeBtn" close action-icon></vscode-icon>
-                <h2 title>New Device App</h2>
-                <!-- SDK SELECTION -->
-                <div>
-                   <label style="display:block; margin-bottom:8px; font-weight:bold;">Select SDK</label>
-                   <vscode-radio-group id="sdk-group">
-                        <vscode-radio value="c" checked class="selected">
-                            <div class="radio-content">
-                                <span class="radio-title">C Language</span>
-                                <span class="radio-desc">Native & Compact</span>
-                            </div>
-                        </vscode-radio>
-                        <vscode-radio value="rust">
-                            <div class="radio-content">
-                                <span class="radio-title">Rust</span>
-                                <span class="radio-desc">Safe & Modern</span>
-                            </div>
-                        </vscode-radio>
-                   </vscode-radio-group>
-                </div>
-
-                <!-- FORM FIELDS -->
-                <div>
-                    <vscode-textfield id="appName" placeholder="e.g. app-ethereum">Application Name</vscode-textfield>
-                </div>
-
-                <div>
-                    <vscode-textfield id="coinName" placeholder="e.g. SOMECOIN">Coin / Token Name</vscode-textfield>
-                </div>
-
-                <div>
-                    <label style="display:block; margin-bottom: 5px;">Cryptography Curve</label>
-                    <vscode-single-select id="curve">
-                        <vscode-option value="secp256k1" selected>secp256k1 (Bitcoin/Eth)</vscode-option>
-                        <vscode-option value="ed25519">ed25519 (Solana/Polkadot)</vscode-option>
-                        <vscode-option value="prime256v1">prime256v1 (NIST)</vscode-option>
-                    </vscode-single-select>
-                </div>
-
-                <vscode-button id="createBtn">Create Application</vscode-button>
-            </div>
-
-            <script nonce="${nonce}" src="${scriptUri}"></script>
+            <script src="${scriptUri}"></script>
         </body>
         </html>`;
   }

@@ -387,6 +387,8 @@
     "eslint": "^9.39.2",
     "glob": "^11.1.0",
     "mocha": "^10.8.2",
+    "prettier": "^3.7.4",
+    "prettier-plugin-svelte": "^3.4.1",
     "svelte": "^5.46.1",
     "svelte-loader": "^3.2.4",
     "ts-loader": "^9.5.4",

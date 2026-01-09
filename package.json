@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "Ledger Dev Tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",
@@ -202,32 +202,124 @@
           {
             "id": "prerequisites",
             "title": "Check Prerequisites",
-            "description": "$(docker-icon) **Docker**\n\nEnsure you have Docker installed and running so the extension can spawn development environment containers from Ledger's [developer tools image](https://github.com/LedgerHQ/ledger-app-builder/).\n\n[Get Docker](https://www.docker.com/)\n\n$(git-icon) **Git**\n\nMake sure Git is installed to allow the extension to clone Ledger app templates from Ledger's GitHub repositories.\n\n[Get Git](https://git-scm.com/)\n\n$(x11-icon) **X11 Server**\n\nThis extension requires an X11 display server to display the [Speculos](https://github.com/LedgerHQ/speculos) emulator. \n- Linux: Xorg or Wayland (via XWayland) is usually pre-installed. \n- macOS: Install [XQuartz](https://www.xquartz.org/). \n- Windows: Install [VcXsrv](https://sourceforge.net/projects/vcxsrv/).\n**Configure your X11 server to allow connections from clients.**",
+            "description": "Ensure Docker, Git, and an X11 server are installed and running before using the extension.",
             "media": {
-              "svg": "resources/ledger-wordmark.svg",
-              "altText": "Ledger Logo"
+              "markdown": "resources/walkthrough/onboarding/onboarding-prerequisites.md"
             }
           },
           {
             "id": "learnMore",
             "title": "Learn more",
-            "description": "Discover resources and documentation to help you get started with the development of Ledger device apps.\n\n[Go to Developer Portal](https://developers.ledger.com/docs/device-app/getting-started)",
+            "description": "Explore the Ledger Developer Portal to learn about app development, requirements, and the submission process.",
             "media": {
-              "svg": "resources/ledger-wordmark.svg",
-              "altText": "Ledger Logo"
+              "markdown": "resources/walkthrough/onboarding/onboarding-learn-more.md"
             }
           },
           {
             "id": "createApp",
             "title": "Create your Ledger app",
-            "description": "Ledger devices support applications written in C or Rust.\nGenerate and customize your app boilerplate.\n[Create New App](command:openWizard)",
+            "description": "Ledger devices support applications written in C or Rust.\nGenerate your app from a template and start customizing it.",
             "media": {
-              "svg": "resources/ledger-wordmark.svg",
-              "altText": "Ledger Logo"
+              "markdown": "resources/walkthrough/onboarding/onboarding-create-app.md"
             },
             "completionEvents": [
-              "onCommand:openWizard"
+              "onCommand:ledgerDevTools.newCApp",
+              "onCommand:ledgerDevTools.newRustApp"
             ]
+          }
+        ]
+      },
+      {
+        "id": "cDeviceAppCustomization",
+        "title": "Customize your C Device App",
+        "description": "Learn how to customize your C device app created with the Ledger Developer Tools extension.",
+        "steps": [
+          {
+            "id": "cDeviceAppName",
+            "title": "Set your app name",
+            "description": "Choose a name for your Ledger device app.",
+            "media": {
+              "markdown": "resources/walkthrough/c-app/app-name.md"
+            }
+          },
+          {
+            "id": "cDeviceAppIcon",
+            "title": "Design your app icon",
+            "description": "Provide device-specific icons for your Ledger app.",
+            "media": {
+              "markdown": "resources/walkthrough/c-app/app-icon.md"
+            }
+          },
+          {
+            "id": "cDeviceAppFlags",
+            "title": "Configure app flags",
+            "description": "Define specific flags for your app to enable or disable certain features during the build process.",
+            "media": {
+              "markdown": "resources/walkthrough/c-app/app-flags.md"
+            }
+          },
+          {
+            "id": "cDeviceAppDerivationPath",
+            "title": "Set derivation path & curves",
+            "description": "Specify the derivation path and cryptographic curves your app will support.",
+            "media": {
+              "markdown": "resources/walkthrough/c-app/app-derivation-path.md"
+            }
+          },
+          {
+            "id": "cDeviceAppVariants",
+            "title": "Choose app variants",
+            "description": "Select different variants of your app to cater to various use cases.",
+            "media": {
+              "markdown": "resources/walkthrough/c-app/app-variants.md"
+            }
+          },
+          {
+            "id": "cDeviceAppDatabase",
+            "title": "Register your app in the database",
+            "description": "Add your app to the Ledger app database to pass the mandatory compliance check.",
+            "media": {
+              "markdown": "resources/walkthrough/c-app/app-database.md"
+            }
+          }
+        ]
+      },
+      {
+        "id": "rustDeviceAppCustomization",
+        "title": "Customize your Rust Device App",
+        "description": "Learn how to customize your Rust device app created with the Ledger Developer Tools extension.",
+        "steps": [
+          {
+            "id": "rustDeviceAppName",
+            "title": "Set your app name",
+            "description": "Define your app name in Cargo.toml and in the UI source code.",
+            "media": {
+              "markdown": "resources/walkthrough/rust-app/rust-app-name.md"
+            }
+          },
+          {
+            "id": "rustDeviceAppIcon",
+            "title": "Design your app icon",
+            "description": "Provide device-specific icons and glyphs for your Ledger app.",
+            "media": {
+              "markdown": "resources/walkthrough/rust-app/rust-app-icon.md"
+            }
+          },
+          {
+            "id": "rustDeviceAppInstallParameters",
+            "title": "Set install parameters",
+            "description": "Configure path, curve, and flags from [package.metadata.ledger] in Cargo.toml.",
+            "media": {
+              "markdown": "resources/walkthrough/rust-app/rust-app-install-parameters.md"
+            }
+          },
+          {
+            "id": "rustDeviceAppDatabase",
+            "title": "Register your app in the database",
+            "description": "Add your app to the Ledger app database to pass the mandatory compliance check.",
+            "media": {
+              "markdown": "resources/walkthrough/rust-app/app-database.md"
+            }
           }
         ]
       }

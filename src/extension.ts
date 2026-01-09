@@ -41,6 +41,7 @@ import {
 } from "./appSelector";
 import { Webview, WebviewRefreshOptions } from "./webview/webviewProvider";
 import { runAIReview } from "./aiReviewer";
+import { Wizard } from "./wizard";
 
 let outputChannel: vscode.OutputChannel;
 const appDetectionFiles = ["Cargo.toml", "ledger_app.toml", "Makefile"];
@@ -85,28 +86,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   let containerManager = new ContainerManager(taskProvider);
 
-// Function to check for apps and open walkthrough if none found
-  const checkAndOpenWalkthrough = () => {
-    const appList = findAppsInWorkspace();
-    if (!appList || appList.length === 0) {
-      vscode.commands.executeCommand("workbench.action.openWalkthrough", "LedgerHQ.ledger-dev-tools#ledgerOnboarding", false);
-    }
-  };
-
-  // On activation, check if we need to open the walkthrough, if mainView is visible
-  if (mainView.visible) {
-    checkAndOpenWalkthrough();
-  }
-
-  // On mainView visibility change, check if we need to open the walkthrough
-  context.subscriptions.push(
-    mainView.onDidChangeVisibility((e) => {
-      if (e.visible) {
-        checkAndOpenWalkthrough();
-      }
-    }),
-  );
-
+  let wizard = new Wizard(context, webview);
 
   // Helper to build full webview refresh options from current state
   const buildFullRefreshOptions = (): WebviewRefreshOptions => {
@@ -464,7 +444,8 @@ export function activate(context: vscode.ExtensionContext) {
     webview.onWebviewReadyEvent(async () => {
       const models = await vscode.lm.selectChatModels();
       if (models.length) {
-        webview.sendAiModels(models.map(m => m.name), models[0].name);
+        const uniqueModels = models.filter((model, index, self) => index === self.findIndex(m => m.name === model.name));
+        webview.sendAiModels(uniqueModels.map(m => m.name), uniqueModels[0].name);
       }
     }),
   );

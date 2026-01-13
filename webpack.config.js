@@ -51,10 +51,10 @@ const extensionConfig = {
 const webviewConfig = {
   target: "web",
   mode: "none",
-  entry: "./src/wizard/wizard.js",
+  entry: "./src/webview/webview.js",
   output: {
     path: path.resolve(__dirname, "dist"),
-    filename: "wizard.js",
+    filename: "webview.js",
   },
   resolve: {
     extensions: [".mjs", ".js", ".svelte"],

@@ -293,45 +293,6 @@
         }
       }
     },
-    "walkthroughs": [
-      {
-        "id": "ledgerOnboarding",
-        "title": "Welcome to Ledger Developer Tools",
-        "description": "Get started with building Ledger device apps.",
-        "steps": [
-          {
-            "id": "prerequisites",
-            "title": "Check Prerequisites",
-            "description": "$(docker-icon) **Docker**\n\nEnsure you have Docker installed and running so the extension can spawn development environment containers from Ledger's [developer tools image](https://github.com/LedgerHQ/ledger-app-builder/).\n\n[Get Docker](https://www.docker.com/)\n\n$(git-icon) **Git**\n\nMake sure Git is installed to allow the extension to clone Ledger app templates from Ledger's GitHub repositories.\n\n[Get Git](https://git-scm.com/)\n\n$(x11-icon) **X11 Server**\n\nThis extension requires an X11 display server to display the [Speculos](https://github.com/LedgerHQ/speculos) emulator. \n- Linux: Xorg or Wayland (via XWayland) is usually pre-installed. \n- macOS: Install [XQuartz](https://www.xquartz.org/). \n- Windows: Install [VcXsrv](https://sourceforge.net/projects/vcxsrv/).\n**Configure your X11 server to allow connections from clients.**",
-            "media": {
-              "svg": "resources/ledger-wordmark.svg",
-              "altText": "Ledger Logo"
-            }
-          },
-          {
-            "id": "learnMore",
-            "title": "Learn more",
-            "description": "Discover resources and documentation to help you get started with the development of Ledger device apps.\n\n[Go to Developer Portal](https://developers.ledger.com/docs/device-app/getting-started)",
-            "media": {
-              "svg": "resources/ledger-wordmark.svg",
-              "altText": "Ledger Logo"
-            }
-          },
-          {
-            "id": "createApp",
-            "title": "Create your Ledger app",
-            "description": "Ledger devices support applications written in C or Rust.\nGenerate and customize your app boilerplate.\n[Create New App](command:openWizard)",
-            "media": {
-              "svg": "resources/ledger-wordmark.svg",
-              "altText": "Ledger Logo"
-            },
-            "completionEvents": [
-              "onCommand:openWizard"
-            ]
-          }
-        ]
-      }
-    ],
     "icons": {
       "docker-icon": {
         "description": "docker icon",

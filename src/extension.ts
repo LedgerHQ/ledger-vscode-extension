@@ -32,7 +32,7 @@ import {
   showVariant,
   initializeAppSubmodulesIfNeeded,
 } from "./appSelector";
-import { WizardProvider } from "./wizard/wizard";
+import { Webview } from "./webview/webviewProvider";
 
 let outputChannel: vscode.OutputChannel;
 const appDetectionFiles = ["Cargo.toml", "ledger_app.toml", "Makefile"];
@@ -60,30 +60,8 @@ export function activate(context: vscode.ExtensionContext) {
   const mainView = vscode.window.createTreeView("mainView", { treeDataProvider: treeProvider });
   context.subscriptions.push(mainView);
 
-  let wizardProvider = new WizardProvider(context.extensionUri);
-  context.subscriptions.push(vscode.window.registerWebviewViewProvider("appWebView", wizardProvider));
-
-  // Function to check for apps and open walkthrough if none found
-  const checkAndOpenWalkthrough = () => {
-    const appList = findAppsInWorkspace();
-    if (!appList || appList.length === 0) {
-      vscode.commands.executeCommand("workbench.action.openWalkthrough", "LedgerHQ.ledger-dev-tools#ledgerOnboarding", false);
-    }
-  };
-
-  // On activation, check if we need to open the walkthrough, if mainView is visible
-  if (mainView.visible) {
-    checkAndOpenWalkthrough();
-  }
-
-  // On mainView visibility change, check if we need to open the walkthrough
-  context.subscriptions.push(
-    mainView.onDidChangeVisibility((e) => {
-      if (e.visible) {
-        checkAndOpenWalkthrough();
-      }
-    }),
-  );
+  let webview = new Webview(context.extensionUri);
+  context.subscriptions.push(vscode.window.registerWebviewViewProvider("appWebView", webview));
 
   let taskProvider = new TaskProvider(treeProvider, targetSelector);
   context.subscriptions.push(vscode.tasks.registerTaskProvider(taskType, taskProvider));
@@ -382,6 +360,8 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   containerManager.manageContainer();
+
+  webview.show();
 
   console.log(`Ledger: extension activated`);
   return 0;

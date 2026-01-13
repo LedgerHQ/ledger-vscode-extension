@@ -6,16 +6,16 @@ import { simpleGit } from "simple-git";
 /**
  * Manages the Webview Panel that acts as the Form/Wizard
  */
-export class WizardProvider implements vscode.WebviewViewProvider {
+export class Webview implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView;
 
   constructor(private readonly _extensionUri: vscode.Uri) {}
 
   // Show the webview
-  public show() {
-    if (this._view) {
-      this._view.show(true);
-    }
+  public async show() {
+    await vscode.commands.executeCommand("workbench.view.extension.ledger-tools");
+    await vscode.commands.executeCommand("setContext", "myApp.showWizard", true);
+    await vscode.commands.executeCommand("appWebView.focus");
   }
 
   // Cette méthode est appelée par VS Code dès que la vue devient visible
@@ -39,7 +39,6 @@ export class WizardProvider implements vscode.WebviewViewProvider {
           await vscode.commands.executeCommand("workbench.view.extension.ledger-tools");
           await vscode.commands.executeCommand("setContext", "myApp.showWizard", false);
           await vscode.commands.executeCommand("mainView.focus");
-          await this._handleGeneration(data.data);
           break;
         case "closeWizard":
           console.log("Closing wizard!!!!");
@@ -50,65 +49,6 @@ export class WizardProvider implements vscode.WebviewViewProvider {
           break;
       }
     });
-  }
-
-  /**
-   * Logic to clone and customize the app
-   */
-  private async _handleGeneration(data: any) {
-    console.log("Generating app with data:", data);
-    // 1. Ask user where to save the project
-    const folderUri = await vscode.window.showOpenDialog({
-      canSelectFiles: false,
-      canSelectFolders: true,
-      canSelectMany: false,
-      openLabel: "Select Project Location",
-    });
-
-    if (!folderUri || folderUri.length === 0) {
-      return;
-    }
-
-    // Placeholder for appName
-    data.appName = data.appName || "app-ledger";
-    data.coinName = data.coinName || "MyToken";
-    data.curve = data.curve || "secp256k1";
-    data.sdk = data.sdk || "c";
-
-    const projectPath = folderUri[0].fsPath;
-    const fullPath = path.join(projectPath, data.appName);
-
-    // 2. Determine Repo URL based on selection
-    const repoUrl = data.sdk === "rust"
-      ? "https://github.com/LedgerHQ/app-boilerplate-rust"
-      : "https://github.com/LedgerHQ/app-boilerplate";
-
-    try {
-      vscode.window.showInformationMessage(`Scaffolding ${data.sdk} app in ${fullPath}...`);
-
-      // For this demo, we just create the folder to show it worked
-      if (!fs.existsSync(fullPath)) {
-        fs.mkdirSync(fullPath);
-      }
-
-      // Clone repo
-      const git = simpleGit();
-      vscode.window.showInformationMessage(`Cloning repository from ${repoUrl} in ${fullPath}...`);
-      await git.clone(repoUrl, fullPath);
-
-      const openNewWindow = "Open in New Window";
-      const choice = await vscode.window.showInformationMessage(
-        "App created successfully!",
-        openNewWindow,
-      );
-
-      if (choice === openNewWindow) {
-        vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(fullPath), true);
-      }
-    }
-    catch (error) {
-      vscode.window.showErrorMessage("Failed to create app: " + error);
-    }
   }
 
   /**
@@ -131,7 +71,7 @@ export class WizardProvider implements vscode.WebviewViewProvider {
     const nonce = this.getNonce();
 
     // Get the local path to main script run in the webview (bundled by webpack to dist/).
-    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "dist", "wizard.js"));
+    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "dist", "webview.js"));
     const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "dist", "codicon.css"));
 
     // TODO : add security policies

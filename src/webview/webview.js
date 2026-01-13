@@ -1,8 +1,8 @@
 import { mount } from "svelte";
-import Wizard from "./Wizard.svelte";
+import Webview from "./Webview.svelte";
 
 document.addEventListener("DOMContentLoaded", () => {
-  mount(Wizard, {
+  mount(Webview, {
     target: document.body,
     props: {
       vscode: acquireVsCodeApi(),

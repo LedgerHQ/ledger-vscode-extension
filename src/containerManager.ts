@@ -82,13 +82,12 @@ export class ContainerManager {
     }
   }
 
-  public manageContainer(): void {
+  public async manageContainer(): Promise<void> {
     if (this.isContainerReady() === false) {
       const currentApp = getSelectedApp();
       if (currentApp) {
         this.triggerStatusEvent(DevImageStatus.stopped);
-        console.log(`Ledger: Container ${currentApp.containerName} not found, respawning it.`);
-        this.taskProvider.executeTaskByName("Update container");
+        await this.taskProvider.executeTaskByName("Update container");
       }
     }
   }

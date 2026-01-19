@@ -350,16 +350,23 @@ export class TaskProvider implements vscode.TaskProvider {
   }
 
   public generateTasks() {
+    // Create new promise for this generation cycle if needed
+    if (!this.tasksReadyResolve) {
+      this.tasksReadyPromise = new Promise((resolve) => {
+        this.tasksReadyResolve = resolve;
+      });
+    }
+
     this.tasks = [];
     this.resetVars();
     this.checkDisabledTasks(this.taskSpecs);
     this.pushTasks(this.taskSpecs);
     this.treeProvider.addAllTasksToTree(this.taskSpecs);
+
     // Signal that tasks are ready
     if (this.tasksReadyResolve) {
       this.tasksReadyResolve();
       this.tasksReadyResolve = null;
-      this.tasksReadyPromise = null;
     }
   }
 

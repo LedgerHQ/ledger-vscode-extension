@@ -138,6 +138,8 @@ export class TaskProvider implements vscode.TaskProvider {
   private tasks: MyTask[] = [];
   private currentApp?: App;
   private dockerRunArgs: string = "";
+  private tasksReadyPromise: Promise<void> | null = null;
+  private tasksReadyResolve: (() => void) | null = null;
   private selectedTests?: string[];
   private taskSpecs: TaskSpec[] = [
     {
@@ -298,6 +300,10 @@ export class TaskProvider implements vscode.TaskProvider {
     if (this.currentApp && configReqs && configReqs[this.currentApp.folderName]) {
       this.additionalReqs = configReqs[this.currentApp.folderName];
     }
+    // Create promise that will be resolved when tasks are first generated
+    this.tasksReadyPromise = new Promise((resolve) => {
+      this.tasksReadyResolve = resolve;
+    });
   }
 
   private resetVars() {
@@ -344,11 +350,24 @@ export class TaskProvider implements vscode.TaskProvider {
   }
 
   public generateTasks() {
+    // Create new promise for this generation cycle if needed
+    if (!this.tasksReadyResolve) {
+      this.tasksReadyPromise = new Promise((resolve) => {
+        this.tasksReadyResolve = resolve;
+      });
+    }
+
     this.tasks = [];
     this.resetVars();
     this.checkDisabledTasks(this.taskSpecs);
     this.pushTasks(this.taskSpecs);
     this.treeProvider.addAllTasksToTree(this.taskSpecs);
+
+    // Signal that tasks are ready
+    if (this.tasksReadyResolve) {
+      this.tasksReadyResolve();
+      this.tasksReadyResolve = null;
+    }
   }
 
   public regenerateSubset(taskNames: string[]) {
@@ -384,7 +403,9 @@ export class TaskProvider implements vscode.TaskProvider {
     return this.tasks.find(task => task.name === taskName);
   }
 
-  public executeTaskByName(taskName: string) {
+  public async executeTaskByName(taskName: string) {
+    // Wait for tasks to be generated (promise is created in constructor)
+    await this.tasksReadyPromise;
     const task = this.getTaskByName(taskName);
     if (task) {
       if (task.customFunction) {

@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * "Run with emulator" now respects build_directory path
 
+### Fixed
+
+* Fix "update container" task not being properly executed at extension activation.
+
 ## [1.3.1]
 
 ### Changed

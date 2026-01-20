@@ -90,8 +90,28 @@ export class ContainerManager {
     if (this.isContainerReady() === false) {
       const currentApp = getSelectedApp();
       if (currentApp) {
-        this.triggerStatusEvent(DevImageStatus.stopped);
-        await this.taskProvider.executeTaskByName("Update container");
+        const containerName = currentApp.containerName;
+
+        // Check if container exists but is just stopped
+        if (this.checkContainerExists(containerName)) {
+          console.log(`Ledger: Container ${containerName} exists but is stopped, restarting...`);
+          this.triggerStatusEvent(DevImageStatus.syncing);
+          try {
+            const execOptions: ExecSyncOptionsWithStringEncoding = { stdio: "pipe", encoding: "utf-8" };
+            execSync(`docker start ${containerName}`, execOptions);
+            console.log(`Ledger: Container ${containerName} restarted successfully`);
+            this.triggerStatusEvent(DevImageStatus.running);
+          }
+          catch (error: any) {
+            console.log(`Ledger: Failed to restart container: ${error.message}`);
+            this.triggerStatusEvent(DevImageStatus.stopped);
+          }
+        }
+        else {
+          // Container doesn't exist, do nothing (user must manually create it)
+          console.log(`Ledger: Container ${containerName} does not exist. Please run "Update container" to create it.`);
+          this.triggerStatusEvent(DevImageStatus.stopped);
+        }
       }
     }
   }

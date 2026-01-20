@@ -59,6 +59,9 @@ export function activate(context: vscode.ExtensionContext) {
 
   let containerManager = new ContainerManager(taskProvider);
 
+  // Inject containerManager into treeProvider so it can query status when creating Docker Container item
+  treeProvider.setContainerManager(containerManager);
+
   // Event listener for container status.
   // This event is fired when the container status changes
   context.subscriptions.push(

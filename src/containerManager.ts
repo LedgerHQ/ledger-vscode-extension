@@ -53,7 +53,7 @@ export class ContainerManager {
     return output.includes(containerName);
   }
 
-  private isContainerReady(): boolean {
+  public getContainerStatus(): DevImageStatus {
     const currentApp = getSelectedApp();
     try {
       if (currentApp) {
@@ -65,21 +65,25 @@ export class ContainerManager {
           console.log(`Ledger: Container ${containerName} status is ${containerStatus}`);
 
           if (containerStatus === "running") {
-            this.triggerStatusEvent(DevImageStatus.running);
-            return true;
+            return DevImageStatus.running;
           }
           if (containerStatus === "starting" || containerStatus === "restarting") {
-            this.triggerStatusEvent(DevImageStatus.syncing);
-            return true;
+            return DevImageStatus.syncing;
           }
         }
       }
-      return false;
+      return DevImageStatus.stopped;
     }
     catch (error: any) {
       console.log(`Docker error : ${error.message}`);
-      return false;
+      return DevImageStatus.stopped;
     }
+  }
+
+  public isContainerReady(): boolean {
+    const status = this.getContainerStatus();
+    this.triggerStatusEvent(status);
+    return status === DevImageStatus.running || status === DevImageStatus.syncing;
   }
 
   public async manageContainer(): Promise<void> {

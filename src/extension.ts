@@ -17,12 +17,9 @@ import {
   getSelectedApp,
   setSelectedApp,
   getAppTestsList,
-  showAppSelectorMenu,
-  showTestsSelectorMenu,
   onTestsSelectedEvent,
   onTestsListRefreshedEvent,
   setAppTestsPrerequisites,
-  onAppSelectedEvent,
   showTestUseCaseSelectorMenu,
   onTestUseCaseSelected,
   onUseCaseSelectedEvent,
@@ -30,6 +27,7 @@ import {
   getSelectedBuidUseCase,
   onVariantSelectedEvent,
   showVariant,
+  setSelectedAppByName,
   initializeAppSubmodulesIfNeeded,
 } from "./appSelector";
 import { Webview } from "./webview/webviewProvider";
@@ -47,31 +45,39 @@ export function activate(context: vscode.ExtensionContext) {
 
   outputChannel = vscode.window.createOutputChannel("Ledger DevTools");
 
+  let webview = new Webview(context.extensionUri);
+  context.subscriptions.push(vscode.window.registerWebviewViewProvider("appWebView", webview));
+
   const appList = findAppsInWorkspace();
-  if (appList) {
+  if (appList && appList.length > 0) {
     setSelectedApp(appList[0]);
     // Initialize git submodules for the default selected app (event not fired on setSelectedApp)
     initializeAppSubmodulesIfNeeded(appList[0].folderUri);
+    webview.addAppsToWebview(
+      appList.map(app => app.folderName),
+      appList[0].folderName,
+    );
   }
 
   let targetSelector = new TargetSelector();
 
+  // Update targets based on selected app, then add to webview
+  targetSelector.updateTargetsInfos();
+  webview.addTargetsToWebview(
+    targetSelector.getTargetsArray(),
+    targetSelector.getSelectedTarget(),
+  );
+
   let treeProvider = new TreeDataProvider(targetSelector);
   const mainView = vscode.window.createTreeView("mainView", { treeDataProvider: treeProvider });
-  context.subscriptions.push(mainView);
+  //   context.subscriptions.push(mainView);
 
-  let webview = new Webview(context.extensionUri);
-  context.subscriptions.push(vscode.window.registerWebviewViewProvider("appWebView", webview));
-
-  let taskProvider = new TaskProvider(treeProvider, targetSelector);
+  let taskProvider = new TaskProvider(treeProvider, targetSelector, webview);
   context.subscriptions.push(vscode.tasks.registerTaskProvider(taskType, taskProvider));
 
   let statusBarManager = new StatusBarManager(targetSelector.getSelectedTarget(), getSelectedBuidUseCase());
 
   let containerManager = new ContainerManager(taskProvider);
-
-  // Inject containerManager into treeProvider so it can query status when creating Docker Container item
-  treeProvider.setContainerManager(containerManager);
 
   // Event listener for container status.
   // This event is fired when the container status changes
@@ -81,7 +87,7 @@ export function activate(context: vscode.ExtensionContext) {
       treeProvider.updateContainerLabel(data);
       if (data === DevImageStatus.running) {
         getAndBuildAppTestsDependencies(targetSelector);
-        getAppTestsList(targetSelector);
+        getAppTestsList(targetSelector, false, webview);
       }
     }),
   );
@@ -89,10 +95,10 @@ export function activate(context: vscode.ExtensionContext) {
   // Event listener for target selection.
   // This event is fired when the user selects a target in the targetSelector menu
   context.subscriptions.push(
-    targetSelector.onTargetSelectedEvent((data) => {
+    webview.onTargetSelectedEvent((data) => {
+      targetSelector.setSelectedTarget(data);
       taskProvider.generateTasks();
       statusBarManager.updateTargetItem(data);
-      treeProvider.updateDynamicLabels();
       containerManager.manageContainer();
     }),
   );
@@ -102,7 +108,6 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     onVariantSelectedEvent(() => {
       taskProvider.generateTasks();
-      treeProvider.updateDynamicLabels();
     }),
   );
 
@@ -116,17 +121,9 @@ export function activate(context: vscode.ExtensionContext) {
         "Run tests with display - on device",
         "Generate golden snapshots",
       ]);
-      treeProvider.updateDynamicLabels();
     }),
   );
 
-  // Event listener for tests list refresh.
-  // This event is fired when the tests list is refreshed
-  context.subscriptions.push(
-    onTestsListRefreshedEvent(() => {
-      treeProvider.updateDynamicLabels();
-    }),
-  );
 
   // Event listener for Guideline Enforcer check selection.
   // This event is fired when the user selects a Guideline Enforcer check
@@ -143,6 +140,21 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
+  // Event listener for Build Mode selection.
+  // This event is fired when the user selects a Build Mode
+  context.subscriptions.push(
+    onBuildModeSelectedEvent(() => {
+      taskProvider.generateTasks();
+      treeProvider.updateDynamicLabels();
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("toggleBuildMode", () => {
+      toggleBuildMode();
+    }),
+  );
+
   // Event listener for useCase selection.
   // This event is fired when the user selects a build useCase
   context.subscriptions.push(
@@ -156,15 +168,11 @@ export function activate(context: vscode.ExtensionContext) {
   // Event listener for app selection.
   // This event is fired when the user selects an app in the appSelector menu
   context.subscriptions.push(
-    onAppSelectedEvent(() => {
-      const selectedApp = getSelectedApp();
+    webview.onAppSelectedEvent((selectedAppName) => {
+      const selectedApp = setSelectedAppByName(selectedAppName);
       if (selectedApp) {
         // Initialize git submodules if needed for the selected app
         initializeAppSubmodulesIfNeeded(selectedApp.folderUri);
-
-        vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTests", false);
-        vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTestsSpin", false);
-        vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTests", false);
         if (selectedApp.variants) {
           if (selectedApp.variants.values.length > 1) {
             vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", true);
@@ -189,6 +197,10 @@ export function activate(context: vscode.ExtensionContext) {
       treeProvider.updateDynamicLabels();
       taskProvider.generateTasks();
       targetSelector.updateTargetsInfos();
+      webview.addTargetsToWebview(
+        targetSelector.getTargetsArray(),
+        targetSelector.getSelectedTarget(),
+      );
     }),
   );
 
@@ -200,11 +212,11 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand("selectTarget", () => {
-      targetSelector.showTargetSelectorMenu();
-    }),
-  );
+  //   context.subscriptions.push(
+  //     vscode.commands.registerCommand("selectTarget", () => {
+  //       targetSelector.showTargetSelectorMenu();
+  //     }),
+  //   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("selectVariant", () => {
@@ -242,17 +254,15 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand("selectTests", () => {
-      showTestsSelectorMenu(targetSelector);
-    }),
-  );
+  //   context.subscriptions.push(
+  //     vscode.commands.registerCommand("selectTests", () => {
+  //       showTestsSelectorMenu(targetSelector);
+  //     }),
+  //   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("refreshTests", () => {
-      vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTests", false);
-      vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTestsSpin", true);
-      getAppTestsList(targetSelector);
+      getAppTestsList(targetSelector, false, webview);
     }),
   );
 
@@ -263,20 +273,10 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(vscode.commands.registerCommand("rebuildTestUseCaseDepsSpin", () => {}));
-  context.subscriptions.push(vscode.commands.registerCommand("refreshTestsSpin", () => {}));
-
+  
   context.subscriptions.push(
     vscode.commands.registerCommand("showAppList", () => {
       showAppSelectorMenu(targetSelector);
-    }),
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("openWizard", async () => {
-      // Focus the container to ensure we're in the user's chosen location
-      await vscode.commands.executeCommand("workbench.view.extension.ledger-tools");
-      await vscode.commands.executeCommand("setContext", "myApp.showWizard", true);
-      await vscode.commands.executeCommand("appWebView.focus");
     }),
   );
 
@@ -305,6 +305,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   vscode.tasks.onDidEndTaskProcess((event) => {
     const taskName = event.execution.task.name;
+    webview.onEndTaskProcess(taskName, event.exitCode === 0);
     console.log(`Ledger: TaskProcess completed : "${taskName}". ExiCode=${event.exitCode}`);
     if (
       (taskName === "Load app on device" || taskName === "Delete app from device" || taskName === "Update container" || taskName === "Create container")
@@ -319,16 +320,24 @@ export function activate(context: vscode.ExtensionContext) {
 
   let findAppsAndUpdateExtension = () => {
     const appList = findAppsInWorkspace();
+    let selectedApp;
     if (appList) {
       const currentApp = getSelectedApp();
       if (!currentApp || !appList.includes(currentApp)) {
         setSelectedApp(appList[0]);
+        selectedApp = appList[0];
         // Initialize git submodules for the newly selected app (event not fired on setSelectedApp)
         initializeAppSubmodulesIfNeeded(appList[0].folderUri);
       }
-      treeProvider.addDefaultTreeItems();
-      treeProvider.updateDynamicLabels();
+      webview.addAppsToWebview(
+        appList.map(app => app.folderName),
+        selectedApp ? selectedApp.folderName : "",
+      );
       targetSelector.updateTargetsInfos();
+      webview.addTargetsToWebview(
+        targetSelector.getTargetsArray(),
+        targetSelector.getSelectedTarget(),
+      );
       taskProvider.provideTasks();
       containerManager.manageContainer();
     }

@@ -34,6 +34,11 @@
           "group": "inline"
         },
         {
+          "command": "buildUseCase",
+          "when": "view == mainView && viewItem == buildUseCase",
+          "group": "inline"
+        },
+        {
           "command": "rebuildTestUseCaseDeps",
           "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showRebuildTestUseCaseDeps",
           "group": "inline"
@@ -48,21 +53,6 @@
           "when": "view == mainView && viewItem == selectCheck",
           "group": "inline"
         },
-        {
-          "command": "selectTests",
-          "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showSelectTests",
-          "group": "inline"
-        },
-        {
-          "command": "refreshTests",
-          "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showRefreshTests",
-          "group": "inline"
-        },
-        {
-          "command": "refreshTestsSpin",
-          "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showRefreshTestsSpin",
-          "group": "inline"
-        }
       ]
     },
     "taskDefinitions": [
@@ -331,8 +321,11 @@
     "deploy": "vsce publish"
   },
   "dependencies": {
+    "@formkit/auto-animate": "^0.9.0",
+    "@jis3r/icons": "^2.1.0",
     "@ltd/j-toml": "^1.38.0",
     "@vscode-elements/elements": "^2.4.0",
+    "bits-ui": "^2.15.4",
     "fast-glob": "^3.3.3",
     "simple-git": "^3.30.0"
   },

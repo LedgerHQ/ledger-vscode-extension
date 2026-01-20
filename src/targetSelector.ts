@@ -7,7 +7,7 @@ const devices = ["Nano S", "Nano S Plus", "Nano X", "Stax", "Flex", "Apex p", "A
 
 export const specialAllDevice = "All";
 
-type SpecialAllDevice = typeof specialAllDevice;
+export type SpecialAllDevice = typeof specialAllDevice;
 
 // Define the LedgerDevice type
 export type LedgerDevice = (typeof devices)[number];
@@ -133,12 +133,6 @@ export class TargetSelector {
     }
   }
 
-  public readonly onTargetSelectedEvent: vscode.Event<string> = this.targetSelectedEmitter.event;
-
-  private triggerTargetSelectedEvent(data: string) {
-    this.targetSelectedEmitter.fire(data);
-  }
-
   public toggleAllTargetSelection() {
     if (this.selectedTarget === specialAllDevice) {
       this.setSelectedTarget(this.prevSelectedApp);
@@ -148,19 +142,17 @@ export class TargetSelector {
       this.prevSelectedApp = this.selectedTarget;
       this.setSelectedTarget(specialAllDevice);
     }
-    this.triggerTargetSelectedEvent(this.selectedTarget);
   }
 
-  public async showTargetSelectorMenu() {
-    const result = await vscode.window.showQuickPick(this.targetsArray, {
-      placeHolder: "Please select a target",
-    });
-    if (result) {
-      this.setSelectedTarget(result.toString());
-      this.triggerTargetSelectedEvent(result.toString());
-    }
-    return result;
-  }
+  //   public async showTargetSelectorMenu() {
+  //     const result = await vscode.window.showQuickPick(this.targetsArray, {
+  //       placeHolder: "Please select a target",
+  //     });
+  //     if (result) {
+  //       this.setSelectedTarget(result.toString());
+  //     }
+  //     return result;
+  //   }
 
   public getSelectedTarget() {
     return this.selectedTarget;

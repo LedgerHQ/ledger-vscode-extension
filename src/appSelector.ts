@@ -9,6 +9,7 @@ import { getDockerUserOpt } from "./containerManager";
 import { TaskProvider } from "./taskProvider";
 import { LedgerDevice, TargetSelector } from "./targetSelector";
 import { pushError, updateSetting, getSetting } from "./extension";
+import { Webview } from "./webview/webviewProvider";
 const APP_DETECTION_FILES: string[] = ["Makefile", "ledger_app.toml"];
 const C_APP_DETECTION_STRING: string = "include $(BOLOS_SDK)/Makefile.defines";
 const C_APP_NAME_MAKEFILE_VAR: string = "APPNAME";
@@ -365,18 +366,18 @@ export function initializeAppSubmodulesIfNeeded(appFolderUri: vscode.Uri) {
   }
 }
 
-export async function showAppSelectorMenu(targetSelector: TargetSelector) {
-  const appFolderNames = appList.map(app => app.folderName);
-  const result = await vscode.window.showQuickPick(appFolderNames, {
-    placeHolder: "Please select an app",
-  });
-  if (result) {
-    setSelectedApp(appList.find(app => app.folderName === result));
-    appSelectedEmitter.fire();
-  }
-  getAndBuildAppTestsDependencies(targetSelector);
-  return result;
-}
+// export async function showAppSelectorMenu(targetSelector: TargetSelector) {
+//   const appFolderNames = appList.map(app => app.folderName);
+//   const result = await vscode.window.showQuickPick(appFolderNames, {
+//     placeHolder: "Please select an app",
+//   });
+//   if (result) {
+//     setSelectedApp(appList.find(app => app.folderName === result));
+//     // appSelectedEmitter.fire();
+//   }
+//   getAndBuildAppTestsDependencies(targetSelector);
+//   return result;
+// }
 
 export async function showTestsSelectorMenu(targetSelector: TargetSelector) {
   if (selectedApp && selectedApp.functionalTestsList) {
@@ -465,10 +466,15 @@ export function getSelectedApp() {
   return selectedApp;
 }
 
+export function setSelectedAppByName(appName: string): App | undefined {
+  const app = appList.find(app => app.folderName === appName);
+  setSelectedApp(app);
+  return app;
+}
+
 export function setSelectedApp(app: App | undefined) {
   selectedApp = app;
   if (app) {
-    vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTests", false);
     if (app.testsUseCases) {
       vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", true);
       if (app.testsUseCases.length > 1) {
@@ -482,6 +488,14 @@ export function setSelectedApp(app: App | undefined) {
       vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", false);
       vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTestUseCase", false);
     }
+  }
+}
+
+export function setSelectedTests(tests: string[] | undefined) {
+  if (selectedApp) {
+    selectedApp.selectedTests = tests;
+    updateSetting("selectedTests", tests ? tests : [], selectedApp.folderUri);
+    testsSelectedEmitter.fire();
   }
 }
 
@@ -654,7 +668,7 @@ function getAppVariants(appdir: string, appName: string, folderUri: vscode.Uri):
 }
 
 // Get pytest tests list
-export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolean = false) {
+export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolean = false, webView?: Webview) {
   let testsList: string[] = [];
   if (
     selectedApp
@@ -664,7 +678,6 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
   ) {
     let lastTests = getSetting("testsList", selectedApp.folderUri) as string[];
     let lastSelectedTests = getSetting("selectedTests", selectedApp.folderUri) as string[];
-    vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTests", false);
     selectedApp.functionalTestsList = [];
     selectedApp.selectedTests = [];
     let device = targetSelector.getSelectedSpeculosModel();
@@ -737,23 +750,14 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
             selectedApp!.selectedTests = lastSelectedTests as string[];
             console.log(`Selected tests from settings: ${selectedApp!.selectedTests}`);
           }
-          vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTests", false);
-          vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTestsSpin", false);
-          vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTests", true);
-        }
-        else {
-          vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTestsSpin", false);
-          vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTests", true);
-        }
+
+          if (webView) {
+            webView.addTestCasesToWebview(testsList, selectedApp!.selectedTests);
+          }
+        } 
         testsListRefreshedEmitter.fire();
       }
-      if (showMenu) {
-        showTestsSelectorMenu(targetSelector);
-      }
     });
-  }
-  else {
-    vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTests", false);
   }
 }
 

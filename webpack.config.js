@@ -57,7 +57,7 @@ const webviewConfig = {
     filename: "webview.js",
   },
   resolve: {
-    extensions: [".mjs", ".js", ".svelte"],
+    extensions: [".mjs", ".js", ".svelte", ".ts"],
     mainFields: ["svelte", "browser", "module", "main"],
     conditionNames: ["svelte", "browser", "import"],
   },
@@ -69,8 +69,33 @@ const webviewConfig = {
           loader: "svelte-loader",
           options: {
             emitCss: false,
+            compilerOptions: {
+              runes: true,
+            },
           },
         },
+      },
+      {
+        // Handle .svelte.js files (Svelte 5 runes in JS) from bits-ui
+        test: /\.svelte\.(js|ts)$/,
+        use: {
+          loader: "svelte-loader",
+          options: {
+            emitCss: false,
+            compilerOptions: {
+              runes: true,
+            },
+          },
+        },
+      },
+      {
+        test: /\.ts$/,
+        exclude: /node_modules/,
+        use: [
+          {
+            loader: "ts-loader",
+          },
+        ],
       },
     ],
   },

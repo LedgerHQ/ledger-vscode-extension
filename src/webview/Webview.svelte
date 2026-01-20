@@ -1,36 +1,63 @@
 <script lang="ts">
   import "@vscode-elements/elements/dist/vscode-icon/index.js";
-  import { onMount } from 'svelte';
-  
-  let selectedApp = $state('app-boilerplate');
-  let selectedTarget = $state('Stax');
+  import autoAnimate from "@formkit/auto-animate";
+  import { Plus, Check, X } from "@jis3r/icons";
+  import Switch from "./components/Switch.svelte";
+  import Select, { type SelectItem } from "./components/Select.svelte";
+  import type { TaskSpec } from "../types/taskTypes";
+
+  let { vscode } = $props();
+  let selectedApp = $state("app-boilerplate");
+  let selectedTarget = $state("Stax");
   let allDevices = $state(false);
-  
+  let hoveredGroupId = $state<string | null>(null);
+  let apps = $state<SelectItem[]>([]);
+  let targets = $state<SelectItem[]>([]);
+
+  // Track if initial values have been received from extension
+  let appInitialized = false;
+  let targetInitialized = false;
+
+  $effect(() => {
+    const app = selectedApp;  // Track the dependency
+    if (appInitialized) {
+      sendSelectedApp(app);
+    }
+  });
+
+  $effect(() => {
+    const target = selectedTarget;  // Track the dependency
+    if (targetInitialized) {
+      sendSelectedTarget(target);
+    }
+  });
+
   // Build use case
-  type BuildUseCase = 'debug' | 'release';
-  let buildUseCase = $state<BuildUseCase>('debug');
+  type BuildUseCase = "debug" | "release";
+  let buildUseCase = $state<BuildUseCase>("debug");
   let showBuildUseCaseMenu = $state(false);
-  
+
   const buildUseCases: { id: BuildUseCase; label: string }[] = [
-    { id: 'debug', label: 'Debug' },
-    { id: 'release', label: 'Release' },
+    { id: "debug", label: "Debug" },
+    { id: "release", label: "Release" },
   ];
-  
-  type CommandStatus = 'idle' | 'running' | 'success' | 'error';
-  
+
+  type CommandStatus = "idle" | "running" | "success" | "error";
+
   interface Action {
     id: string;
     label: string;
-    icon: string;  // codicon name
+    icon: string; // codicon name
+    taskName?: string;
+    tooltip?: string;
     status: CommandStatus;
     disabledOnAllDevices?: boolean;
   }
 
   interface ActionGroup {
     id: string;
-    title: string;
     icon: string;
-    mainAction: Action;
+    mainAction?: Action;
     options: Action[];
     showOptions: boolean;
     disabledOnAllDevices?: boolean;
@@ -42,161 +69,108 @@
     selected: boolean;
   }
 
-  let testCases = $state<TestCase[]>([
-    { id: 'test_sign_tx', name: 'test_sign_tx', selected: true },
-    { id: 'test_sign_message', name: 'test_sign_message', selected: true },
-    { id: 'test_get_public_key', name: 'test_get_public_key', selected: true },
-    { id: 'test_get_app_config', name: 'test_get_app_config', selected: true },
-    { id: 'test_blind_sign', name: 'test_blind_sign', selected: false },
-    { id: 'test_eip712', name: 'test_eip712', selected: false },
-    { id: 'test_personal_sign', name: 'test_personal_sign', selected: true },
-    { id: 'test_error_handling', name: 'test_error_handling', selected: false },
-  ]);
-  
+  let testCases = $state<TestCase[]>([]);
+  let verboseTests = $state(false);
+  let isRefreshing = $state(false);
+
   let actionGroups = $state<ActionGroup[]>([
+    { id: "Build", icon: "tools", options: [], showOptions: false },
+    { id: "Emulator", icon: "play", options: [], showOptions: false, disabledOnAllDevices: true },
+    { id: "Tests", icon: "beaker", options: [], showOptions: false },
     {
-      id: 'build',
-      title: 'Build',
-      icon: 'tools',
-      mainAction: { id: 'buildIncremental', label: 'Build App', icon: 'tools', status: 'idle' },
-      options: [
-        { id: 'cleanBuild', label: 'Clean & Build', icon: 'refresh', status: 'idle' },
-        { id: 'cleanTarget', label: 'Clean Target Build', icon: 'trash', status: 'idle' },
-        { id: 'cleanAll', label: 'Clean All Builds', icon: 'clear-all', status: 'idle' },
-      ],
-      showOptions: false,
-    },
-    {
-      id: 'emulator',
-      title: 'Emulator',
-      icon: 'play',
-      mainAction: { id: 'runEmulator', label: 'Run in Emulator', icon: 'play', status: 'idle' },
-      options: [
-        { id: 'killEmulator', label: 'Stop Emulator', icon: 'debug-stop', status: 'idle' },
-        { id: 'restartEmulator', label: 'Restart Emulator', icon: 'debug-restart', status: 'idle' },
-      ],
+      id: "Device",
+      icon: "device-mobile",
+      options: [],
       showOptions: false,
       disabledOnAllDevices: true,
     },
-    {
-      id: 'tests',
-      title: 'Tests',
-      icon: 'beaker',
-      mainAction: { id: 'runTests', label: 'Run Tests', icon: 'beaker', status: 'idle' },
-      options: [
-        { id: 'runTestsDisplay', label: 'Tests with Display', icon: 'device-desktop', status: 'idle' },
-        { id: 'runTestsDevice', label: 'Tests on Device', icon: 'device-mobile', status: 'idle', disabledOnAllDevices: true },
-        { id: 'generateSnapshots', label: 'Generate Snapshots', icon: 'file-media', status: 'idle' },
-      ],
-      showOptions: false,
-    },
-    {
-      id: 'device',
-      title: 'Device',
-      icon: 'device-mobile',
-      mainAction: { id: 'loadDevice', label: 'Load on Device', icon: 'cloud-upload', status: 'idle' },
-      options: [
-        { id: 'deleteDevice', label: 'Delete from Device', icon: 'trash', status: 'idle' },
-        { id: 'quickSetup', label: 'Quick Device Setup', icon: 'zap', status: 'idle' },
-      ],
-      showOptions: false,
-      disabledOnAllDevices: true,
-    },
-    {
-      id: 'tools',
-      title: 'Tools',
-      icon: 'terminal',
-      mainAction: { id: 'openTerminal', label: 'Open Terminal', icon: 'terminal', status: 'idle' },
-      options: [
-        { id: 'updateContainer', label: 'Update Container', icon: 'package', status: 'idle' },
-        { id: 'addPrereqs', label: 'Add Prerequisites', icon: 'extensions', status: 'idle' },
-        { id: 'runGuideline', label: 'Guideline Enforcer', icon: 'checklist', status: 'idle' },
-      ],
-      showOptions: false,
-    },
+    { id: "Tools", icon: "terminal", options: [], showOptions: false },
   ]);
 
   function isGroupDisabled(group: ActionGroup): boolean {
+    // Disabled if no mainAction (not populated) OR if allDevices mode and group is disabled on all devices
+    if (!group.mainAction) return true;
     return allDevices && (group.disabledOnAllDevices ?? false);
   }
 
   function isActionDisabled(action: Action): boolean {
     return allDevices && (action.disabledOnAllDevices ?? false);
   }
-  
+
   function executeAction(groupId: string, actionId: string) {
-    const group = actionGroups.find(g => g.id === groupId);
-    if (!group) return;
-    
-    let action = group.mainAction.id === actionId 
-      ? group.mainAction 
-      : group.options.find(o => o.id === actionId);
-    
+    const group = actionGroups.find((g) => g.id === groupId);
+    if (!group || !group.mainAction) return;
+
+    let action =
+      group.mainAction.id === actionId
+        ? group.mainAction
+        : group.options.find((o) => o.id === actionId);
+
     if (!action) return;
-    
-    action.status = 'running';
-    
-    setTimeout(() => {
-      const success = Math.random() > 0.2;
-      action.status = success ? 'success' : 'error';
-      
-      setTimeout(() => {
-        action.status = 'idle';
-      }, 2000);
-    }, 1500);
+
+    // Post message to VSCode extension
+    vscode.postMessage({
+      command: "executeTask",
+      taskName: action.taskName,
+    });
+
+    action.status = "running";
   }
 
   function toggleOptions(groupId: string) {
-    const group = actionGroups.find(g => g.id === groupId);
+    const group = actionGroups.find((g) => g.id === groupId);
     if (group) {
-      const willOpen = !group.showOptions;
-      // Close all other options first
-      actionGroups.forEach(g => g.showOptions = false);
       showBuildUseCaseMenu = false;
-      // Toggle the selected one
-      group.showOptions = willOpen;
+      group.showOptions = !group.showOptions;
     }
   }
 
   function toggleAllTests(select: boolean) {
-    testCases.forEach(t => t.selected = select);
+    testCases.forEach((t) => (t.selected = select));
+    sendSelectedTests();
   }
 
   function getSelectedTestCount(): number {
-    return testCases.filter(t => t.selected).length;
+    return testCases.filter((t) => t.selected).length;
   }
-  
+
+  function sendSelectedTests() {
+    vscode.postMessage({
+      command: "updateSelectedTests",
+      selectedTests: testCases.filter((t) => t.selected).map((t) => t.id),
+    });
+  }
+
+  function sendSelectedApp(app: string) {
+    vscode.postMessage({
+      command: "appSelected",
+      selectedApp: app,
+    });
+  }
+
+  function sendSelectedTarget(target: string) {
+    vscode.postMessage({
+      command: "targetSelected",
+      selectedTarget: target,
+    });
+  }
+
+  function refreshTests() {
+    isRefreshing = true;
+    testCases = [];
+    vscode.postMessage({ command: "refreshTests" });
+  }
+
   function getStatusClass(status: CommandStatus): string {
     switch (status) {
-      case 'running': return 'status-running';
-      case 'success': return 'status-success';
-      case 'error': return 'status-error';
-      default: return '';
-    }
-  }
-  
-  function getStatusIcon(status: CommandStatus): string {
-    switch (status) {
-      case 'running': return 'sync';
-      case 'success': return 'check';
-      case 'error': return 'error';
-      default: return '';
-    }
-  }
-
-  function closeAllOptions() {
-    actionGroups.forEach(g => g.showOptions = false);
-    showBuildUseCaseMenu = false;
-  }
-
-  function handleClickOutside(event: MouseEvent) {
-    const target = event.target as HTMLElement;
-    // Check if click is outside any options panel or dropdown
-    if (!target.closest('.options-panel') && 
-        !target.closest('.gear-button') &&
-        !target.closest('.build-usecase-dropdown') &&
-        !target.closest('.build-usecase-badge')) {
-      closeAllOptions();
+      case "running":
+        return "status-running";
+      case "success":
+        return "status-success";
+      case "error":
+        return "status-error";
+      default:
+        return "";
     }
   }
 
@@ -205,12 +179,94 @@
     showBuildUseCaseMenu = false;
   }
 
-  onMount(() => {
-    document.addEventListener('click', handleClickOutside);
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
+  window.addEventListener("message", (event) => {
+    const message = event.data;
+    switch (message.command) {
+      case "addTasks":
+        console.log("Received addTasks message:", message);
+        actionGroups.forEach((g) => {
+          g.mainAction = undefined;
+          g.options = [];
+        });
+        let specs: TaskSpec[] = message.specs;
+        specs.forEach((spec) => {
+          const group = actionGroups.find((g) => g.id === spec.group);
+          if (group) {
+            let action: Action = {
+              id: spec.name,
+              label: spec.name,
+              icon: spec.icon,
+              taskName: spec.name,
+              tooltip: spec.toolTip,
+              status: "idle",
+            };
+            if (spec.mainCommand) {
+              console.log("Setting main action for group", group.id, "to", action);
+              group.mainAction = action;
+            } else {
+              console.log("Adding option action for group", group.id, ":", action);
+              group.options.push(action);
+            }
+          }
+        });
+        break;
+      case "endTaskProcess":
+        const { taskName, success } = message;
+        actionGroups.forEach((group) => {
+          // Check main action
+          if (group.mainAction && group.mainAction.taskName === taskName) {
+            group.mainAction.status = success ? "success" : "error";
+            setTimeout(() => {
+              group.mainAction!.status = "idle";
+            }, 5000);
+          } else {
+            // Check options
+            group.options.forEach((option) => {
+              if (option.taskName === taskName) {
+                option.status = success ? "success" : "error";
+                setTimeout(() => {
+                  option.status = "idle";
+                }, 5000);
+              }
+            });
+          }
+        });
+        break;
+      case "addTestCases":
+        const receivedTestCases: string[] = message.testCases;
+        const selectedTestCases: string[] =
+          message.selectedTestCases.length == 0 ? receivedTestCases : message.selectedTestCases;
+        testCases = [];
+        testCases = receivedTestCases.map((testId) => ({
+          id: testId,
+          name: testId,
+          selected: selectedTestCases.includes(testId),
+        }));
+        isRefreshing = false;
+        break;
+      case "addApps":
+        apps = [];
+        apps = message.apps.map((app: string) => ({ value: app, label: app }));
+        selectedApp = message.selectedApp;
+        // Mark as initialized after setting value so effect doesn't fire for initial load
+        setTimeout(() => { appInitialized = true; }, 0);
+        break;
+      case "addTargets":
+        targets = [];
+        targets = message.targets.map((target: string) => ({ value: target, label: target }));
+        selectedTarget = message.selectedTarget;
+        // Mark as initialized after setting value so effect doesn't fire for initial load
+        setTimeout(() => { targetInitialized = true; }, 0);
+        break;
+    }
+    // Handle other commands as needed
   });
+
+  // Notify extension that webview is ready to receive messages
+  function notifyReady() {
+    vscode.postMessage({ command: "webviewReady" });
+  }
+  notifyReady();
 </script>
 
 <div class="container">
@@ -218,24 +274,24 @@
     <!-- Header -->
     <div class="header-section">
       <div class="header-row">
-        <div class="build-usecase-wrapper">
-          <button 
+        <div class="build-usecase-wrapper" use:autoAnimate>
+          <button
             class="build-usecase-badge {buildUseCase}"
-            onclick={(e) => { 
-              e.stopPropagation(); 
+            onclick={(e) => {
+              e.stopPropagation();
               const willOpen = !showBuildUseCaseMenu;
-              actionGroups.forEach(g => g.showOptions = false);
-              showBuildUseCaseMenu = willOpen; 
+              actionGroups.forEach((g) => (g.showOptions = false));
+              showBuildUseCaseMenu = willOpen;
             }}
           >
             <i class="codicon codicon-rocket"></i>
-            {buildUseCases.find(u => u.id === buildUseCase)?.label}
+            {buildUseCases.find((u) => u.id === buildUseCase)?.label}
             <i class="codicon codicon-chevron-down chevron"></i>
           </button>
           {#if showBuildUseCaseMenu}
-            <div class="build-usecase-dropdown animate-in">
+            <div class="build-usecase-dropdown">
               {#each buildUseCases as useCase}
-                <button 
+                <button
                   class="usecase-option {buildUseCase === useCase.id ? 'selected' : ''}"
                   onclick={() => selectBuildUseCase(useCase.id)}
                 >
@@ -247,7 +303,7 @@
           {/if}
         </div>
       </div>
-      
+
       <!-- Configuration Card -->
       <div class="config-card">
         <div class="config-header">
@@ -257,19 +313,15 @@
         <div class="config-grid">
           <div class="form-group">
             <label for="app-select">Application</label>
-            <select id="app-select" bind:value={selectedApp}>
-              <option value="app-boilerplate">app-boilerplate</option>
-              <option value="app-sample">app-sample</option>
-              <option value="app-demo">app-demo</option>
-            </select>
+            <Select items={apps} bind:value={selectedApp}/>
           </div>
           <div class="form-group">
             <label for="target-select">Target Device</label>
-            <select id="target-select" bind:value={selectedTarget} disabled={allDevices}>
-              <option value="Stax">Stax</option>
-              <option value="Nano S">Nano S</option>
-              <option value="Nano X">Nano X</option>
-            </select>
+            <Select
+              items={targets}
+              bind:value={selectedTarget}
+              disabled={allDevices}
+            />
           </div>
         </div>
         <div class="all-devices-toggle">
@@ -290,66 +342,112 @@
     <!-- Action Groups -->
     <div class="actions-section">
       {#each actionGroups as group}
-        <div class="action-group {isGroupDisabled(group) ? 'disabled' : ''}">
+        <div class="action-group {isGroupDisabled(group) ? 'disabled' : ''}" use:autoAnimate>
           <div class="action-group-header">
-            <button
-              onclick={() => executeAction(group.id, group.mainAction.id)}
-              disabled={group.mainAction.status === 'running' || isGroupDisabled(group)}
-              class="action-button main {getStatusClass(group.mainAction.status)}"
-            >
-              <span class="action-icon">
-                <i class="codicon codicon-{group.icon}"></i>
-              </span>
-              <div class="action-label">
-                <div class="action-title">{group.title}</div>
-                <div class="action-subtitle">{group.mainAction.label}</div>
-              </div>
-              {#if group.mainAction.status !== 'idle'}
-                <span class="status-indicator {group.mainAction.status === 'running' ? 'spin' : ''}">
-                  <i class="codicon codicon-{getStatusIcon(group.mainAction.status)}"></i>
+            {#if group.mainAction}
+              <button
+                onclick={() => executeAction(group.id, group.mainAction.id)}
+                disabled={group.mainAction.status === "running" || isGroupDisabled(group)}
+                class="action-button main {getStatusClass(group.mainAction.status)}"
+                title={group.mainAction.tooltip}
+              >
+                <span class="action-icon">
+                  <i class="codicon codicon-{group.icon}"></i>
                 </span>
-              {/if}
-            </button>
-            <button 
+                <div class="action-label">
+                  <div class="action-title">{group.id}</div>
+                  <div class="action-subtitle">{group.mainAction.label}</div>
+                </div>
+                {#if group.mainAction.status !== "idle"}
+                  <span class="status-indicator">
+                    {#if group.mainAction.status === "running"}
+                      <span class="spinner"></span>
+                    {:else if group.mainAction.status === "success"}
+                      <Check size={16} animate={true} />
+                    {:else}
+                      <X size={16} animate={true} />
+                    {/if}
+                  </span>
+                {/if}
+              </button>
+            {:else}
+              <button disabled={true} class="action-button main disabled">
+                <span class="action-icon">
+                  <i class="codicon codicon-{group.icon}"></i>
+                </span>
+                <div class="action-label">
+                  <div class="action-title">{group.id}</div>
+                  <div class="action-subtitle">Not available</div>
+                </div>
+              </button>
+            {/if}
+            <button
+              onmouseenter={() => (hoveredGroupId = group.id)}
+              onmouseleave={() => (hoveredGroupId = null)}
               class="gear-button {group.showOptions ? 'active' : ''}"
               onclick={() => toggleOptions(group.id)}
               disabled={isGroupDisabled(group)}
-              title="More options"
             >
-              <i class="codicon codicon-settings-gear"></i>
+              <span class="plus-icon" class:rotated={group.showOptions}>
+                <Plus size={16} animate={hoveredGroupId === group.id}></Plus>
+              </span>
             </button>
           </div>
-          
+
           {#if group.showOptions && !isGroupDisabled(group)}
-            <div class="options-panel animate-in">
+            <div class="options-panel">
               {#each group.options as option}
                 <button
+                  title={option.tooltip}
                   onclick={() => executeAction(group.id, option.id)}
-                  disabled={option.status === 'running' || isActionDisabled(option)}
-                  class="option-button {getStatusClass(option.status)} {isActionDisabled(option) ? 'disabled' : ''}"
+                  disabled={option.status === "running" || isActionDisabled(option)}
+                  class="option-button {getStatusClass(option.status)} {isActionDisabled(option)
+                    ? 'disabled'
+                    : ''}"
                 >
                   <span class="option-icon">
                     <i class="codicon codicon-{option.icon}"></i>
                   </span>
                   <span class="option-label">{option.label}</span>
-                  {#if option.status !== 'idle'}
-                    <span class="status-indicator small {option.status === 'running' ? 'spin' : ''}">
-                      <i class="codicon codicon-{getStatusIcon(option.status)}"></i>
+                  {#if option.status !== "idle"}
+                    <span class="status-indicator small">
+                      {#if option.status === "running"}
+                        <span class="spinner small"></span>
+                      {:else if option.status === "success"}
+                        <Check size={12} animate={true} />
+                      {:else}
+                        <X size={12} animate={true} />
+                      {/if}
                     </span>
                   {/if}
                 </button>
               {/each}
-              
+
               <!-- Embedded Test Selection (only in tests group) -->
-              {#if group.id === 'tests'}
+              {#if group.id === "Tests"}
                 <div class="test-selector-embedded">
                   <div class="test-selector-divider"></div>
+
+                  <!-- Verbose toggle -->
+                  <div class="verbose-toggle-row">
+                    <span class="verbose-label">
+                      <i class="codicon codicon-output"></i>
+                      Verbose output
+                    </span>
+                    <Switch bind:checked={verboseTests} />
+                  </div>
+
                   <div class="test-selector-header-inline">
                     <span class="test-selector-title">
                       <i class="codicon codicon-list-selection"></i>
                       Tests to run
                     </span>
-                    <span class="test-count">{getSelectedTestCount()}/{testCases.length}</span>
+                    <div class="test-header-actions">
+                      <button class="icon-button" onclick={refreshTests} title="Refresh test list">
+                        <i class="codicon codicon-refresh {isRefreshing ? 'spinning' : ''}"></i>
+                      </button>
+                      <span class="test-count">{getSelectedTestCount()}/{testCases.length}</span>
+                    </div>
                   </div>
                   <div class="test-quick-actions">
                     <button class="text-button" onclick={() => toggleAllTests(true)}>
@@ -361,10 +459,14 @@
                       None
                     </button>
                   </div>
-                  <div class="test-list-compact">
+                  <div class="test-list-compact" use:autoAnimate>
                     {#each testCases as test}
                       <label class="test-item-compact">
-                        <input type="checkbox" bind:checked={test.selected} />
+                        <input
+                          type="checkbox"
+                          bind:checked={test.selected}
+                          onchange={sendSelectedTests}
+                        />
                         <span class="test-name">{test.name}</span>
                       </label>
                     {/each}
@@ -535,25 +637,6 @@
     letter-spacing: 0.5px;
   }
 
-  .form-group select {
-    width: 100%;
-    background-color: var(--vscode-input-background);
-    border: 1px solid var(--vscode-input-border);
-    border-radius: 2px;
-    padding: 4px 6px;
-    font-size: 12px;
-    color: var(--vscode-input-foreground);
-  }
-
-  .form-group select:focus {
-    outline: none;
-    border-color: var(--vscode-focusBorder);
-  }
-
-  .form-group select:disabled {
-    opacity: 0.5;
-  }
-
   /* All Devices Toggle */
   .all-devices-toggle {
     margin-top: 12px;
@@ -702,6 +785,18 @@
     color: var(--vscode-foreground);
   }
 
+  .plus-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    transition: transform 0.2s ease;
+  }
+
+  .plus-icon.rotated {
+    transform: rotate(45deg);
+  }
+
   .options-panel {
     display: flex;
     flex-direction: column;
@@ -752,11 +847,28 @@
   }
 
   .status-indicator {
-    color: var(--vscode-focusBorder);
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .status-indicator.small {
     font-size: 12px;
+  }
+
+  /* Running - uses progress bar color which is designed to stand out */
+  .status-running .status-indicator {
+    color: var(--vscode-progressBar-background);
+  }
+
+  /* Success - green */
+  .status-success .status-indicator {
+    color: var(--vscode-testing-iconPassed);
+  }
+
+  /* Error - red */
+  .status-error .status-indicator {
+    color: var(--vscode-testing-iconFailed);
   }
 
   .spin {
@@ -779,6 +891,35 @@
     align-items: center;
     justify-content: space-between;
     padding: 4px 10px;
+  }
+
+  .test-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .icon-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--vscode-descriptionForeground);
+    cursor: pointer;
+    border-radius: 3px;
+  }
+
+  .icon-button:hover {
+    background-color: var(--vscode-list-hoverBackground);
+    color: var(--vscode-foreground);
+  }
+
+  .icon-button .spinning {
+    animation: spin 0.8s linear infinite;
   }
 
   .test-selector-title {
@@ -868,22 +1009,43 @@
 
   /* Animations */
   @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-
-  @keyframes fade-slide-in {
-    from { 
-      opacity: 0;
-      transform: translateY(-4px);
+    from {
+      transform: rotate(0deg);
     }
-    to { 
-      opacity: 1;
-      transform: translateY(0);
+    to {
+      transform: rotate(360deg);
     }
   }
 
-  .animate-in {
-    animation: fade-slide-in 0.15s ease-out;
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--vscode-editor-background);
+    border-top-color: #facc15;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  .spinner.small {
+    width: 12px;
+    height: 12px;
+    border-width: 1.5px;
+  }
+
+  /* Verbose toggle row */
+  .verbose-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    margin-bottom: 4px;
+  }
+
+  .verbose-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--vscode-foreground);
   }
 </style>

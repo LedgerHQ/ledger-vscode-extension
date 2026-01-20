@@ -14,6 +14,7 @@ const C_APP_DETECTION_STRING: string = "include $(BOLOS_SDK)/Makefile.defines";
 const C_APP_NAME_MAKEFILE_VAR: string = "APPNAME";
 const C_VARIANT_MAKEFILE_VAR: string = "VARIANTS";
 const PYTEST_DETECTION_FILE: string = "conftest.py";
+const GIT_MODULES_FILE: string = ".gitmodules";
 
 type AppType = "manifest" | "legacyManifest" | "makefile";
 
@@ -325,6 +326,43 @@ export function findAppsInWorkspace(): App[] | undefined {
   }
 
   return appList;
+}
+
+// Check if git submodules are initialized, and initialize them if needed
+export function initializeAppSubmodulesIfNeeded(appFolderUri: vscode.Uri) {
+  const gitModulesPath = path.join(appFolderUri.fsPath, GIT_MODULES_FILE);
+
+  // Check if .gitmodules file exists
+  if (!fs.existsSync(gitModulesPath)) {
+    console.log(`Ledger: No .gitmodules file found in ${appFolderUri.fsPath}, skipping submodule init`);
+    return;
+  }
+
+  // Check if submodules are already initialized
+  let optionsExecSync: cp.ExecSyncOptions = { cwd: appFolderUri.fsPath, stdio: "pipe", encoding: "utf-8" };
+  if (platform === "win32") {
+    let shell: string = "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
+    optionsExecSync.shell = shell;
+  }
+
+  try {
+    // Check if any submodule path is not initialized yet
+    // git submodule status shows '-' prefix for uninitialized submodules
+    const status = cp.execSync("git submodule status", optionsExecSync).toString();
+    const hasUninitializedSubmodules = status.split("\n").some(line => line.trim().startsWith("-"));
+
+    if (hasUninitializedSubmodules) {
+      console.log(`Ledger: Initializing git submodules for ${appFolderUri.fsPath}`);
+      cp.execSync("git submodule update --init --recursive", optionsExecSync);
+      vscode.window.showInformationMessage(`Git submodules initialized for ${path.basename(appFolderUri.fsPath)}`);
+    }
+    else {
+      console.log(`Ledger: Git submodules already initialized in ${appFolderUri.fsPath}`);
+    }
+  }
+  catch (error) {
+    pushError(`Failed to check or initialize git submodules in ${appFolderUri.fsPath}: ${error}`);
+  }
 }
 
 export async function showAppSelectorMenu(targetSelector: TargetSelector) {
@@ -884,12 +922,9 @@ export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, 
             if (depApp.language === "c") {
               console.log(`Ledger: building C app ${depApp.name} in ${depFolderPath}`);
 
-              // Execute git command in cmd.exe on host, no docker
-              let submodulesCommand = `cd ${depFolderPath} && git submodule update --init --recursive;`;
-              if (platform === "win32") {
-                // Adapt the command for windows
-                submodulesCommand = `cd ${path.join(depFolderPath)} ; cmd.exe /c "git submodule update --init --recursive";`;
-              }
+              // Initialize submodules if needed for the test dependency
+              initializeAppSubmodulesIfNeeded(depApp.folderUri);
+
               // Build the app for all supported targets
               let buildCommand = "";
               let target = targetSelector.getSelectedTarget();
@@ -902,7 +937,7 @@ export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, 
               });
               targetSelector.setSelectedTarget(target);
 
-              let execBuildCommand = `${submodulesCommand} docker exec ${getDockerUserOpt()} ${selectedApp!.containerName} bash -c '${buildCommand}'`;
+              let execBuildCommand = `docker exec ${getDockerUserOpt()} ${selectedApp!.containerName} bash -c '${buildCommand}'`;
 
               vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", false);
               vscode.commands.executeCommand("setContext", "ledgerDevTools.showrebuildTestUseCaseDepsSpin", true);

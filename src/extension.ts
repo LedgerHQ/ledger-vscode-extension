@@ -30,6 +30,7 @@ import {
   getSelectedBuidUseCase,
   onVariantSelectedEvent,
   showVariant,
+  initializeAppSubmodulesIfNeeded,
 } from "./appSelector";
 
 let outputChannel: vscode.OutputChannel;
@@ -45,6 +46,8 @@ export function activate(context: vscode.ExtensionContext) {
   const appList = findAppsInWorkspace();
   if (appList) {
     setSelectedApp(appList[0]);
+    // Initialize git submodules for the default selected app (event not fired on setSelectedApp)
+    initializeAppSubmodulesIfNeeded(appList[0].folderUri);
   }
 
   let targetSelector = new TargetSelector();
@@ -148,6 +151,9 @@ export function activate(context: vscode.ExtensionContext) {
     onAppSelectedEvent(() => {
       const selectedApp = getSelectedApp();
       if (selectedApp) {
+        // Initialize git submodules if needed for the selected app
+        initializeAppSubmodulesIfNeeded(selectedApp.folderUri);
+
         vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTests", false);
         vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTestsSpin", false);
         vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTests", false);
@@ -300,6 +306,8 @@ export function activate(context: vscode.ExtensionContext) {
       const currentApp = getSelectedApp();
       if (!currentApp || !appList.includes(currentApp)) {
         setSelectedApp(appList[0]);
+        // Initialize git submodules for the newly selected app (event not fired on setSelectedApp)
+        initializeAppSubmodulesIfNeeded(appList[0].folderUri);
       }
       treeProvider.addDefaultTreeItems();
       treeProvider.updateDynamicLabels();

@@ -53,6 +53,24 @@ export class ContainerManager {
     return output.includes(containerName);
   }
 
+  private checkImageExists(imageName: string): boolean {
+    try {
+      const command = `docker images -q ${imageName}`;
+      const execOptions: ExecSyncOptionsWithStringEncoding = { stdio: "pipe", encoding: "utf-8" };
+      const output = execSync(command, execOptions).toString().trim();
+      return output.length > 0;
+    }
+    catch (error: any) {
+      console.log(`Ledger: Failed to check image existence: ${error.message}`);
+      return false;
+    }
+  }
+
+  private getDockerImage(): string {
+    const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+    return conf.get<string>("dockerImage") || "";
+  }
+
   public getContainerStatus(): DevImageStatus {
     const currentApp = getSelectedApp();
     try {
@@ -108,9 +126,18 @@ export class ContainerManager {
           }
         }
         else {
-          // Container doesn't exist, do nothing (user must manually create it)
-          console.log(`Ledger: Container ${containerName} does not exist. Please run "Update container" to create it.`);
-          this.triggerStatusEvent(DevImageStatus.stopped);
+          // Container doesn't exist, check if image exists to create it
+          const imageName = this.getDockerImage();
+          if (this.checkImageExists(imageName)) {
+            console.log(`Ledger: Container ${containerName} does not exist but image ${imageName} is present. Creating container...`);
+            this.triggerStatusEvent(DevImageStatus.syncing);
+            await this.taskProvider.executeTaskByName("Create container");
+          }
+          else {
+            console.log(`Ledger: Container ${containerName} and image ${imageName} do not exist. Pulling image and creating container...`);
+            this.triggerStatusEvent(DevImageStatus.syncing);
+            await this.taskProvider.executeTaskByName("Update container");
+          }
         }
       }
     }

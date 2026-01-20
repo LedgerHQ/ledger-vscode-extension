@@ -824,7 +824,8 @@ function parseBuildUseCasesFromManifest(tomlContent: any): BuildUseCase[] | unde
     let buildUseCase: BuildUseCase = {
       name: "debug",
     };
-    buildUseCases.push(buildUseCase);
+    // Insert the debug use case at index 1 (after release and before application defined use cases)
+    buildUseCases.splice(1, 0, buildUseCase);
   }
   return buildUseCases;
 }

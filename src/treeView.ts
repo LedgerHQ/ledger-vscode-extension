@@ -3,7 +3,7 @@ import { platform } from "node:process";
 import * as cp from "child_process";
 import { TargetSelector } from "./targetSelector";
 import { getSelectedApp } from "./appSelector";
-import { TaskSpec, checks, buildMode } from "./taskProvider";
+import { TaskSpec, checks } from "./taskProvider";
 import { DevImageStatus } from "./containerManager";
 
 export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
@@ -60,7 +60,6 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
           rootItem.iconPath = new vscode.ThemeIcon("vm");
         }
         if (rootItem.label?.toString().startsWith("Build")) {
-          rootItem.contextValue = "buildUseCase";
           rootItem.iconPath = new vscode.ThemeIcon("tools");
         }
         if (rootItem.label?.toString().startsWith("Functional")) {
@@ -212,7 +211,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
       let selectTargetItem = this.data.find(item => item.label && item.label.toString().startsWith("Select target"));
       let selectAppItem = this.data.find(item => item.label && item.label.toString().startsWith("Select app"));
       let functionalTestsItem = this.data.find(item => item.label && item.label.toString().startsWith("Functional"));
-      let buidUseCaseItem = this.data.find(item => item.label && item.label.toString().startsWith("Build"));
+      let buildUseCaseItem = this.data.find(item => item.label && item.label.toString().startsWith("Build"));
       let selectVariantItem = this.data.find(item => item.label && item.label.toString().startsWith("Select variant"));
       let checkItem = this.data.find(item => item.label && item.label.toString().startsWith("Run Guideline Enforcer"));
       let devOprItem = this.data.find(item => item.label && item.label.toString().startsWith("Device Operations"));
@@ -259,25 +258,15 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
           functionalTestsItem.label = `${functionalTestsItem.label} [${currentApp.selectedTestUseCase.name}]`;
         }
       }
-      if (buidUseCaseItem) {
-        if (currentApp.selectedBuildUseCase) {
-          buidUseCaseItem.label = `Build [${currentApp.selectedBuildUseCase.name}]`;
-        }
-        else {
-          buidUseCaseItem.label = `Build`;
-        }
+      if (buildUseCaseItem) {
+        buildUseCaseItem.label = `Build`;
 
         // if C app is selected
         if (currentApp.language === "c") {
           // Update Clean Target label
-          const cleanItem = buidUseCaseItem.children?.find(child => child.label && child.label.toString().startsWith("Clean the "));
+          const cleanItem = buildUseCaseItem.children?.find(child => child.label && child.label.toString().startsWith("Clean the "));
           if (cleanItem) {
             cleanItem.label = `Clean the ${this.targetSelector.getSelectedTarget()} build files`;
-          }
-          // Update Build App label
-          const buildItem = buidUseCaseItem.children?.find(child => child.label && child.label.toString().startsWith("Build app"));
-          if (buildItem) {
-            buildItem.label = `build app [${buildMode.selected}]`;
           }
         }
       }
@@ -287,6 +276,15 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
         }
         else {
           selectVariantItem.label = `Select variant`;
+        }
+      }
+      const selectUseCaseItem = this.data.find(item => item.label && item.label.toString().startsWith("Select use case"));
+      if (selectUseCaseItem) {
+        if (currentApp.buildUseCases && currentApp.buildUseCases.length > 1 && currentApp.selectedBuildUseCase) {
+          selectUseCaseItem.label = `Select use case [${currentApp.selectedBuildUseCase.name}]`;
+        }
+        else {
+          selectUseCaseItem.label = `Select use case`;
         }
       }
     }
@@ -301,6 +299,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     // Check select app and select target items don't already exist
     const selectAppItem = this.data.find(item => item.label && item.label.toString().startsWith("Select app"));
     const selectTargetItem = this.data.find(item => item.label && item.label.toString().startsWith("Select target"));
+    const selectUseCaseItem = this.data.find(item => item.label && item.label.toString().startsWith("Select use case"));
     const selectVariantItem = this.data.find(item => item.label && item.label.toString().startsWith("Select variant"));
 
     if (!selectAppItem) {
@@ -339,7 +338,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
         selectVariant.tooltip = "Select the variant to build";
         selectVariant.command = {
           command: "selectVariant",
-          title: "Select target",
+          title: "Select variant",
           arguments: [],
         };
         console.log("Ledger: Adding selectVariant to tree");
@@ -350,6 +349,28 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
         const index = this.data.indexOf(selectVariantItem, 0);
         if (index > -1) {
           console.log("Ledger: Removing selectVariant from tree");
+          this.data.splice(index, 1);
+        }
+      }
+
+      if (!selectUseCaseItem && currentApp.buildUseCases && currentApp.buildUseCases.length > 0) {
+        let selectUseCase = new TreeItem("Select use case");
+        selectUseCase.contextValue = "buildUseCase";
+        selectUseCase.setDefault();
+        selectUseCase.tooltip = "Select the build use case";
+        selectUseCase.command = {
+          command: "buildUseCase",
+          title: "Select use case",
+          arguments: [],
+        };
+        console.log("Ledger: Adding selectUseCase to tree");
+        this.data.push(selectUseCase);
+      }
+      else if (selectUseCaseItem
+        && (!currentApp.buildUseCases || currentApp.buildUseCases.length === 0)) {
+        const index = this.data.indexOf(selectUseCaseItem, 0);
+        if (index > -1) {
+          console.log("Ledger: Removing selectUseCase from tree");
           this.data.splice(index, 1);
         }
       }

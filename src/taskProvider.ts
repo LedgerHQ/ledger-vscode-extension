@@ -51,29 +51,6 @@ export async function showChecks() {
   return result;
 }
 
-export interface BuildModeList {
-  selected: string;
-  values: string[];
-}
-const validBuildMode: string[] = ["Incremental", "Full"];
-export const buildMode: BuildModeList = {
-  selected: "Incremental",
-  values: validBuildMode,
-};
-
-let buildModeSelectedEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
-export const onBuildModeSelectedEvent: vscode.Event<void> = buildModeSelectedEmitter.event;
-
-export async function toggleBuildMode() {
-  if (buildMode.selected === "Incremental") {
-    buildMode.selected = "Full";
-  }
-  else {
-    buildMode.selected = "Incremental";
-  }
-  buildModeSelectedEmitter.fire();
-}
-
 // Cache the Promise to ensure the function is only executed once
 let appLoadRequirementsPromise: Promise<string> | null = null;
 
@@ -168,9 +145,18 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Build",
-      name: "Build app",
+      name: "Build (incremental)",
       builders: { ["c"]: this.cBuildExec, ["rust"]: this.rustBuildExec },
-      toolTip: "Build app",
+      toolTip: "Build application incrementally (faster, only rebuilds changed files)",
+      dependsOn: this.appSubmodulesInitExec,
+      state: "enabled",
+      allSelectedBehavior: "executeForEveryTarget",
+    },
+    {
+      group: "Build",
+      name: "Build (full)",
+      builders: { ["c"]: this.cBuildFullExec },
+      toolTip: "Clean and build application from scratch (guarantees fresh build)",
       dependsOn: this.appSubmodulesInitExec,
       state: "enabled",
       allSelectedBehavior: "executeForEveryTarget",
@@ -471,11 +457,6 @@ export class TaskProvider implements vscode.TaskProvider {
       }
     }
 
-    // Retrieve the selected build mode, if any
-    if (buildMode.selected === "Full") {
-      buildOpt += " -B";
-    }
-
     const exec = `docker exec ${getDockerUserOpt()} -it ${
       this.containerName
     } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make -C ${this.buildDir} -j ${buildOpt}'`;
@@ -507,6 +488,14 @@ export class TaskProvider implements vscode.TaskProvider {
       // Execute git command in bash on host, no docker
       exec = `git submodule update --init --recursive`;
     }
+    return exec;
+  }
+
+  private cBuildFullExec(): string {
+    // Full build: clean target then build (equivalent to clean + incremental build)
+    const cleanExec = this.cCleanTargetExec();
+    const buildExec = this.cBuildExec();
+    const exec = `${cleanExec} && ${buildExec}`;
     return exec;
   }
 

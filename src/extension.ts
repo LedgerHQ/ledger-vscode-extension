@@ -59,6 +59,9 @@ export function activate(context: vscode.ExtensionContext) {
 
   let containerManager = new ContainerManager(taskProvider);
 
+  // Inject containerManager into treeProvider so it can query status when creating Docker Container item
+  treeProvider.setContainerManager(containerManager);
+
   // Event listener for container status.
   // This event is fired when the container status changes
   context.subscriptions.push(
@@ -256,7 +259,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   vscode.tasks.onDidStartTask((event) => {
     const taskName = event.execution.task.name;
-    if (taskName.startsWith("Update container")) {
+    if (taskName.startsWith("Update container") || taskName.startsWith("Create container")) {
       event.execution.task.isBackground = true;
       containerManager.triggerStatusEvent(DevImageStatus.syncing);
     }
@@ -272,7 +275,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   vscode.tasks.onDidEndTask((event) => {
     const taskName = event.execution.task.name;
-    if (taskName.startsWith("Update container")) {
+    if (taskName.startsWith("Update container") || taskName.startsWith("Create container")) {
       containerManager.checkUpdateRetries();
     }
   });
@@ -281,7 +284,7 @@ export function activate(context: vscode.ExtensionContext) {
     const taskName = event.execution.task.name;
     console.log(`Ledger: TaskProcess completed : "${taskName}". ExiCode=${event.exitCode}`);
     if (
-      (taskName === "Load app on device" || taskName === "Delete app from device" || taskName === "Update container")
+      (taskName === "Load app on device" || taskName === "Delete app from device" || taskName === "Update container" || taskName === "Create container")
       && event.exitCode === 0
     ) {
       const conf = vscode.workspace.getConfiguration("ledgerDevTools");

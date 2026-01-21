@@ -20,11 +20,21 @@ jobs:
       run: |
         echo "CHANGELOG_VERSION=$(grep -Po '(?<=## \[)(\d\.)+[^\]]' CHANGELOG.md | head -n 1)" >> "$GITHUB_ENV"
 
+    - name: Get package.json version
+      run: |
+        echo "PACKAGE_VERSION=$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+
     - name: Check tag version against CHANGELOG version
-      if: startsWith(github.ref, 'refs/tags/')
       run: |
         if [ "${{ github.ref_name }}" != "${CHANGELOG_VERSION}" ]; then
             echo "Tag '${{ github.ref_name }}' and CHANGELOG '${CHANGELOG_VERSION}' versions mismatch!"
+            exit 1
+        fi
+
+    - name: Check tag version against package.json version
+      run: |
+        if [ "${{ github.ref_name }}" != "${PACKAGE_VERSION}" ]; then
+            echo "Tag '${{ github.ref_name }}' and package.json '${PACKAGE_VERSION}' versions mismatch!"
             exit 1
         fi
 

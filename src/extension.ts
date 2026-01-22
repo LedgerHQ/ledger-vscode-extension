@@ -1,5 +1,4 @@
 "use strict";
-
 import * as vscode from "vscode";
 import {
   TaskProvider,
@@ -32,6 +31,7 @@ import {
   showVariant,
   initializeAppSubmodulesIfNeeded,
 } from "./appSelector";
+import { Wizard } from "./wizard";
 
 let outputChannel: vscode.OutputChannel;
 const appDetectionFiles = ["Cargo.toml", "ledger_app.toml", "Makefile"];
@@ -40,6 +40,9 @@ console.log("Ledger: Loading extension");
 
 export function activate(context: vscode.ExtensionContext) {
   console.log(`Ledger: activating extension`);
+
+  // Initialize context for wizard visibility
+  vscode.commands.executeCommand("setContext", "myApp.showWizard", false);
 
   outputChannel = vscode.window.createOutputChannel("Ledger DevTools");
 
@@ -53,7 +56,10 @@ export function activate(context: vscode.ExtensionContext) {
   let targetSelector = new TargetSelector();
 
   let treeProvider = new TreeDataProvider(targetSelector);
-  vscode.window.registerTreeDataProvider("mainView", treeProvider);
+  const mainView = vscode.window.createTreeView("mainView", { treeDataProvider: treeProvider });
+  context.subscriptions.push(mainView);
+
+  new Wizard(context, mainView);
 
   let taskProvider = new TaskProvider(treeProvider, targetSelector);
   context.subscriptions.push(vscode.tasks.registerTaskProvider(taskType, taskProvider));
@@ -260,6 +266,15 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("showAppList", () => {
       showAppSelectorMenu(targetSelector);
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("openWizard", async () => {
+      // Focus the container to ensure we're in the user's chosen location
+      await vscode.commands.executeCommand("workbench.view.extension.ledger-tools");
+      await vscode.commands.executeCommand("setContext", "myApp.showWizard", true);
+      await vscode.commands.executeCommand("appWebView.focus");
     }),
   );
 

@@ -222,24 +222,6 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
     this.refresh();
   }
 
-  public getComposeServiceName(): string {
-    let optionsExecSync: cp.ExecSyncOptions = { stdio: "pipe", encoding: "utf-8" };
-    const currentApp = getSelectedApp();
-    if (currentApp) {
-      const uri = vscode.Uri.parse(currentApp.folderUri.toString());
-      optionsExecSync.cwd = uri.fsPath;
-    }
-    // If platform is windows, set shell to powershell for cp exec.
-    if (platform === "win32") {
-      let shell: string = "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
-      optionsExecSync.shell = shell;
-    }
-
-    let cleanCmd: string = `docker compose config --services`;
-    const output = cp.execSync(cleanCmd, optionsExecSync).toString().trim();
-    return output.split("\n")[0];
-  }
-
   public updateDynamicLabels(): void {
     const currentApp = getSelectedApp();
     if (currentApp) {
@@ -260,8 +242,8 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
           }
           const composeItem = item.children?.find(child => child.label && child.label.toString().startsWith("Open compose terminal"));
           if (composeItem) {
-            const serviceName = this.getComposeServiceName();
-            composeItem.label = `Open compose terminal [${serviceName}]`;
+            // const serviceName = this.getComposeServiceName();
+            // composeItem.label = `Open compose terminal [${serviceName}]`;
           }
         }
       });

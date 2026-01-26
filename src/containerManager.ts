@@ -1,7 +1,7 @@
 "use strict";
 import * as vscode from "vscode";
 import { platform } from "node:process";
-import { execSync } from "child_process";
+import { execSync, ExecSyncOptions } from "child_process";
 import { getSelectedApp } from "./appSelector";
 import { TaskProvider } from "./taskProvider";
 import { ExecSyncOptionsWithStringEncoding } from "child_process";
@@ -22,6 +22,25 @@ export function getDockerUserOpt(): string {
     // Fallback if id command fails
     return `--user 1000:1000`;
   }
+}
+
+// Helper to get Docker compose service name based on app folder name
+export function getComposeServiceName(): string {
+  let optionsExecSync: ExecSyncOptions = { stdio: "pipe", encoding: "utf-8" };
+  const currentApp = getSelectedApp();
+  if (currentApp) {
+    const uri = vscode.Uri.parse(currentApp.folderUri.toString());
+    optionsExecSync.cwd = uri.fsPath;
+  }
+  // If platform is windows, set shell to powershell for cp exec.
+  if (platform === "win32") {
+    let shell: string = "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
+    optionsExecSync.shell = shell;
+  }
+
+  let cleanCmd: string = `docker compose config --services`;
+  const output = execSync(cleanCmd, optionsExecSync).toString().trim();
+  return output.split("\n")[0];
 }
 
 export enum DevImageStatus {

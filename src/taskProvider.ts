@@ -6,7 +6,7 @@ import * as os from "os";
 import * as fs from "fs";
 import * as fg from "fast-glob";
 import { platform } from "node:process";
-import { getDockerUserOpt } from "./containerManager";
+import { getDockerUserOpt, getComposeServiceName } from "./containerManager";
 import { TargetSelector, specialAllDevice } from "./targetSelector";
 import { getSelectedApp, App, AppLanguage } from "./appSelector";
 import { TreeDataProvider } from "./treeView";
@@ -84,7 +84,7 @@ class MyTask extends vscode.Task {
 }
 
 export class TaskProvider implements vscode.TaskProvider {
-  private treeProvider: TreeDataProvider;
+  private webviewProvider: Webview;
   private tgtSelector: TargetSelector;
   private image: string;
   private onboardPin: string;
@@ -117,8 +117,9 @@ export class TaskProvider implements vscode.TaskProvider {
       allSelectedBehavior: "enable",
     },
     {
-      group: "Docker Container",
+      group: "Tools",
       name: "Create container",
+      icon: "package",
       builders: { ["Both"]: this.createContainerExec },
       toolTip: "Create docker container from existing local image (without pulling)",
       state: "enabled",
@@ -285,8 +286,7 @@ export class TaskProvider implements vscode.TaskProvider {
     },
   ];
 
-  constructor(treeProvider: TreeDataProvider, targetSelector: TargetSelector, webviewProvider: Webview) {
-    this.treeProvider = treeProvider;
+  constructor(targetSelector: TargetSelector, webviewProvider: Webview) {
     this.webviewProvider = webviewProvider;
     this.tgtSelector = targetSelector;
     this.appLanguage = "c";
@@ -391,8 +391,7 @@ export class TaskProvider implements vscode.TaskProvider {
     this.checkDisabledTasks(specsToRegenerate);
     // Push only the regenerated tasks
     this.pushTasks(specsToRegenerate);
-    // Update tree view with all tasks
-    this.treeProvider.addAllTasksToTree(this.taskSpecs);
+    // TODO : Update only the regenerated tasks in the webview
   }
 
   public async provideTasks(): Promise<vscode.Task[]> {
@@ -555,7 +554,7 @@ export class TaskProvider implements vscode.TaskProvider {
   }
 
   private openComposeTerminalExec(): string {
-    const serviceName = this.treeProvider.getComposeServiceName();
+    const serviceName = getComposeServiceName();
     const exec = `docker compose run --rm --remove-orphans ${getDockerUserOpt()} ${serviceName}`;
     return exec;
   }

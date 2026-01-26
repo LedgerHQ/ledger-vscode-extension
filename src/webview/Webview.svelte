@@ -498,8 +498,9 @@
     background-color: var(--vscode-editor-background);
     color: var(--vscode-editor-foreground);
     font-family: var(--vscode-font-family);
-    min-height: 100vh;
+    min-width: 200px;
     padding: 16px;
+    border-radius: 8px;
   }
 
   .main-content {
@@ -618,10 +619,27 @@
     margin: 0;
   }
 
-  .config-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
+  @media (min-width: 350px) {
+    .config-grid {
+      display: flex;
+      /* grid-template-columns: 1fr 1fr; */
+      flex-direction: row;
+      gap: 12px;
+    }
+
+    .config-grid .form-group {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+
+  @media (max-width: 349px) {
+    .config-grid {
+      display: flex;
+      /* grid-template-columns: 1fr 1fr; */
+      flex-direction: column;
+      gap: 12px;
+    }
   }
 
   .form-group {

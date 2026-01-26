@@ -6,6 +6,8 @@ import {
   taskType,
   onCheckSelectedEvent,
   showChecks,
+  onBuildModeSelectedEvent,
+  toggleBuildMode,
 } from "./taskProvider";
 import { TreeDataProvider } from "./treeView";
 import { TargetSelector } from "./targetSelector";
@@ -46,7 +48,18 @@ export function activate(context: vscode.ExtensionContext) {
   outputChannel = vscode.window.createOutputChannel("Ledger DevTools");
 
   let webview = new Webview(context.extensionUri);
-  context.subscriptions.push(vscode.window.registerWebviewViewProvider("appWebView", webview));
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider("appWebView", webview, {
+      webviewOptions: { retainContextWhenHidden: true },
+    }),
+  );
+
+  // Register empty view for viewsWelcome when no apps found
+  vscode.window.registerTreeDataProvider("emptyView", {
+    getTreeItem: element => element,
+    getChildren: () => [],
+    onDidChangeTreeData: undefined,
+  });
 
   const appList = findAppsInWorkspace();
   if (appList && appList.length > 0) {
@@ -68,11 +81,7 @@ export function activate(context: vscode.ExtensionContext) {
     targetSelector.getSelectedTarget(),
   );
 
-  let treeProvider = new TreeDataProvider(targetSelector);
-  const mainView = vscode.window.createTreeView("mainView", { treeDataProvider: treeProvider });
-  //   context.subscriptions.push(mainView);
-
-  let taskProvider = new TaskProvider(treeProvider, targetSelector, webview);
+  let taskProvider = new TaskProvider(targetSelector, webview);
   context.subscriptions.push(vscode.tasks.registerTaskProvider(taskType, taskProvider));
 
   let statusBarManager = new StatusBarManager(targetSelector.getSelectedTarget(), getSelectedBuidUseCase());
@@ -84,7 +93,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     containerManager.onStatusEvent((data) => {
       statusBarManager.updateDevImageItem(data);
-      treeProvider.updateContainerLabel(data);
+      // TODO: update webview container status indicator
       if (data === DevImageStatus.running) {
         getAndBuildAppTestsDependencies(targetSelector);
         getAppTestsList(targetSelector, false, webview);
@@ -124,13 +133,11 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
-
   // Event listener for Guideline Enforcer check selection.
   // This event is fired when the user selects a Guideline Enforcer check
   context.subscriptions.push(
     onCheckSelectedEvent(() => {
       taskProvider.generateTasks();
-      treeProvider.updateDynamicLabels();
     }),
   );
 
@@ -145,7 +152,6 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     onBuildModeSelectedEvent(() => {
       taskProvider.generateTasks();
-      treeProvider.updateDynamicLabels();
     }),
   );
 
@@ -161,7 +167,6 @@ export function activate(context: vscode.ExtensionContext) {
     onUseCaseSelectedEvent((data) => {
       taskProvider.generateTasks();
       statusBarManager.updateBuildUseCaseItem(data);
-      treeProvider.updateDynamicLabels();
     }),
   );
 
@@ -193,8 +198,6 @@ export function activate(context: vscode.ExtensionContext) {
         }
       }
       containerManager.manageContainer();
-      treeProvider.addDefaultTreeItems();
-      treeProvider.updateDynamicLabels();
       taskProvider.generateTasks();
       targetSelector.updateTargetsInfos();
       webview.addTargetsToWebview(
@@ -208,7 +211,6 @@ export function activate(context: vscode.ExtensionContext) {
   // This event is fired when the user selects a test use case in the testUseCaseSelector menu
   context.subscriptions.push(
     onTestUseCaseSelected(() => {
-      treeProvider.updateDynamicLabels();
     }),
   );
 
@@ -364,13 +366,10 @@ export function activate(context: vscode.ExtensionContext) {
       );
       taskProvider.generateTasks();
       statusBarManager.updateTargetItem(targetSelector.getSelectedTarget());
-      treeProvider.updateDynamicLabels();
     }
   });
 
   containerManager.manageContainer();
-
-  webview.show();
 
   console.log(`Ledger: extension activated`);
   return 0;

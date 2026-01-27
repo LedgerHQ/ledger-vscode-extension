@@ -150,12 +150,12 @@ export class ContainerManager {
           if (this.checkImageExists(imageName)) {
             console.log(`Ledger: Container ${containerName} does not exist but image ${imageName} is present. Creating container...`);
             this.triggerStatusEvent(DevImageStatus.syncing);
-            await this.taskProvider.executeTaskByName("Create container");
+            await this.taskProvider.executeTaskByName("Create Container");
           }
           else {
             console.log(`Ledger: Container ${containerName} and image ${imageName} do not exist. Pulling image and creating container...`);
             this.triggerStatusEvent(DevImageStatus.syncing);
-            await this.taskProvider.executeTaskByName("Update container");
+            await this.taskProvider.executeTaskByName("Update Container");
           }
         }
       }

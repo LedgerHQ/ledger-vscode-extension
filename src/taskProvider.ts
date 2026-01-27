@@ -108,7 +108,7 @@ export class TaskProvider implements vscode.TaskProvider {
   private taskSpecs: TaskSpec[] = [
     {
       group: "Tools",
-      name: "Update container",
+      name: "Update Container",
       icon: "package",
       builders: { ["Both"]: this.runDevToolsImageExec },
       toolTip: "Update docker container (pull image and restart container)",
@@ -117,7 +117,7 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Tools",
-      name: "Create container",
+      name: "Create Container",
       icon: "package",
       builders: { ["Both"]: this.createContainerExec },
       toolTip: "Create docker container from existing local image (without pulling)",
@@ -145,7 +145,7 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Build",
-      name: "Build app",
+      name: "Build App",
       icon: "tools",
       builders: { ["c"]: this.cBuildExec, ["rust"]: this.rustBuildExec },
       toolTip: "Build app incrementally (faster, only rebuilds changed files)",
@@ -155,8 +155,8 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Build",
-      name: "Build (full)",
-      icon: "tools",
+      name: "Clean & Build",
+      icon: "sync",
       builders: { ["c"]: this.cBuildFullExec },
       toolTip: "Clean and build application from scratch (guarantees fresh build)",
       state: "enabled",
@@ -182,7 +182,7 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Emulator",
-      name: "Run with emulator",
+      name: "Run with Emulator",
       icon: "play",
       builders: { ["Both"]: this.runInSpeculosExec },
       toolTip: "Run app with emulator (Speculos)",
@@ -192,7 +192,7 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Emulator",
-      name: "Kill emulator",
+      name: "Kill Emulator",
       icon: "debug-stop",
       builders: { ["Both"]: this.killSpeculosExec },
       toolTip: "Kill emulator (Speculos) instance",
@@ -201,7 +201,7 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Tests",
-      name: "Run tests",
+      name: "Run Tests",
       icon: "beaker",
       builders: { ["Both"]: this.functionalTestsExec },
       dependsOn: this.functionalTestsRequirementsExec,
@@ -212,7 +212,7 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Tests",
-      name: "Tests with display",
+      name: "Tests with Display",
       icon: "device-desktop",
       builders: { ["Both"]: this.functionalTestsDisplayExec },
       dependsOn: this.functionalTestsRequirementsExec,
@@ -254,7 +254,7 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Device",
-      name: "Delete app from device",
+      name: "Delete App from Device",
       icon: "trash",
       builders: { ["Both"]: this.appDeleteExec },
       dependsOn: this.appLoadRequirementsExec,

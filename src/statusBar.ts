@@ -31,7 +31,7 @@ export class StatusBarManager {
     const runDevImageCommand: vscode.Command = {
       command: "executeTask",
       title: "Execute Task",
-      arguments: ["Update container"],
+      arguments: ["Update Container"],
     };
     this.devImageItem.command = runDevImageCommand;
     this.updateDevImageItem(DevImageStatus.stopped);

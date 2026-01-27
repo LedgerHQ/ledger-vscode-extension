@@ -113,10 +113,10 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     onTestsSelectedEvent(() => {
       taskProvider.regenerateSubset([
-        "Run tests",
-        "Run tests with display",
-        "Run tests with display - on device",
-        "Generate golden snapshots",
+        "Run Tests",
+        "Tests with Display",
+        "Tests on Device",
+        "Generate Snapshots",
       ]);
     }),
   );
@@ -258,7 +258,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   vscode.tasks.onDidStartTask((event) => {
     const taskName = event.execution.task.name;
-    if (taskName.startsWith("Update container") || taskName.startsWith("Create container")) {
+    if (taskName.startsWith("Update Container") || taskName.startsWith("Create Container")) {
       event.execution.task.isBackground = true;
       containerManager.triggerStatusEvent(DevImageStatus.syncing);
     }
@@ -274,7 +274,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   vscode.tasks.onDidEndTask((event) => {
     const taskName = event.execution.task.name;
-    if (taskName.startsWith("Update container") || taskName.startsWith("Create container")) {
+    if (taskName.startsWith("Update Container") || taskName.startsWith("Create Container")) {
       containerManager.checkUpdateRetries();
     }
   });
@@ -284,7 +284,7 @@ export function activate(context: vscode.ExtensionContext) {
     webview.onEndTaskProcess(taskName, event.exitCode === 0);
     console.log(`Ledger: TaskProcess completed : "${taskName}". ExiCode=${event.exitCode}`);
     if (
-      (taskName === "Load app on device" || taskName === "Delete app from device" || taskName === "Update container" || taskName === "Create container")
+      (taskName === "Load on Device" || taskName === "Delete App from Device" || taskName === "Update Container" || taskName === "Create Container")
       && event.exitCode === 0
     ) {
       const conf = vscode.workspace.getConfiguration("ledgerDevTools");

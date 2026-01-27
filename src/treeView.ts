@@ -138,7 +138,7 @@ export class TreeDataProvider implements vscode.TreeDataProvider<TreeItem> {
       // Add only enabled tasks
       if (!(spec.state === "unavailable")) {
         this.addTaskToTree(spec);
-        if (spec.name.includes("Run tests")) {
+        if (spec.name.includes("Run Tests")) {
           this.addTestDependenciesTreeItem();
         }
       }

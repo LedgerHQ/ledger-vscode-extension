@@ -9,7 +9,6 @@ import { platform } from "node:process";
 import { getDockerUserOpt, getComposeServiceName } from "./containerManager";
 import { TargetSelector, specialAllDevice } from "./targetSelector";
 import { getSelectedApp, App, AppLanguage } from "./appSelector";
-import { TreeDataProvider } from "./treeView";
 import type { TaskSpec } from "./types/taskTypes";
 import { Webview } from "./webview/webviewProvider";
 
@@ -150,7 +149,6 @@ export class TaskProvider implements vscode.TaskProvider {
       icon: "tools",
       builders: { ["c"]: this.cBuildExec, ["rust"]: this.rustBuildExec },
       toolTip: "Build app incrementally (faster, only rebuilds changed files)",
-      dependsOn: this.appSubmodulesInitExec,
       state: "enabled",
       allSelectedBehavior: "executeForEveryTarget",
       mainCommand: true,

@@ -6,8 +6,6 @@ import {
   taskType,
   onCheckSelectedEvent,
   showChecks,
-  onBuildModeSelectedEvent,
-  toggleBuildMode,
 } from "./taskProvider";
 import { TreeDataProvider } from "./treeView";
 import { TargetSelector } from "./targetSelector";
@@ -137,20 +135,6 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
-  // Event listener for Build Mode selection.
-  // This event is fired when the user selects a Build Mode
-  context.subscriptions.push(
-    onBuildModeSelectedEvent(() => {
-      taskProvider.generateTasks();
-    }),
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("toggleBuildMode", () => {
-      toggleBuildMode();
-    }),
-  );
-
   // Event listener for useCase selection.
   // This event is fired when the user selects a build useCase
   context.subscriptions.push(
@@ -266,11 +250,11 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(vscode.commands.registerCommand("rebuildTestUseCaseDepsSpin", () => {}));
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand("showAppList", () => {
-      showAppSelectorMenu(targetSelector);
-    }),
-  );
+  //   context.subscriptions.push(
+  //     vscode.commands.registerCommand("showAppList", () => {
+  //       showAppSelectorMenu(targetSelector);
+  //     }),
+  //   );
 
   vscode.tasks.onDidStartTask((event) => {
     const taskName = event.execution.task.name;

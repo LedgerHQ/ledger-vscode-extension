@@ -10,12 +10,14 @@
   import { Select, type WithoutChildren } from "bits-ui";
   import { ChevronDown, ChevronUp, Check } from "@jis3r/icons";
 
-  type Props = WithoutChildren<Select.RootProps> & {
+  interface Props {
+    value?: string;
     placeholder?: string;
     items: SelectItem[];
     contentProps?: WithoutChildren<Select.ContentProps>;
     disabled?: boolean;
-  };
+    onchange?: (value: string) => void;
+  }
 
   let {
     value = $bindable(),
@@ -23,17 +25,36 @@
     contentProps,
     placeholder = "Select...",
     disabled = false,
-    ...restProps
+    onchange,
   }: Props = $props();
 
   const selectedLabel = $derived(items.find((item) => item.value === value)?.label);
 
+  // Track if change came from user interaction (dropdown was opened)
+  let isUserInteraction = false;
+
+  function handleOpenChange(open: boolean) {
+    if (open) {
+      isUserInteraction = true;
+    }
+  }
+
   function handleValueChange(newValue: string) {
     value = newValue;
+    if (isUserInteraction) {
+      onchange?.(newValue);
+      isUserInteraction = false;
+    }
   }
 </script>
 
-<Select.Root type="single" {disabled} {items} onValueChange={handleValueChange} {...restProps}>
+<Select.Root
+  type="single"
+  {disabled}
+  {items}
+  onValueChange={handleValueChange}
+  onOpenChange={handleOpenChange}
+>
   <Select.Trigger class="select-trigger">
     <span class="select-value">{selectedLabel ? selectedLabel : placeholder}</span>
     <span class="select-icon">

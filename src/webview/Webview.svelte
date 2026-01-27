@@ -14,23 +14,7 @@
   let apps = $state<SelectItem[]>([]);
   let targets = $state<SelectItem[]>([]);
 
-  // Track if initial values have been received from extension
-  let appInitialized = false;
-  let targetInitialized = false;
-
-  $effect(() => {
-    const app = selectedApp;  // Track the dependency
-    if (appInitialized) {
-      sendSelectedApp(app);
-    }
-  });
-
-  $effect(() => {
-    const target = selectedTarget;  // Track the dependency
-    if (targetInitialized) {
-      sendSelectedTarget(target);
-    }
-  });
+  let previousSelectedTarget: string = "";
 
   // Build use case
   type BuildUseCase = "debug" | "release";
@@ -47,7 +31,7 @@
   interface Action {
     id: string;
     label: string;
-    icon: string; // codicon name
+    icon?: string; // codicon name
     taskName?: string;
     tooltip?: string;
     status: CommandStatus;
@@ -155,6 +139,19 @@
     });
   }
 
+  function sendAllDevices() {
+    if (allDevices) {
+      previousSelectedTarget = selectedTarget;
+      selectedTarget = "All";
+    } else {
+      selectedTarget = previousSelectedTarget;
+    }
+    vscode.postMessage({
+      command: "targetSelected",
+      selectedTarget: selectedTarget,
+    });
+  }
+
   function refreshTests() {
     isRefreshing = true;
     testCases = [];
@@ -248,15 +245,11 @@
         apps = [];
         apps = message.apps.map((app: string) => ({ value: app, label: app }));
         selectedApp = message.selectedApp;
-        // Mark as initialized after setting value so effect doesn't fire for initial load
-        setTimeout(() => { appInitialized = true; }, 0);
         break;
       case "addTargets":
         targets = [];
         targets = message.targets.map((target: string) => ({ value: target, label: target }));
         selectedTarget = message.selectedTarget;
-        // Mark as initialized after setting value so effect doesn't fire for initial load
-        setTimeout(() => { targetInitialized = true; }, 0);
         break;
     }
     // Handle other commands as needed

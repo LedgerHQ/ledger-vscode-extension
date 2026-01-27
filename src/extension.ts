@@ -42,9 +42,6 @@ console.log("Ledger: Loading extension");
 export function activate(context: vscode.ExtensionContext) {
   console.log(`Ledger: activating extension`);
 
-  // Initialize context for wizard visibility
-  vscode.commands.executeCommand("setContext", "myApp.showWizard", false);
-
   outputChannel = vscode.window.createOutputChannel("Ledger DevTools");
 
   let webview = new Webview(context.extensionUri);
@@ -53,13 +50,6 @@ export function activate(context: vscode.ExtensionContext) {
       webviewOptions: { retainContextWhenHidden: true },
     }),
   );
-
-  // Register empty view for viewsWelcome when no apps found
-  vscode.window.registerTreeDataProvider("emptyView", {
-    getTreeItem: element => element,
-    getChildren: () => [],
-    onDidChangeTreeData: undefined,
-  });
 
   const appList = findAppsInWorkspace();
   if (appList && appList.length > 0) {

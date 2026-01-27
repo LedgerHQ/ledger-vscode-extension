@@ -81,26 +81,13 @@
     "views": {
       "ledger-tools": [
         {
-          "id": "emptyView",
-          "name": "",
-          "icon": "resources/ledger-square.png",
-          "when": "!myApp.showWebview"
-        },
-        {
           "id": "appWebView",
           "type": "webview",
           "icon": "resources/ledger-square.png",
-          "name": "",
-          "when": "myApp.showWebview"
+          "name": ""
         }
       ]
     },
-    "viewsWelcome": [
-      {
-        "view": "emptyView",
-        "contents": "No Ledger app detected in the workspace.\nOpen a Ledger app's folder or open a workspace containing Ledger apps to enable this extension's features.\n[Open App Folder](command:vscode.openFolder)\n[Open Workspace](command:workbench.action.openWorkspace)\n"
-      }
-    ],
     "commands": [
       {
         "command": "executeTask",

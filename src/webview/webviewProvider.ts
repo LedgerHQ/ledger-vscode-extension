@@ -146,6 +146,18 @@ export class Webview implements vscode.WebviewViewProvider {
             this.targetSelectedEmitter.fire(selectedTarget);
           }
           break;
+        case "openApp":
+          {
+            console.log("Open app folder requested from webview");
+            await vscode.commands.executeCommand("vscode.openFolder");
+          }
+          break;
+        case "openWorkspace":
+          {
+            console.log("Open workspace folder requested from webview");
+            await vscode.commands.executeCommand("workbench.action.openWorkspace");
+          }
+          break;
       }
     });
   }
@@ -157,6 +169,7 @@ export class Webview implements vscode.WebviewViewProvider {
     // Get the local path to main script run in the webview (bundled by webpack to dist/).
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "dist", "webview.js"));
     const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "dist", "codicon.css"));
+    const wordmarkUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "resources", "ledger-wordmark-transparent.png"));
 
     // TODO : add security policies
     return /* html */ `
@@ -169,6 +182,11 @@ export class Webview implements vscode.WebviewViewProvider {
             <title>Create Ledger App</title>
         </head>
         <body>
+            <script>
+              window.resourceUris = {
+                wordmark: "${wordmarkUri}"
+              };
+            </script>
             <script src="${scriptUri}"></script>
         </body>
         </html>`;

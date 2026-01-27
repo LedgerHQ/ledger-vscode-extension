@@ -270,236 +270,350 @@
 </script>
 
 <div class="container">
-  <div class="main-content">
-    <!-- Header -->
-    <div class="header-section">
-      <div class="header-row">
-        <div class="build-usecase-wrapper" use:autoAnimate>
-          <button
-            class="build-usecase-badge {buildUseCase}"
-            onclick={(e) => {
-              e.stopPropagation();
-              const willOpen = !showBuildUseCaseMenu;
-              actionGroups.forEach((g) => (g.showOptions = false));
-              showBuildUseCaseMenu = willOpen;
-            }}
-          >
-            <i class="codicon codicon-rocket"></i>
-            {buildUseCases.find((u) => u.id === buildUseCase)?.label}
-            <i class="codicon codicon-chevron-down chevron"></i>
-          </button>
-          {#if showBuildUseCaseMenu}
-            <div class="build-usecase-dropdown">
-              {#each buildUseCases as useCase}
-                <button
-                  class="usecase-option {buildUseCase === useCase.id ? 'selected' : ''}"
-                  onclick={() => selectBuildUseCase(useCase.id)}
-                >
-                  <i class="codicon codicon-{buildUseCase === useCase.id ? 'check' : 'blank'}"></i>
-                  {useCase.label}
-                </button>
-              {/each}
-            </div>
-          {/if}
-        </div>
+  <!-- Welcome View when no apps found -->
+  {#if apps.length === 0}
+    <div class="welcome-view">
+      <i class="codicon codicon-warning welcome-icon"></i>
+      <p class="welcome-title">No Ledger app detected</p>
+      <p class="welcome-description">
+        Open a Ledger app's folder or open a workspace containing Ledger apps to get started.
+      </p>
+      <div class="welcome-buttons">
+        <button class="vscode-button" onclick={() => vscode.postMessage({ command: "openApp" })}>
+          Open App Folder
+        </button>
+        <button
+          class="vscode-button secondary"
+          onclick={() => vscode.postMessage({ command: "openWorkspace" })}
+        >
+          Open Workspace
+        </button>
       </div>
-
-      <!-- Configuration Card -->
-      <div class="config-card">
-        <div class="config-header">
-          <i class="codicon codicon-settings-gear"></i>
-          <h2 class="config-title">Configuration</h2>
-        </div>
-        <div class="config-grid">
-          <div class="form-group">
-            <label for="app-select">Application</label>
-            <Select items={apps} bind:value={selectedApp}/>
-          </div>
-          <div class="form-group">
-            <label for="target-select">Target Device</label>
-            <Select
-              items={targets}
-              bind:value={selectedTarget}
-              disabled={allDevices}
-            />
-          </div>
-        </div>
-        <div class="all-devices-toggle">
-          <label class="toggle-label">
-            <input type="checkbox" bind:checked={allDevices} />
-            <span class="toggle-text">
-              <i class="codicon codicon-layers"></i>
-              Build for all devices
-            </span>
-          </label>
-          {#if allDevices}
-            <span class="toggle-hint">Some actions will be disabled</span>
-          {/if}
-        </div>
-      </div>
+      <img class="wordmark" src={(window as any).resourceUris?.wordmark} alt="Ledger" />
     </div>
-
-    <!-- Action Groups -->
-    <div class="actions-section">
-      {#each actionGroups as group}
-        <div class="action-group {isGroupDisabled(group) ? 'disabled' : ''}" use:autoAnimate>
-          <div class="action-group-header">
-            {#if group.mainAction}
-              <button
-                onclick={() => executeAction(group.id, group.mainAction.id)}
-                disabled={group.mainAction.status === "running" || isGroupDisabled(group)}
-                class="action-button main {getStatusClass(group.mainAction.status)}"
-                title={group.mainAction.tooltip}
-              >
-                <span class="action-icon">
-                  <i class="codicon codicon-{group.icon}"></i>
-                </span>
-                <div class="action-label">
-                  <div class="action-title">{group.id}</div>
-                  <div class="action-subtitle">{group.mainAction.label}</div>
-                </div>
-                {#if group.mainAction.status !== "idle"}
-                  <span class="status-indicator">
-                    {#if group.mainAction.status === "running"}
-                      <span class="spinner"></span>
-                    {:else if group.mainAction.status === "success"}
-                      <Check size={16} animate={true} />
-                    {:else}
-                      <X size={16} animate={true} />
-                    {/if}
-                  </span>
-                {/if}
-              </button>
-            {:else}
-              <button disabled={true} class="action-button main disabled">
-                <span class="action-icon">
-                  <i class="codicon codicon-{group.icon}"></i>
-                </span>
-                <div class="action-label">
-                  <div class="action-title">{group.id}</div>
-                  <div class="action-subtitle">Not available</div>
-                </div>
-              </button>
-            {/if}
+  {:else}
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Header -->
+      <div class="header-section">
+        <div class="header-row">
+          <div class="build-usecase-wrapper" use:autoAnimate>
             <button
-              onmouseenter={() => (hoveredGroupId = group.id)}
-              onmouseleave={() => (hoveredGroupId = null)}
-              class="gear-button {group.showOptions ? 'active' : ''}"
-              onclick={() => toggleOptions(group.id)}
-              disabled={isGroupDisabled(group)}
+              class="build-usecase-badge {buildUseCase}"
+              onclick={(e) => {
+                e.stopPropagation();
+                const willOpen = !showBuildUseCaseMenu;
+                actionGroups.forEach((g) => (g.showOptions = false));
+                showBuildUseCaseMenu = willOpen;
+              }}
             >
-              <span class="plus-icon" class:rotated={group.showOptions}>
-                <Plus size={16} animate={hoveredGroupId === group.id}></Plus>
-              </span>
+              <i class="codicon codicon-rocket"></i>
+              {buildUseCases.find((u) => u.id === buildUseCase)?.label}
+              <i class="codicon codicon-chevron-down chevron"></i>
             </button>
+            {#if showBuildUseCaseMenu}
+              <div class="build-usecase-dropdown">
+                {#each buildUseCases as useCase}
+                  <button
+                    class="usecase-option {buildUseCase === useCase.id ? 'selected' : ''}"
+                    onclick={() => selectBuildUseCase(useCase.id)}
+                  >
+                    <i class="codicon codicon-{buildUseCase === useCase.id ? 'check' : 'blank'}"
+                    ></i>
+                    {useCase.label}
+                  </button>
+                {/each}
+              </div>
+            {/if}
           </div>
+        </div>
 
-          {#if group.showOptions && !isGroupDisabled(group)}
-            <div class="options-panel">
-              {#each group.options as option}
+        <!-- Configuration Card -->
+        <div class="config-card">
+          <div class="config-header">
+            <i class="codicon codicon-settings-gear"></i>
+            <h2 class="config-title">Configuration</h2>
+          </div>
+          <div class="config-grid">
+            <div class="form-group">
+              <label for="app-select">Application</label>
+              <Select items={apps} bind:value={selectedApp} onchange={sendSelectedApp} />
+            </div>
+            <div class="form-group">
+              <label for="target-select">Target Device</label>
+              <Select
+                items={targets}
+                bind:value={selectedTarget}
+                disabled={allDevices}
+                placeholder={allDevices ? "All" : "Select..."}
+                onchange={sendSelectedTarget}
+              />
+            </div>
+          </div>
+          <div class="all-devices-toggle">
+            <label class="toggle-label">
+              <input type="checkbox" bind:checked={allDevices} onchange={sendAllDevices} />
+              <span class="toggle-text">
+                <i class="codicon codicon-layers"></i>
+                Build for all devices
+              </span>
+            </label>
+            {#if allDevices}
+              <span class="toggle-hint">Some actions will be disabled</span>
+            {/if}
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Groups -->
+      <div class="actions-section">
+        {#each actionGroups as group}
+          <div class="action-group {isGroupDisabled(group) ? 'disabled' : ''}" use:autoAnimate>
+            <div class="action-group-header">
+              {#if group.mainAction}
                 <button
-                  title={option.tooltip}
-                  onclick={() => executeAction(group.id, option.id)}
-                  disabled={option.status === "running" || isActionDisabled(option)}
-                  class="option-button {getStatusClass(option.status)} {isActionDisabled(option)
-                    ? 'disabled'
-                    : ''}"
+                  onclick={() => executeAction(group.id, group.mainAction?.id ?? "")}
+                  disabled={group.mainAction.status === "running" || isGroupDisabled(group)}
+                  class="action-button main {getStatusClass(group.mainAction.status)}"
+                  title={group.mainAction.tooltip}
                 >
-                  <span class="option-icon">
-                    <i class="codicon codicon-{option.icon}"></i>
+                  <span class="action-icon">
+                    <i class="codicon codicon-{group.icon}"></i>
                   </span>
-                  <span class="option-label">{option.label}</span>
-                  {#if option.status !== "idle"}
-                    <span class="status-indicator small">
-                      {#if option.status === "running"}
-                        <span class="spinner small"></span>
-                      {:else if option.status === "success"}
-                        <Check size={12} animate={true} />
+                  <div class="action-label">
+                    <div class="action-title">{group.id}</div>
+                    <div class="action-subtitle">{group.mainAction.label}</div>
+                  </div>
+                  {#if group.mainAction.status !== "idle"}
+                    <span class="status-indicator">
+                      {#if group.mainAction.status === "running"}
+                        <span class="spinner"></span>
+                      {:else if group.mainAction.status === "success"}
+                        <Check size={16} animate={true} />
                       {:else}
-                        <X size={12} animate={true} />
+                        <X size={16} animate={true} />
                       {/if}
                     </span>
                   {/if}
                 </button>
-              {/each}
-
-              <!-- Embedded Test Selection (only in tests group) -->
-              {#if group.id === "Tests"}
-                <div class="test-selector-embedded">
-                  <div class="test-selector-divider"></div>
-
-                  <!-- Verbose toggle -->
-                  <div class="verbose-toggle-row">
-                    <span class="verbose-label">
-                      <i class="codicon codicon-output"></i>
-                      Verbose output
-                    </span>
-                    <Switch bind:checked={verboseTests} />
+              {:else}
+                <button disabled={true} class="action-button main disabled">
+                  <span class="action-icon">
+                    <i class="codicon codicon-{group.icon}"></i>
+                  </span>
+                  <div class="action-label">
+                    <div class="action-title">{group.id}</div>
+                    <div class="action-subtitle">Not available</div>
                   </div>
+                </button>
+              {/if}
+              <button
+                onmouseenter={() => (hoveredGroupId = group.id)}
+                onmouseleave={() => (hoveredGroupId = null)}
+                class="gear-button {group.showOptions && !isGroupDisabled(group) ? 'active' : ''}"
+                onclick={() => toggleOptions(group.id)}
+                disabled={isGroupDisabled(group)}
+              >
+                <span
+                  class="plus-icon"
+                  class:rotated={group.showOptions && !isGroupDisabled(group)}
+                >
+                  <Plus size={16} animate={hoveredGroupId === group.id}></Plus>
+                </span>
+              </button>
+            </div>
 
-                  <div class="test-selector-header-inline">
-                    <span class="test-selector-title">
-                      <i class="codicon codicon-list-selection"></i>
-                      Tests to run
+            {#if group.showOptions && !isGroupDisabled(group)}
+              <div class="options-panel">
+                {#each group.options as option}
+                  <button
+                    title={option.tooltip}
+                    onclick={() => executeAction(group.id, option.id)}
+                    disabled={option.status === "running" || isActionDisabled(option)}
+                    class="option-button {getStatusClass(option.status)} {isActionDisabled(option)
+                      ? 'disabled'
+                      : ''}"
+                  >
+                    <span class="option-icon">
+                      <i class="codicon codicon-{option.icon}"></i>
                     </span>
-                    <div class="test-header-actions">
-                      <button class="icon-button" onclick={refreshTests} title="Refresh test list">
-                        <i class="codicon codicon-refresh {isRefreshing ? 'spinning' : ''}"></i>
+                    <span class="option-label">{option.label}</span>
+                    {#if option.status !== "idle"}
+                      <span class="status-indicator small">
+                        {#if option.status === "running"}
+                          <span class="spinner small"></span>
+                        {:else if option.status === "success"}
+                          <Check size={12} animate={true} />
+                        {:else}
+                          <X size={12} animate={true} />
+                        {/if}
+                      </span>
+                    {/if}
+                  </button>
+                {/each}
+
+                <!-- Embedded Test Selection (only in tests group) -->
+                {#if group.id === "Tests"}
+                  <div class="test-selector-embedded">
+                    <div class="test-selector-divider"></div>
+
+                    <!-- Verbose toggle -->
+                    <div class="verbose-toggle-row">
+                      <span class="verbose-label">
+                        <i class="codicon codicon-output"></i>
+                        Verbose output
+                      </span>
+                      <Switch bind:checked={verboseTests} />
+                    </div>
+
+                    <div class="test-selector-header-inline">
+                      <span class="test-selector-title">
+                        <i class="codicon codicon-list-selection"></i>
+                        Tests to run
+                      </span>
+                      <div class="test-header-actions">
+                        <button
+                          class="icon-button"
+                          onclick={refreshTests}
+                          title="Refresh test list"
+                        >
+                          <i class="codicon codicon-refresh {isRefreshing ? 'spinning' : ''}"></i>
+                        </button>
+                        <span class="test-count">{getSelectedTestCount()}/{testCases.length}</span>
+                      </div>
+                    </div>
+                    <div class="test-quick-actions">
+                      <button class="text-button" onclick={() => toggleAllTests(true)}>
+                        <i class="codicon codicon-check-all"></i>
+                        All
                       </button>
-                      <span class="test-count">{getSelectedTestCount()}/{testCases.length}</span>
+                      <button class="text-button" onclick={() => toggleAllTests(false)}>
+                        <i class="codicon codicon-close-all"></i>
+                        None
+                      </button>
+                    </div>
+                    <div class="test-list-compact" use:autoAnimate>
+                      {#each testCases as test}
+                        <label class="test-item-compact">
+                          <input
+                            type="checkbox"
+                            bind:checked={test.selected}
+                            onchange={sendSelectedTests}
+                          />
+                          <span class="test-name">{test.name}</span>
+                        </label>
+                      {/each}
                     </div>
                   </div>
-                  <div class="test-quick-actions">
-                    <button class="text-button" onclick={() => toggleAllTests(true)}>
-                      <i class="codicon codicon-check-all"></i>
-                      All
-                    </button>
-                    <button class="text-button" onclick={() => toggleAllTests(false)}>
-                      <i class="codicon codicon-close-all"></i>
-                      None
-                    </button>
-                  </div>
-                  <div class="test-list-compact" use:autoAnimate>
-                    {#each testCases as test}
-                      <label class="test-item-compact">
-                        <input
-                          type="checkbox"
-                          bind:checked={test.selected}
-                          onchange={sendSelectedTests}
-                        />
-                        <span class="test-name">{test.name}</span>
-                      </label>
-                    {/each}
-                  </div>
-                </div>
-              {/if}
-            </div>
-          {/if}
-        </div>
-      {/each}
-    </div>
+                {/if}
+              </div>
+            {/if}
+          </div>
+        {/each}
+      </div>
 
-    <!-- Footer Info -->
-    <div class="footer-info">
-      <i class="codicon codicon-info"></i>
-      <span>
-        {#if allDevices}
-          Building {selectedApp} for <strong>all devices</strong>
-        {:else}
-          Building {selectedApp} for <strong>{selectedTarget}</strong>
-        {/if}
-      </span>
+      <!-- Footer Info -->
+      <div class="footer-info">
+        <i class="codicon codicon-info"></i>
+        <span>
+          {#if allDevices}
+            Building {selectedApp} for <strong>all devices</strong>
+          {:else}
+            Building {selectedApp} for <strong>{selectedTarget}</strong>
+          {/if}
+        </span>
+      </div>
     </div>
-  </div>
+  {/if}
 </div>
 
 <style>
+  .welcome-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 20px;
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 8px;
+    background: linear-gradient(
+      to top,
+      #000000 0%,
+      var(--vscode-sideBar-background) 35%,
+      var(--vscode-sideBar-background) 100%
+    );
+    color: var(--vscode-foreground);
+  }
+
+  .welcome-icon {
+    font-size: 32px;
+    color: var(--vscode-editorWarning-foreground);
+    margin-bottom: 12px;
+  }
+
+  .welcome-title {
+    font-size: var(--vscode-font-size);
+    font-weight: 600;
+    color: var(--vscode-foreground);
+    margin: 0 0 8px 0;
+  }
+
+  .welcome-description {
+    font-size: var(--vscode-font-size);
+    color: var(--vscode-descriptionForeground);
+    margin: 0 0 16px 0;
+    line-height: 1.4;
+  }
+
+  .welcome-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .vscode-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 4px 14px;
+    border: none;
+    border-radius: 2px;
+    font-size: var(--vscode-font-size);
+    font-family: var(--vscode-font-family);
+    cursor: pointer;
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    width: 100%;
+  }
+
+  .vscode-button:hover {
+    background-color: var(--vscode-button-hoverBackground);
+  }
+
+  .vscode-button.secondary {
+    background-color: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+  }
+
+  .vscode-button.secondary:hover {
+    background-color: var(--vscode-button-secondaryHoverBackground);
+  }
+
+  .wordmark {
+    width: 100%;
+    max-width: 100px;
+    margin-top: 24px;
+  }
+
   .container {
     background-color: var(--vscode-editor-background);
     color: var(--vscode-editor-foreground);
     font-family: var(--vscode-font-family);
     min-width: 200px;
-    padding: 16px;
+    padding: 12px;
     border-radius: 8px;
   }
 

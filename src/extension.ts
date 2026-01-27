@@ -347,7 +347,9 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   vscode.workspace.onDidChangeConfiguration((event) => {
-    if (event.affectsConfiguration("ledgerDevTools")) {
+    // Exclude appSettings changes - they're handled by dedicated event listeners
+    // (onTargetSelectedEvent for selectedDevice, onVariantSelectedEvent for selectedVariant, etc.)
+    if (event.affectsConfiguration("ledgerDevTools") && !event.affectsConfiguration("ledgerDevTools.appSettings")) {
       taskProvider.generateTasks();
     }
     if (event.affectsConfiguration("ledgerDevTools.defaultDevice")) {

@@ -89,13 +89,8 @@ export class TargetSelector {
 
     this.selectedTarget = target;
 
-    // Save the selected device in the app repo settings, if we have not selected "All"
-    const currentApp = getSelectedApp();
-    if (currentApp && this.prevSelectedApp === "") {
-      updateSetting("selectedDevice", target, currentApp?.folderUri);
-    }
-
     if (!(this.selectedTarget === specialAllDevice)) {
+      const currentApp = getSelectedApp();
       if (currentApp && !currentApp.compatibleDevices.includes(this.selectedTarget as LedgerDevice)) {
         // Fallback to compatible device
         this.selectedTarget = currentApp.compatibleDevices[0];
@@ -130,6 +125,14 @@ export class TargetSelector {
       else {
         vscode.commands.executeCommand("setContext", "ledgerDevTools.showToggleAllTargets", false);
       }
+    }
+  }
+
+  // Persist the selected target to workspace settings (only for actual devices, not 'All')
+  public saveSelectedTarget() {
+    const currentApp = getSelectedApp();
+    if (currentApp && this.selectedTarget && this.selectedTarget !== specialAllDevice) {
+      updateSetting("selectedDevice", this.selectedTarget, currentApp.folderUri);
     }
   }
 

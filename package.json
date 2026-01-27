@@ -52,7 +52,7 @@
           "command": "selectCheck",
           "when": "view == mainView && viewItem == selectCheck",
           "group": "inline"
-        },
+        }
       ]
     },
     "taskDefinitions": [

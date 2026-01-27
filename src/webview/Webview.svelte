@@ -195,6 +195,7 @@
               icon: spec.icon,
               taskName: spec.name,
               tooltip: spec.toolTip,
+              disabledOnAllDevices: spec.allSelectedBehavior === "disable",
               status: "idle",
             };
             if (spec.mainCommand) {

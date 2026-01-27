@@ -265,7 +265,7 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(vscode.commands.registerCommand("rebuildTestUseCaseDepsSpin", () => {}));
-  
+
   context.subscriptions.push(
     vscode.commands.registerCommand("showAppList", () => {
       showAppSelectorMenu(targetSelector);

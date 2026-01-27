@@ -754,7 +754,7 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
           if (webView) {
             webView.addTestCasesToWebview(testsList, selectedApp!.selectedTests);
           }
-        } 
+        }
         testsListRefreshedEmitter.fire();
       }
     });

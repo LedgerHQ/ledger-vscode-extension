@@ -361,7 +361,10 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  containerManager.manageContainer();
+  // Wait for webview to be ready before managing container (avoids focus stealing during startup)
+  webview.waitUntilReady().then(() => {
+    containerManager.manageContainer();
+  });
 
   console.log(`Ledger: extension activated`);
   return 0;

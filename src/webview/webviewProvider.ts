@@ -22,13 +22,9 @@ export class Webview implements vscode.WebviewViewProvider {
     });
   }
 
-  // Show the webview
-  public async show() {
-    console.log(">>>>>>> Showing webview");
-    // Set context first to make the webview visible, then wait for it to be ready
-    await vscode.commands.executeCommand("workbench.view.extension.ledger-tools");
-    await vscode.commands.executeCommand("appWebView.focus");
-    await vscode.commands.executeCommand("setContext", "myApp.showWebview", true);
+  // Wait until the webview is fully loaded and ready
+  public async waitUntilReady(): Promise<void> {
+    return this._webviewReady;
   }
 
   public async addTestCasesToWebview(testCases: string[], selectedTestCases: string[] = []) {
@@ -43,8 +39,7 @@ export class Webview implements vscode.WebviewViewProvider {
   }
 
   public async addAppsToWebview(apps: string[], selectedApp: string) {
-    // Show webview first (sets context to make it visible), then wait for ready
-    await this.show();
+    // Wait for webview to be ready (context should already be set by extension.ts)
     await this._webviewReady;
     if (this._view) {
       console.log("Adding apps to webview :", apps, " selected :", selectedApp);

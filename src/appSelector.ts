@@ -87,9 +87,6 @@ export const onVariantSelectedEvent: vscode.Event<void> = variantSelectedEmitter
 let testsSelectedEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
 export const onTestsSelectedEvent: vscode.Event<void> = testsSelectedEmitter.event;
 
-let testsListRefreshedEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
-export const onTestsListRefreshedEvent: vscode.Event<void> = testsListRefreshedEmitter.event;
-
 export function getSelectedBuidUseCase(): string {
   if (selectedApp && selectedApp.selectedBuildUseCase) {
     return selectedApp.selectedBuildUseCase.name;
@@ -676,12 +673,25 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
     && selectedApp.containerName
     && targetSelector.getSelectedTarget() !== "All"
   ) {
+    // Check if the functional tests directory actually exists
+    const testsPath = path.join(selectedApp.folderUri.fsPath, selectedApp.functionalTestsDir);
+    if (!fs.existsSync(testsPath)) {
+      console.log(`Ledger: Functional tests directory '${testsPath}' does not exist`);
+      selectedApp.functionalTestsDir = undefined;
+      selectedApp.functionalTestsList = [];
+      selectedApp.selectedTests = [];
+      if (webView) {
+        webView.addTestCasesToWebview([], []);
+      }
+      return;
+    }
+
     let lastTests = getSetting("testsList", selectedApp.folderUri) as string[];
     let lastSelectedTests = getSetting("selectedTests", selectedApp.folderUri) as string[];
     selectedApp.functionalTestsList = [];
     selectedApp.selectedTests = [];
     let device = targetSelector.getSelectedSpeculosModel();
-    let optionsExec: cp.ExecOptions = { cwd: selectedApp!.folderUri.fsPath, windowsHide: true };
+    let optionsExec: cp.ExecOptions = { cwd: selectedApp!.folderUri.fsPath, windowsHide: true, timeout: 60000 };
     // If platform is windows, set shell to powershell for cp exec.
     if (platform === "win32") {
       let shell: string = "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
@@ -727,6 +737,10 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
     cp.execFile(getTestsListCmd, getTestsListArgs, optionsExec, (error, stdout, stderr) => {
       if (error) {
         pushError(`Error while getting tests list: ${error.message}`);
+        // Notify webview even on error to stop the refresh spinner
+        if (webView) {
+          webView.addTestCasesToWebview([], []);
+        }
         return;
       }
       else {
@@ -755,7 +769,12 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
             webView.addTestCasesToWebview(testsList, selectedApp!.selectedTests);
           }
         }
-        testsListRefreshedEmitter.fire();
+        else {
+          // No tests found or only one test - still notify webview
+          if (webView) {
+            webView.addTestCasesToWebview(testsList, []);
+          }
+        }
       }
     });
   }

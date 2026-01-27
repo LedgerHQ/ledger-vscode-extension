@@ -7,7 +7,6 @@ import {
   onCheckSelectedEvent,
   showChecks,
 } from "./taskProvider";
-import { TreeDataProvider } from "./treeView";
 import { TargetSelector } from "./targetSelector";
 import { StatusBarManager } from "./statusBar";
 import { ContainerManager, DevImageStatus } from "./containerManager";
@@ -18,7 +17,6 @@ import {
   setSelectedApp,
   getAppTestsList,
   onTestsSelectedEvent,
-  onTestsListRefreshedEvent,
   setAppTestsPrerequisites,
   showTestUseCaseSelectorMenu,
   onTestUseCaseSelected,
@@ -296,24 +294,27 @@ export function activate(context: vscode.ExtensionContext) {
 
   let findAppsAndUpdateExtension = () => {
     const appList = findAppsInWorkspace();
-    let selectedApp;
+    let currentApp = getSelectedApp();
     if (appList) {
-      const currentApp = getSelectedApp();
       if (!currentApp || !appList.includes(currentApp)) {
         setSelectedApp(appList[0]);
-        selectedApp = appList[0];
+        currentApp = appList[0];
         // Initialize git submodules for the newly selected app (event not fired on setSelectedApp)
         initializeAppSubmodulesIfNeeded(appList[0].folderUri);
       }
       webview.addAppsToWebview(
         appList.map(app => app.folderName),
-        selectedApp ? selectedApp.folderName : "",
+        currentApp ? currentApp.folderName : "",
       );
       targetSelector.updateTargetsInfos();
       webview.addTargetsToWebview(
         targetSelector.getTargetsArray(),
         targetSelector.getSelectedTarget(),
       );
+      // Clear tests in webview if the (re-detected) app no longer has functional tests
+      if (!currentApp?.functionalTestsDir) {
+        webview.addTestCasesToWebview([], []);
+      }
       taskProvider.provideTasks();
       containerManager.manageContainer();
     }
@@ -329,6 +330,48 @@ export function activate(context: vscode.ExtensionContext) {
       findAppsAndUpdateExtension();
     }
   });
+
+  // Watch for tests folder changes (conftest.py creation/deletion)
+  // Helper functions to avoid duplication
+  const refreshTestsIfReady = () => {
+    const currentApp = getSelectedApp();
+    if (currentApp?.functionalTestsDir && containerManager.getContainerStatus() === DevImageStatus.running) {
+      getAppTestsList(targetSelector, false, webview);
+    }
+  };
+
+  const isTestsRelatedPath = (fsPath: string): boolean => {
+    if (fsPath.endsWith("conftest.py")) {
+      return true;
+    }
+    const currentApp = getSelectedApp();
+    const testsDir = currentApp?.functionalTestsDir;
+    if (testsDir && currentApp?.folderUri) {
+      const testsPath = vscode.Uri.joinPath(currentApp.folderUri, testsDir).fsPath;
+      return testsPath.startsWith(fsPath);
+    }
+    return false;
+  };
+
+  // FileSystemWatcher catches external changes (terminal, other apps)
+  const conftestWatcher = vscode.workspace.createFileSystemWatcher("**/conftest.py", false, true, false);
+  conftestWatcher.onDidCreate(() => refreshTestsIfReady());
+  conftestWatcher.onDidDelete(() => webview.addTestCasesToWebview([], []));
+  context.subscriptions.push(conftestWatcher);
+
+  // VS Code explorer operations are caught by workspace events
+  context.subscriptions.push(
+    vscode.workspace.onDidDeleteFiles((event) => {
+      if (event.files.some(uri => isTestsRelatedPath(uri.fsPath))) {
+        webview.addTestCasesToWebview([], []);
+      }
+    }),
+    vscode.workspace.onDidCreateFiles((event) => {
+      if (event.files.some(uri => uri.fsPath.endsWith("conftest.py"))) {
+        refreshTestsIfReady();
+      }
+    }),
+  );
 
   vscode.workspace.onDidChangeConfiguration((event) => {
     // Exclude appSettings changes - they're handled by dedicated event listeners

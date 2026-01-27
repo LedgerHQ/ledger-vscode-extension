@@ -74,6 +74,7 @@
   function isGroupDisabled(group: ActionGroup): boolean {
     // Disabled if no mainAction (not populated) OR if allDevices mode and group is disabled on all devices
     if (!group.mainAction) return true;
+    if (group.id === "Tests" && testCases.length === 0 && !isRefreshing) return true;
     return allDevices && (group.disabledOnAllDevices ?? false);
   }
 
@@ -246,6 +247,8 @@
         apps = [];
         apps = message.apps.map((app: string) => ({ value: app, label: app }));
         selectedApp = message.selectedApp;
+        // Clear tests when app list changes - tests will be refreshed when container is ready
+        testCases = [];
         break;
       case "addTargets":
         targets = [];

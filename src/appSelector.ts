@@ -690,7 +690,7 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
       selectedApp.functionalTestsList = [];
       selectedApp.selectedTests = [];
       if (webView) {
-        webView.addTestCasesToWebview([], []);
+        webView.refresh({ testCases: null });
       }
       return;
     }
@@ -748,7 +748,7 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
         pushError(`Error while getting tests list: ${error.message}`);
         // Notify webview even on error to stop the refresh spinner
         if (webView) {
-          webView.addTestCasesToWebview([], []);
+          webView.refresh({ testCases: null });
         }
         return;
       }
@@ -775,13 +775,23 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
           }
 
           if (webView) {
-            webView.addTestCasesToWebview(testsList, selectedApp!.selectedTests);
+            webView.refresh({
+              testCases: {
+                list: testsList,
+                selected: selectedApp!.selectedTests,
+              },
+            });
           }
         }
         else {
           // No tests found or only one test - still notify webview
           if (webView) {
-            webView.addTestCasesToWebview(testsList, []);
+            webView.refresh({
+              testCases: {
+                list: testsList,
+                selected: [],
+              },
+            });
           }
         }
       }

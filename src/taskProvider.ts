@@ -364,7 +364,7 @@ export class TaskProvider implements vscode.TaskProvider {
     this.resetVars();
     this.checkDisabledTasks(this.taskSpecs);
     this.pushTasks(this.taskSpecs);
-    this.webviewProvider.addTasksToWebview(this.taskSpecs);
+    this.webviewProvider.refresh({ tasks: { list: this.taskSpecs } });
 
     // Signal that tasks are ready
     if (this.tasksReadyResolve) {

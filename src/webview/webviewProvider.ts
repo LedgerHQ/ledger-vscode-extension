@@ -4,6 +4,34 @@ import { setSelectedTests } from "../appSelector";
 import { LedgerDevice, SpecialAllDevice } from "../targetSelector";
 
 /**
+ * Options for refreshing the webview content.
+ * - undefined: skip, don't update this section
+ * - null: clear the content for this section
+ * - object: update with provided data
+ */
+export interface WebviewRefreshOptions {
+  apps?: {
+    list: string[];
+    selected: string;
+  } | null;
+  targets?: {
+    list: (LedgerDevice | SpecialAllDevice)[];
+    selected: string;
+  } | null;
+  buildUseCases?: {
+    list: string[];
+    selected: string;
+  } | null;
+  testCases?: {
+    list: string[];
+    selected?: string[];
+  } | null;
+  tasks?: {
+    list: TaskSpec[];
+  } | null;
+}
+
+/**
  * Manages the Webview Panel that acts as the Form/Wizard
  */
 export class Webview implements vscode.WebviewViewProvider {
@@ -29,59 +57,55 @@ export class Webview implements vscode.WebviewViewProvider {
     return this._webviewReady;
   }
 
-  public async addTestCasesToWebview(testCases: string[], selectedTestCases: string[] = []) {
+  /**
+   * Refresh webview with optional data updates.
+   * - undefined: skip, don't update this section
+   * - null: clear the content for this section
+   * - object: update with provided data
+   */
+  public async refresh(options: WebviewRefreshOptions): Promise<void> {
     await this._webviewReady;
-    if (this._view) {
-      this._view.webview.postMessage({
-        command: "addTestCases",
-        testCases: testCases,
-        selectedTestCases: selectedTestCases,
-      });
+    if (!this._view) {
+      return;
     }
-  }
 
-  public async addBuildUseCasesToWebview(buildUseCases: string[], selectedBuildUseCase: string) {
-    await this._webviewReady;
-    if (this._view) {
-      this._view.webview.postMessage({
-        command: "addBuildUseCases",
-        buildUseCases: buildUseCases,
-        selectedBuildUseCase: selectedBuildUseCase,
-      });
-    }
-  }
-
-  public async addAppsToWebview(apps: string[], selectedApp: string) {
-    // Wait for webview to be ready (context should already be set by extension.ts)
-    await this._webviewReady;
-    if (this._view) {
-      console.log("Adding apps to webview :", apps, " selected :", selectedApp);
+    if (options.apps !== undefined) {
       this._view.webview.postMessage({
         command: "addApps",
-        apps: apps,
-        selectedApp: selectedApp,
+        apps: options.apps?.list ?? [],
+        selectedApp: options.apps?.selected ?? "",
       });
     }
-  }
 
-  public async addTargetsToWebview(targets: (LedgerDevice | SpecialAllDevice)[], selectedTarget: string) {
-    await this._webviewReady;
-    if (this._view) {
-      const targetsNames: string[] = targets.map(device => device.toString());
+    if (options.targets !== undefined) {
+      const targetsNames = options.targets?.list.map(device => device.toString()) ?? [];
       this._view.webview.postMessage({
         command: "addTargets",
         targets: targetsNames,
-        selectedTarget: selectedTarget,
+        selectedTarget: options.targets?.selected ?? "",
       });
     }
-  }
 
-  public async addTasksToWebview(specs: TaskSpec[]) {
-    await this._webviewReady;
-    if (this._view) {
+    if (options.buildUseCases !== undefined) {
+      this._view.webview.postMessage({
+        command: "addBuildUseCases",
+        buildUseCases: options.buildUseCases?.list ?? [],
+        selectedBuildUseCase: options.buildUseCases?.selected ?? "",
+      });
+    }
+
+    if (options.testCases !== undefined) {
+      this._view.webview.postMessage({
+        command: "addTestCases",
+        testCases: options.testCases?.list ?? [],
+        selectedTestCases: options.testCases?.selected ?? [],
+      });
+    }
+
+    if (options.tasks !== undefined) {
       this._view.webview.postMessage({
         command: "addTasks",
-        specs: specs,
+        specs: options.tasks?.list ?? [],
       });
     }
   }

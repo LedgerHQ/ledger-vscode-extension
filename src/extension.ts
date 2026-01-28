@@ -30,7 +30,7 @@ import {
   initializeAppSubmodulesIfNeeded,
   getAppUseCaseNames,
 } from "./appSelector";
-import { Webview } from "./webview/webviewProvider";
+import { Webview, WebviewRefreshOptions } from "./webview/webviewProvider";
 
 let outputChannel: vscode.OutputChannel;
 const appDetectionFiles = ["Cargo.toml", "ledger_app.toml", "Makefile"];
@@ -50,28 +50,35 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   const appList = findAppsInWorkspace();
-  if (appList && appList.length > 0) {
+  const hasApps = appList && appList.length > 0;
+
+  if (hasApps) {
     setSelectedApp(appList[0]);
     // Initialize git submodules for the default selected app (event not fired on setSelectedApp)
     initializeAppSubmodulesIfNeeded(appList[0].folderUri);
-    webview.addAppsToWebview(
-      appList.map(app => app.folderName),
-      appList[0].folderName,
-    );
-    webview.addBuildUseCasesToWebview(
-      getAppUseCaseNames(appList[0].folderName),
-      getSelectedBuidUseCase(),
-    );
   }
 
   let targetSelector = new TargetSelector();
-
-  // Update targets based on selected app, then add to webview
   targetSelector.updateTargetsInfos();
-  webview.addTargetsToWebview(
-    targetSelector.getTargetsArray(),
-    targetSelector.getSelectedTarget(),
-  );
+
+  // Initial webview refresh with apps, build use cases, and targets
+  let refreshOptions: WebviewRefreshOptions = {
+    targets: {
+      list: targetSelector.getTargetsArray(),
+      selected: targetSelector.getSelectedTarget(),
+    },
+  };
+  if (hasApps) {
+    refreshOptions.apps = {
+      list: appList.map(app => app.folderName),
+      selected: appList[0].folderName,
+    };
+    refreshOptions.buildUseCases = {
+      list: getAppUseCaseNames(appList[0].folderName),
+      selected: getSelectedBuidUseCase(),
+    };
+  }
+  webview.refresh(refreshOptions);
 
   let taskProvider = new TaskProvider(targetSelector, webview);
   context.subscriptions.push(vscode.tasks.registerTaskProvider(taskType, taskProvider));
@@ -188,14 +195,16 @@ export function activate(context: vscode.ExtensionContext) {
       containerManager.manageContainer();
       taskProvider.generateTasks();
       targetSelector.updateTargetsInfos();
-      webview.addTargetsToWebview(
-        targetSelector.getTargetsArray(),
-        targetSelector.getSelectedTarget(),
-      );
-      webview.addBuildUseCasesToWebview(
-        getAppUseCaseNames(selectedAppName),
-        getSelectedBuidUseCase(),
-      );
+      webview.refresh({
+        targets: {
+          list: targetSelector.getTargetsArray(),
+          selected: targetSelector.getSelectedTarget(),
+        },
+        buildUseCases: {
+          list: getAppUseCaseNames(selectedAppName),
+          selected: getSelectedBuidUseCase(),
+        },
+      });
     }),
   );
 
@@ -322,23 +331,23 @@ export function activate(context: vscode.ExtensionContext) {
         // Initialize git submodules for the newly selected app (event not fired on setSelectedApp)
         initializeAppSubmodulesIfNeeded(appList[0].folderUri);
       }
-      webview.addAppsToWebview(
-        appList.map(app => app.folderName),
-        currentApp ? currentApp.folderName : "",
-      );
-      webview.addBuildUseCasesToWebview(
-        getAppUseCaseNames(currentApp ? currentApp.folderName : ""),
-        getSelectedBuidUseCase(),
-      );
       targetSelector.updateTargetsInfos();
-      webview.addTargetsToWebview(
-        targetSelector.getTargetsArray(),
-        targetSelector.getSelectedTarget(),
-      );
-      // Clear tests in webview if the (re-detected) app no longer has functional tests
-      if (!currentApp?.functionalTestsDir) {
-        webview.addTestCasesToWebview([], []);
-      }
+      webview.refresh({
+        apps: {
+          list: appList.map(app => app.folderName),
+          selected: currentApp ? currentApp.folderName : "",
+        },
+        buildUseCases: {
+          list: getAppUseCaseNames(currentApp ? currentApp.folderName : ""),
+          selected: getSelectedBuidUseCase(),
+        },
+        targets: {
+          list: targetSelector.getTargetsArray(),
+          selected: targetSelector.getSelectedTarget(),
+        },
+        // Clear tests if the (re-detected) app no longer has functional tests
+        testCases: !currentApp?.functionalTestsDir ? null : undefined,
+      });
       taskProvider.provideTasks();
       containerManager.manageContainer();
     }
@@ -380,14 +389,14 @@ export function activate(context: vscode.ExtensionContext) {
   // FileSystemWatcher catches external changes (terminal, other apps)
   const conftestWatcher = vscode.workspace.createFileSystemWatcher("**/conftest.py", false, true, false);
   conftestWatcher.onDidCreate(() => refreshTestsIfReady());
-  conftestWatcher.onDidDelete(() => webview.addTestCasesToWebview([], []));
+  conftestWatcher.onDidDelete(() => webview.refresh({ testCases: null }));
   context.subscriptions.push(conftestWatcher);
 
   // VS Code explorer operations are caught by workspace events
   context.subscriptions.push(
     vscode.workspace.onDidDeleteFiles((event) => {
       if (event.files.some(uri => isTestsRelatedPath(uri.fsPath))) {
-        webview.addTestCasesToWebview([], []);
+        webview.refresh({ testCases: null });
       }
     }),
     vscode.workspace.onDidCreateFiles((event) => {

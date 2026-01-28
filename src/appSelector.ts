@@ -9,6 +9,7 @@ import { getDockerUserOpt } from "./containerManager";
 import { TaskProvider } from "./taskProvider";
 import { LedgerDevice, TargetSelector } from "./targetSelector";
 import { pushError, updateSetting, getSetting } from "./extension";
+import { Webview } from "./webview/webviewProvider";
 const APP_DETECTION_FILES: string[] = ["Makefile", "ledger_app.toml"];
 const C_APP_DETECTION_STRING: string = "include $(BOLOS_SDK)/Makefile.defines";
 const C_APP_NAME_MAKEFILE_VAR: string = "APPNAME";
@@ -85,9 +86,6 @@ export const onVariantSelectedEvent: vscode.Event<void> = variantSelectedEmitter
 
 let testsSelectedEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
 export const onTestsSelectedEvent: vscode.Event<void> = testsSelectedEmitter.event;
-
-let testsListRefreshedEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
-export const onTestsListRefreshedEvent: vscode.Event<void> = testsListRefreshedEmitter.event;
 
 export function getSelectedBuidUseCase(): string {
   if (selectedApp && selectedApp.selectedBuildUseCase) {
@@ -288,7 +286,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
     );
 
     // Retrieve last use case name from settings
-    let selectedBuildUseCase = getAppUseCases(buildUseCases, folderUri);
+    let selectedBuildUseCase = getLastSelectedUseCase(buildUseCases, folderUri);
 
     app = {
       name: appName,
@@ -365,18 +363,18 @@ export function initializeAppSubmodulesIfNeeded(appFolderUri: vscode.Uri) {
   }
 }
 
-export async function showAppSelectorMenu(targetSelector: TargetSelector) {
-  const appFolderNames = appList.map(app => app.folderName);
-  const result = await vscode.window.showQuickPick(appFolderNames, {
-    placeHolder: "Please select an app",
-  });
-  if (result) {
-    setSelectedApp(appList.find(app => app.folderName === result));
-    appSelectedEmitter.fire();
-  }
-  getAndBuildAppTestsDependencies(targetSelector);
-  return result;
-}
+// export async function showAppSelectorMenu(targetSelector: TargetSelector) {
+//   const appFolderNames = appList.map(app => app.folderName);
+//   const result = await vscode.window.showQuickPick(appFolderNames, {
+//     placeHolder: "Please select an app",
+//   });
+//   if (result) {
+//     setSelectedApp(appList.find(app => app.folderName === result));
+//     // appSelectedEmitter.fire();
+//   }
+//   getAndBuildAppTestsDependencies(targetSelector);
+//   return result;
+// }
 
 export async function showTestsSelectorMenu(targetSelector: TargetSelector) {
   if (selectedApp && selectedApp.functionalTestsList) {
@@ -465,10 +463,15 @@ export function getSelectedApp() {
   return selectedApp;
 }
 
+export function setSelectedAppByName(appName: string): App | undefined {
+  const app = appList.find(app => app.folderName === appName);
+  setSelectedApp(app);
+  return app;
+}
+
 export function setSelectedApp(app: App | undefined) {
   selectedApp = app;
   if (app) {
-    vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTests", false);
     if (app.testsUseCases) {
       vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", true);
       if (app.testsUseCases.length > 1) {
@@ -482,6 +485,14 @@ export function setSelectedApp(app: App | undefined) {
       vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", false);
       vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTestUseCase", false);
     }
+  }
+}
+
+export function setSelectedTests(tests: string[] | undefined) {
+  if (selectedApp) {
+    selectedApp.selectedTests = tests;
+    updateSetting("selectedTests", tests ? tests : [], selectedApp.folderUri);
+    testsSelectedEmitter.fire();
   }
 }
 
@@ -594,7 +605,7 @@ function getAppName(appdir: string): string {
 }
 
 // Get the app build use cases
-function getAppUseCases(buildUseCases: BuildUseCase[] | undefined, folderUri: vscode.Uri): BuildUseCase | undefined {
+function getLastSelectedUseCase(buildUseCases: BuildUseCase[] | undefined, folderUri: vscode.Uri): BuildUseCase | undefined {
   // Retrieve last selected use case name from settings
   let selectedBuildUseCase: BuildUseCase | undefined = undefined;
   if (buildUseCases) {
@@ -608,6 +619,15 @@ function getAppUseCases(buildUseCases: BuildUseCase[] | undefined, folderUri: vs
     }
   }
   return selectedBuildUseCase;
+}
+
+export function getAppUseCaseNames(appName: string): string[] {
+  let useCaseNames: string[] = [];
+  const app = appList.find(app => app.folderName === appName);
+  if (app && app.buildUseCases) {
+    useCaseNames = app.buildUseCases.map(useCase => useCase.name);
+  }
+  return useCaseNames;
 }
 
 // Get the app variants (for C apps)
@@ -654,7 +674,7 @@ function getAppVariants(appdir: string, appName: string, folderUri: vscode.Uri):
 }
 
 // Get pytest tests list
-export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolean = false) {
+export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolean = false, webView?: Webview) {
   let testsList: string[] = [];
   if (
     selectedApp
@@ -662,13 +682,25 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
     && selectedApp.containerName
     && targetSelector.getSelectedTarget() !== "All"
   ) {
+    // Check if the functional tests directory actually exists
+    const testsPath = path.join(selectedApp.folderUri.fsPath, selectedApp.functionalTestsDir);
+    if (!fs.existsSync(testsPath)) {
+      console.log(`Ledger: Functional tests directory '${testsPath}' does not exist`);
+      selectedApp.functionalTestsDir = undefined;
+      selectedApp.functionalTestsList = [];
+      selectedApp.selectedTests = [];
+      if (webView) {
+        webView.refresh({ testCases: null });
+      }
+      return;
+    }
+
     let lastTests = getSetting("testsList", selectedApp.folderUri) as string[];
     let lastSelectedTests = getSetting("selectedTests", selectedApp.folderUri) as string[];
-    vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTests", false);
     selectedApp.functionalTestsList = [];
     selectedApp.selectedTests = [];
     let device = targetSelector.getSelectedSpeculosModel();
-    let optionsExec: cp.ExecOptions = { cwd: selectedApp!.folderUri.fsPath, windowsHide: true };
+    let optionsExec: cp.ExecOptions = { cwd: selectedApp!.folderUri.fsPath, windowsHide: true, timeout: 60000 };
     // If platform is windows, set shell to powershell for cp exec.
     if (platform === "win32") {
       let shell: string = "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
@@ -714,10 +746,14 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
     cp.execFile(getTestsListCmd, getTestsListArgs, optionsExec, (error, stdout, stderr) => {
       if (error) {
         pushError(`Error while getting tests list: ${error.message}`);
+        // Notify webview even on error to stop the refresh spinner
+        if (webView) {
+          webView.refresh({ testCases: null });
+        }
         return;
       }
       else {
-        stdout.split("\n").forEach((line: string) => {
+        stdout.toString().split("\n").forEach((line: string) => {
           if (line.includes("::")) {
             let parts = line.split("::");
             if (parts.length > 0) {
@@ -737,23 +773,29 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
             selectedApp!.selectedTests = lastSelectedTests as string[];
             console.log(`Selected tests from settings: ${selectedApp!.selectedTests}`);
           }
-          vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTests", false);
-          vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTestsSpin", false);
-          vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTests", true);
+
+          if (webView) {
+            webView.refresh({
+              testCases: {
+                list: testsList,
+                selected: selectedApp!.selectedTests,
+              },
+            });
+          }
         }
         else {
-          vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTestsSpin", false);
-          vscode.commands.executeCommand("setContext", "ledgerDevTools.showRefreshTests", true);
+          // No tests found or only one test - still notify webview
+          if (webView) {
+            webView.refresh({
+              testCases: {
+                list: testsList,
+                selected: [],
+              },
+            });
+          }
         }
-        testsListRefreshedEmitter.fire();
-      }
-      if (showMenu) {
-        showTestsSelectorMenu(targetSelector);
       }
     });
-  }
-  else {
-    vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectTests", false);
   }
 }
 

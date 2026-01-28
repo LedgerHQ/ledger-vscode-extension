@@ -45,3 +45,17 @@ repos:
           '@typescript-eslint/parser',
           '@stylistic/eslint-plugin'
         ]
+
+  - repo: local
+    hooks:
+      - id: prettier-package-json
+        name: Prettier package.json
+        entry: npx prettier --write package.json
+        language: system
+        pass_filenames: false
+
+      - id: prettier-svelte
+        name: Prettier Svelte files
+        entry: npx prettier --write "src/**/*.svelte" --print-width 100 --plugin=prettier-plugin-svelte
+        language: system
+        pass_filenames: false

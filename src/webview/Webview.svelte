@@ -117,7 +117,6 @@
   function toggleOptions(groupId: string) {
     const group = actionGroups.find((g) => g.id === groupId);
     if (group) {
-      showBuildUseCaseMenu = false;
       group.showOptions = !group.showOptions;
     }
   }
@@ -327,9 +326,7 @@
                 title="Select build use case"
                 onclick={(e) => {
                   e.stopPropagation();
-                  const willOpen = !showBuildUseCaseMenu;
-                  actionGroups.forEach((g) => (g.showOptions = false));
-                  showBuildUseCaseMenu = willOpen;
+                  showBuildUseCaseMenu = !showBuildUseCaseMenu;
                 }}
               >
                 <i class="codicon codicon-{getBuildUseCaseIcon(buildUseCase)}"></i>
@@ -702,7 +699,7 @@
   .build-usecase-dropdown {
     position: absolute;
     top: 100%;
-    right: 0;
+    left: 0;
     margin-top: 4px;
     min-width: 100px;
     background-color: var(--vscode-dropdown-background);

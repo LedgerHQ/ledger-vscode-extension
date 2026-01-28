@@ -77,6 +77,10 @@ export function activate(context: vscode.ExtensionContext) {
       list: getAppUseCaseNames(appList[0].folderName),
       selected: getSelectedBuidUseCase(),
     };
+    refreshOptions.variants = {
+      list: appList[0].variants ? appList[0].variants.values : [],
+      selected: appList[0].variants ? appList[0].variants.selected : "",
+    };
   }
   webview.refresh(refreshOptions);
 

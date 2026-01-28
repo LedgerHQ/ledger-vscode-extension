@@ -4,6 +4,8 @@
     label: string;
     disabled?: boolean;
   }
+
+  export type SelectVariant = "default" | "badge";
 </script>
 
 <script lang="ts">
@@ -17,6 +19,9 @@
     contentProps?: WithoutChildren<Select.ContentProps>;
     disabled?: boolean;
     onchange?: (value: string) => void;
+    variant?: SelectVariant;
+    icon?: string; // codicon name for badge variant
+    tooltip?: string;
   }
 
   let {
@@ -26,14 +31,20 @@
     placeholder = "Select...",
     disabled = false,
     onchange,
+    variant = "default",
+    icon,
+    tooltip,
   }: Props = $props();
 
   const selectedLabel = $derived(items.find((item) => item.value === value)?.label);
+  const triggerClassName = $derived(variant === "badge" ? "select-badge" : "select-trigger");
 
   // Track if change came from user interaction (dropdown was opened)
   let isUserInteraction = false;
+  let isOpen = $state(false);
 
   function handleOpenChange(open: boolean) {
+    isOpen = open;
     if (open) {
       isUserInteraction = true;
     }
@@ -55,11 +66,19 @@
   onValueChange={handleValueChange}
   onOpenChange={handleOpenChange}
 >
-  <Select.Trigger class="select-trigger">
-    <span class="select-value">{selectedLabel ? selectedLabel : placeholder}</span>
-    <span class="select-icon">
-      <ChevronDown size={14} />
-    </span>
+  <Select.Trigger class={triggerClassName} title={tooltip}>
+    {#if variant === "badge"}
+      {#if icon}
+        <i class="codicon codicon-{icon}"></i>
+      {/if}
+      {selectedLabel ?? placeholder}
+      <i class="codicon codicon-chevron-{isOpen ? 'up' : 'down'} chevron"></i>
+    {:else}
+      <span class="select-value">{selectedLabel ? selectedLabel : placeholder}</span>
+      <span class="select-icon">
+        <ChevronDown size={14} />
+      </span>
+    {/if}
   </Select.Trigger>
   <Select.Portal>
     <Select.Content class="select-content" sideOffset={4} {...contentProps}>
@@ -128,6 +147,32 @@
     cursor: not-allowed;
   }
 
+  /* Badge variant */
+  :global(.select-badge) {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background-color: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+    font-size: 11px;
+    font-family: var(--vscode-font-family);
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.1s;
+    outline: none;
+  }
+
+  :global(.select-badge:hover) {
+    background-color: var(--vscode-button-secondaryHoverBackground);
+  }
+
+  :global(.select-badge .chevron) {
+    font-size: 10px;
+    opacity: 0.7;
+  }
+
   .select-value {
     flex: 1;
     text-align: left;
@@ -151,13 +196,16 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     overflow: hidden;
     z-index: 1000;
-    width: var(--bits-select-anchor-width);
-    min-width: var(--bits-select-anchor-width);
+    width: max-content;
+    min-width: max(var(--bits-select-anchor-width), 120px);
+    max-height: min(300px, var(--bits-select-content-available-height, 300px));
     animation: scaleIn 0.15s ease;
   }
 
   :global(.select-viewport) {
     padding: 4px;
+    max-height: inherit;
+    overflow-y: auto;
   }
 
   :global(.select-item) {

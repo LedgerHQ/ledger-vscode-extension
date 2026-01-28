@@ -19,7 +19,9 @@
   // Build use case
   let buildUseCase = $state("");
   let buildUseCases = $state<string[]>([]);
-  let showBuildUseCaseMenu = $state(false);
+
+  let variants = $state<string[]>([]);
+  let variant = $state("");
 
   // Capitalize first letter for display
   function formatBuildUseCase(useCase: string): string {
@@ -185,12 +187,26 @@
 
   function selectBuildUseCase(useCase: string) {
     buildUseCase = useCase;
-    showBuildUseCaseMenu = false;
     vscode.postMessage({
       command: "buildUseCaseSelected",
       selectedBuildUseCase: useCase,
     });
   }
+
+  function selectedVariant(selected: string) {
+    variant = selected;
+    vscode.postMessage({
+      command: "variantSelected",
+      selectedVariant: selected,
+    });
+  }
+
+  // Convert buildUseCases to SelectItem format
+  const buildUseCaseItems = $derived<SelectItem[]>(
+    buildUseCases.map((uc) => ({ value: uc, label: formatBuildUseCase(uc) })),
+  );
+
+  const variantItems = $derived<SelectItem[]>(variants.map((v) => ({ value: v, label: v })));
 
   window.addEventListener("message", (event) => {
     const message = event.data;
@@ -274,6 +290,10 @@
         buildUseCases = message.buildUseCases;
         buildUseCase = message.selectedBuildUseCase;
         break;
+      case "addVariants":
+        variants = message.variants;
+        variant = message.selectedVariant;
+        break;
     }
     // Handle other commands as needed
   });
@@ -283,13 +303,7 @@
     vscode.postMessage({ command: "webviewReady" });
   }
   notifyReady();
-  // Close build use case menu when clicking outside
-  function closeBuildUseCaseMenu() {
-    showBuildUseCaseMenu = false;
-  }
 </script>
-
-<svelte:window onclick={closeBuildUseCaseMenu} />
 
 <div class="container">
   <!-- Welcome View when no apps found -->
@@ -320,36 +334,24 @@
       <div class="header-section">
         <div class="header-row">
           {#if buildUseCases.length > 0}
-            <div class="build-usecase-wrapper">
-              <button
-                class="build-usecase-badge {buildUseCase}"
-                title="Select build use case"
-                onclick={(e) => {
-                  e.stopPropagation();
-                  showBuildUseCaseMenu = !showBuildUseCaseMenu;
-                }}
-              >
-                <i class="codicon codicon-{getBuildUseCaseIcon(buildUseCase)}"></i>
-                {formatBuildUseCase(buildUseCase)}
-                <i class="codicon codicon-chevron-down chevron"></i>
-              </button>
-              {#if showBuildUseCaseMenu}
-                <!-- svelte-ignore a11y_click_events_have_key_events -->
-                <!-- svelte-ignore a11y_no_static_element_interactions -->
-                <div class="build-usecase-dropdown" onclick={(e) => e.stopPropagation()}>
-                  {#each buildUseCases as useCase}
-                    <button
-                      class="usecase-option {buildUseCase === useCase ? 'selected' : ''}"
-                      onclick={() => selectBuildUseCase(useCase)}
-                    >
-                      <i class="codicon codicon-{buildUseCase === useCase ? 'check' : 'blank'}">
-                      </i>
-                      {formatBuildUseCase(useCase)}
-                    </button>
-                  {/each}
-                </div>
-              {/if}
-            </div>
+            <Select
+              items={buildUseCaseItems}
+              bind:value={buildUseCase}
+              onchange={selectBuildUseCase}
+              variant="badge"
+              icon={getBuildUseCaseIcon(buildUseCase)}
+              tooltip="Select Build Use Case"
+            />
+          {/if}
+          {#if variants.length > 0}
+            <Select
+              items={variantItems}
+              bind:value={variant}
+              onchange={selectedVariant}
+              variant="badge"
+              icon="symbol-misc"
+              tooltip="Select Variant"
+            />
           {/if}
         </div>
 
@@ -666,74 +668,6 @@
     font-size: 18px;
     font-weight: 600;
     margin: 0;
-  }
-
-  /* Build Use Case Selector */
-  .build-usecase-wrapper {
-    position: relative;
-  }
-
-  .build-usecase-badge {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border-radius: 12px;
-    background-color: var(--vscode-badge-background);
-    color: var(--vscode-badge-foreground);
-    font-size: 11px;
-    border: none;
-    cursor: pointer;
-    transition: background-color 0.1s;
-  }
-
-  .build-usecase-badge:hover {
-    background-color: var(--vscode-button-secondaryHoverBackground);
-  }
-
-  .build-usecase-badge .chevron {
-    font-size: 10px;
-    opacity: 0.7;
-  }
-
-  .build-usecase-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    margin-top: 4px;
-    min-width: 100px;
-    background-color: var(--vscode-dropdown-background);
-    border: 1px solid var(--vscode-dropdown-border);
-    border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    z-index: 100;
-    overflow: hidden;
-  }
-
-  .usecase-option {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    width: 100%;
-    padding: 6px 10px;
-    border: none;
-    background: none;
-    color: var(--vscode-dropdown-foreground);
-    font-size: 12px;
-    cursor: pointer;
-    text-align: left;
-  }
-
-  .usecase-option:hover {
-    background-color: var(--vscode-list-hoverBackground);
-  }
-
-  .usecase-option.selected {
-    background-color: var(--vscode-list-activeSelectionBackground);
-  }
-
-  .usecase-option .codicon-blank {
-    visibility: hidden;
   }
 
   /* Configuration Card */

@@ -29,6 +29,10 @@ export interface WebviewRefreshOptions {
   tasks?: {
     list: TaskSpec[];
   } | null;
+  variants?: {
+    list: string[];
+    selected: string;
+  } | null;
 }
 
 /**
@@ -106,6 +110,14 @@ export class Webview implements vscode.WebviewViewProvider {
       this._view.webview.postMessage({
         command: "addTasks",
         specs: options.tasks?.list ?? [],
+      });
+    }
+
+    if (options.variants !== undefined) {
+      this._view.webview.postMessage({
+        command: "addVariants",
+        variants: options.variants?.list ?? [],
+        selectedVariant: options.variants?.selected ?? "",
       });
     }
   }

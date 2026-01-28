@@ -23,10 +23,12 @@ import {
   onUseCaseSelectedEvent,
   getAndBuildAppTestsDependencies,
   getSelectedBuidUseCase,
+  setBuildUseCase,
   onVariantSelectedEvent,
   showVariant,
   setSelectedAppByName,
   initializeAppSubmodulesIfNeeded,
+  getAppUseCaseNames,
 } from "./appSelector";
 import { Webview } from "./webview/webviewProvider";
 
@@ -55,6 +57,10 @@ export function activate(context: vscode.ExtensionContext) {
     webview.addAppsToWebview(
       appList.map(app => app.folderName),
       appList[0].folderName,
+    );
+    webview.addBuildUseCasesToWebview(
+      getAppUseCaseNames(appList[0].folderName),
+      getSelectedBuidUseCase(),
     );
   }
 
@@ -133,10 +139,20 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
-  // Event listener for useCase selection.
+  // Event listener for useCase selection from quick pick menu.
   // This event is fired when the user selects a build useCase
   context.subscriptions.push(
     onUseCaseSelectedEvent((data) => {
+      taskProvider.generateTasks();
+      statusBarManager.updateBuildUseCaseItem(data);
+    }),
+  );
+
+  // Event listener for useCase selection from webview.
+  // This event is fired when the user selects a build useCase in the webview
+  context.subscriptions.push(
+    webview.onUseCaseSelectedEvent((data) => {
+      setBuildUseCase(data);
       taskProvider.generateTasks();
       statusBarManager.updateBuildUseCaseItem(data);
     }),
@@ -175,6 +191,10 @@ export function activate(context: vscode.ExtensionContext) {
       webview.addTargetsToWebview(
         targetSelector.getTargetsArray(),
         targetSelector.getSelectedTarget(),
+      );
+      webview.addBuildUseCasesToWebview(
+        getAppUseCaseNames(selectedAppName),
+        getSelectedBuidUseCase(),
       );
     }),
   );
@@ -305,6 +325,10 @@ export function activate(context: vscode.ExtensionContext) {
       webview.addAppsToWebview(
         appList.map(app => app.folderName),
         currentApp ? currentApp.folderName : "",
+      );
+      webview.addBuildUseCasesToWebview(
+        getAppUseCaseNames(currentApp ? currentApp.folderName : ""),
+        getSelectedBuidUseCase(),
       );
       targetSelector.updateTargetsInfos();
       webview.addTargetsToWebview(

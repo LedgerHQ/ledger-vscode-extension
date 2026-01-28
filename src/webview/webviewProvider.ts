@@ -12,6 +12,8 @@ export class Webview implements vscode.WebviewViewProvider {
   public onAppSelectedEvent: vscode.Event<string> = this.appSelectedEmitter.event;
   private targetSelectedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter<string>();
   public onTargetSelectedEvent: vscode.Event<string> = this.targetSelectedEmitter.event;
+  private useCaseSelectedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter<string>();
+  public onUseCaseSelectedEvent: vscode.Event<string> = this.useCaseSelectedEmitter.event;
   // Promise resolve for when the webview is ready
   private _webviewReadyResolve!: () => void;
   private _webviewReady: Promise<void>;
@@ -34,6 +36,17 @@ export class Webview implements vscode.WebviewViewProvider {
         command: "addTestCases",
         testCases: testCases,
         selectedTestCases: selectedTestCases,
+      });
+    }
+  }
+
+  public async addBuildUseCasesToWebview(buildUseCases: string[], selectedBuildUseCase: string) {
+    await this._webviewReady;
+    if (this._view) {
+      this._view.webview.postMessage({
+        command: "addBuildUseCases",
+        buildUseCases: buildUseCases,
+        selectedBuildUseCase: selectedBuildUseCase,
       });
     }
   }
@@ -151,6 +164,13 @@ export class Webview implements vscode.WebviewViewProvider {
           {
             console.log("Open workspace folder requested from webview");
             await vscode.commands.executeCommand("workbench.action.openWorkspace");
+          }
+          break;
+        case "buildUseCaseSelected":
+          {
+            const selectedBuildUseCase: string = data.selectedBuildUseCase;
+            console.log("Updating selected build use case from webview : ", selectedBuildUseCase);
+            this.useCaseSelectedEmitter.fire(selectedBuildUseCase);
           }
           break;
       }

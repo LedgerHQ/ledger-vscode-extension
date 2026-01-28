@@ -286,7 +286,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
     );
 
     // Retrieve last use case name from settings
-    let selectedBuildUseCase = getAppUseCases(buildUseCases, folderUri);
+    let selectedBuildUseCase = getLastSelectedUseCase(buildUseCases, folderUri);
 
     app = {
       name: appName,
@@ -605,7 +605,7 @@ function getAppName(appdir: string): string {
 }
 
 // Get the app build use cases
-function getAppUseCases(buildUseCases: BuildUseCase[] | undefined, folderUri: vscode.Uri): BuildUseCase | undefined {
+function getLastSelectedUseCase(buildUseCases: BuildUseCase[] | undefined, folderUri: vscode.Uri): BuildUseCase | undefined {
   // Retrieve last selected use case name from settings
   let selectedBuildUseCase: BuildUseCase | undefined = undefined;
   if (buildUseCases) {
@@ -619,6 +619,15 @@ function getAppUseCases(buildUseCases: BuildUseCase[] | undefined, folderUri: vs
     }
   }
   return selectedBuildUseCase;
+}
+
+export function getAppUseCaseNames(appName: string): string[] {
+  let useCaseNames: string[] = [];
+  const app = appList.find(app => app.folderName === appName);
+  if (app && app.buildUseCases) {
+    useCaseNames = app.buildUseCases.map(useCase => useCase.name);
+  }
+  return useCaseNames;
 }
 
 // Get the app variants (for C apps)

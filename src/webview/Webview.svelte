@@ -17,14 +17,26 @@
   let previousSelectedTarget: string = "";
 
   // Build use case
-  type BuildUseCase = "debug" | "release";
-  let buildUseCase = $state<BuildUseCase>("debug");
+  let buildUseCase = $state("");
+  let buildUseCases = $state<string[]>([]);
   let showBuildUseCaseMenu = $state(false);
 
-  const buildUseCases: { id: BuildUseCase; label: string }[] = [
-    { id: "debug", label: "Debug" },
-    { id: "release", label: "Release" },
-  ];
+  // Capitalize first letter for display
+  function formatBuildUseCase(useCase: string): string {
+    return useCase.charAt(0).toUpperCase() + useCase.slice(1);
+  }
+
+  // Get icon for build use case
+  function getBuildUseCaseIcon(useCase: string): string {
+    switch (useCase.toLowerCase()) {
+      case "debug":
+        return "bug";
+      case "release":
+        return "package";
+      default:
+        return "rocket";
+    }
+  }
 
   type CommandStatus = "idle" | "running" | "success" | "error";
 
@@ -172,9 +184,13 @@
     }
   }
 
-  function selectBuildUseCase(useCase: BuildUseCase) {
+  function selectBuildUseCase(useCase: string) {
     buildUseCase = useCase;
     showBuildUseCaseMenu = false;
+    vscode.postMessage({
+      command: "buildUseCaseSelected",
+      selectedBuildUseCase: useCase,
+    });
   }
 
   window.addEventListener("message", (event) => {
@@ -255,6 +271,10 @@
         targets = message.targets.map((target: string) => ({ value: target, label: target }));
         selectedTarget = message.selectedTarget;
         break;
+      case "addBuildUseCases":
+        buildUseCases = message.buildUseCases;
+        buildUseCase = message.selectedBuildUseCase;
+        break;
     }
     // Handle other commands as needed
   });
@@ -264,7 +284,13 @@
     vscode.postMessage({ command: "webviewReady" });
   }
   notifyReady();
+  // Close build use case menu when clicking outside
+  function closeBuildUseCaseMenu() {
+    showBuildUseCaseMenu = false;
+  }
 </script>
+
+<svelte:window onclick={closeBuildUseCaseMenu} />
 
 <div class="container">
   <!-- Welcome View when no apps found -->
@@ -294,35 +320,40 @@
       <!-- Header -->
       <div class="header-section">
         <div class="header-row">
-          <div class="build-usecase-wrapper" use:autoAnimate>
-            <button
-              class="build-usecase-badge {buildUseCase}"
-              onclick={(e) => {
-                e.stopPropagation();
-                const willOpen = !showBuildUseCaseMenu;
-                actionGroups.forEach((g) => (g.showOptions = false));
-                showBuildUseCaseMenu = willOpen;
-              }}
-            >
-              <i class="codicon codicon-rocket"></i>
-              {buildUseCases.find((u) => u.id === buildUseCase)?.label}
-              <i class="codicon codicon-chevron-down chevron"></i>
-            </button>
-            {#if showBuildUseCaseMenu}
-              <div class="build-usecase-dropdown">
-                {#each buildUseCases as useCase}
-                  <button
-                    class="usecase-option {buildUseCase === useCase.id ? 'selected' : ''}"
-                    onclick={() => selectBuildUseCase(useCase.id)}
-                  >
-                    <i class="codicon codicon-{buildUseCase === useCase.id ? 'check' : 'blank'}"
-                    ></i>
-                    {useCase.label}
-                  </button>
-                {/each}
-              </div>
-            {/if}
-          </div>
+          {#if buildUseCases.length > 0}
+            <div class="build-usecase-wrapper">
+              <button
+                class="build-usecase-badge {buildUseCase}"
+                title="Select build use case"
+                onclick={(e) => {
+                  e.stopPropagation();
+                  const willOpen = !showBuildUseCaseMenu;
+                  actionGroups.forEach((g) => (g.showOptions = false));
+                  showBuildUseCaseMenu = willOpen;
+                }}
+              >
+                <i class="codicon codicon-{getBuildUseCaseIcon(buildUseCase)}"></i>
+                {formatBuildUseCase(buildUseCase)}
+                <i class="codicon codicon-chevron-down chevron"></i>
+              </button>
+              {#if showBuildUseCaseMenu}
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div class="build-usecase-dropdown" onclick={(e) => e.stopPropagation()}>
+                  {#each buildUseCases as useCase}
+                    <button
+                      class="usecase-option {buildUseCase === useCase ? 'selected' : ''}"
+                      onclick={() => selectBuildUseCase(useCase)}
+                    >
+                      <i class="codicon codicon-{buildUseCase === useCase ? 'check' : 'blank'}">
+                      </i>
+                      {formatBuildUseCase(useCase)}
+                    </button>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          {/if}
         </div>
 
         <!-- Configuration Card -->

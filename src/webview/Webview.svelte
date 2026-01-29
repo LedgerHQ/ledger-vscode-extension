@@ -5,6 +5,7 @@
   import Switch from "./components/Switch.svelte";
   import Select, { type SelectItem } from "./components/Select.svelte";
   import type { TaskSpec } from "../types/taskTypes";
+  import ContainerBadge, { type BadgeStatus } from "./components/ContainerBadge.svelte";
 
   let { vscode } = $props();
   let selectedApp = $state("app-boilerplate");
@@ -13,6 +14,7 @@
   let hoveredGroupId = $state<string | null>(null);
   let apps = $state<SelectItem[]>([]);
   let targets = $state<SelectItem[]>([]);
+  let containerStatus: BadgeStatus = $state("stopped");
 
   let previousSelectedTarget: string = "";
 
@@ -294,6 +296,9 @@
         variants = message.variants;
         variant = message.selectedVariant;
         break;
+      case "containerStatus":
+        containerStatus = message.status;
+        break;
     }
     // Handle other commands as needed
   });
@@ -329,6 +334,7 @@
     </div>
   {:else}
     <!-- Main Content -->
+    <ContainerBadge status={containerStatus} />
     <div class="main-content">
       <!-- Header -->
       <div class="header-section">

@@ -96,7 +96,11 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     containerManager.onStatusEvent((data) => {
       statusBarManager.updateDevImageItem(data);
-      // TODO: update webview container status indicator
+      webview.refresh({
+        containerStatus: {
+          status: data === DevImageStatus.running ? "running" : data === DevImageStatus.stopped ? "stopped" : "syncing",
+        },
+      });
       if (data === DevImageStatus.running) {
         getAndBuildAppTestsDependencies(targetSelector);
         getAppTestsList(targetSelector, false, webview);

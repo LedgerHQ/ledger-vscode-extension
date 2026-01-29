@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { TaskSpec } from "../taskProvider";
 import { setSelectedTests } from "../appSelector";
 import { LedgerDevice, SpecialAllDevice } from "../targetSelector";
-
+import type { BadgeStatus } from "./components/ContainerBadge.svelte";
 /**
  * Options for refreshing the webview content.
  * - undefined: skip, don't update this section
@@ -32,6 +32,9 @@ export interface WebviewRefreshOptions {
   variants?: {
     list: string[];
     selected: string;
+  } | null;
+  containerStatus?: {
+    status: BadgeStatus;
   } | null;
 }
 
@@ -118,6 +121,13 @@ export class Webview implements vscode.WebviewViewProvider {
         command: "addVariants",
         variants: options.variants?.list ?? [],
         selectedVariant: options.variants?.selected ?? "",
+      });
+    }
+
+    if (options.containerStatus !== undefined) {
+      this._view.webview.postMessage({
+        command: "containerStatus",
+        status: options.containerStatus?.status ?? "stopped",
       });
     }
   }

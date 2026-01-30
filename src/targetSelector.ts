@@ -7,7 +7,7 @@ const devices = ["Nano S", "Nano S Plus", "Nano X", "Stax", "Flex", "Apex p", "A
 
 export const specialAllDevice = "All";
 
-type SpecialAllDevice = typeof specialAllDevice;
+export type SpecialAllDevice = typeof specialAllDevice;
 
 // Define the LedgerDevice type
 export type LedgerDevice = (typeof devices)[number];
@@ -61,6 +61,7 @@ export class TargetSelector {
   private targetsArray: (LedgerDevice | SpecialAllDevice)[] = [];
   private sdkModelsArray: Record<string, string> = {};
   private targetSelectedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter<string>();
+  public onTargetSelectedEvent: vscode.Event<string> = this.targetSelectedEmitter.event;
   private prevSelectedApp: string = "";
 
   constructor() {
@@ -89,13 +90,8 @@ export class TargetSelector {
 
     this.selectedTarget = target;
 
-    // Save the selected device in the app repo settings, if we have not selected "All"
-    const currentApp = getSelectedApp();
-    if (currentApp && this.prevSelectedApp === "") {
-      updateSetting("selectedDevice", target, currentApp?.folderUri);
-    }
-
     if (!(this.selectedTarget === specialAllDevice)) {
+      const currentApp = getSelectedApp();
       if (currentApp && !currentApp.compatibleDevices.includes(this.selectedTarget as LedgerDevice)) {
         // Fallback to compatible device
         this.selectedTarget = currentApp.compatibleDevices[0];
@@ -133,10 +129,12 @@ export class TargetSelector {
     }
   }
 
-  public readonly onTargetSelectedEvent: vscode.Event<string> = this.targetSelectedEmitter.event;
-
-  private triggerTargetSelectedEvent(data: string) {
-    this.targetSelectedEmitter.fire(data);
+  // Persist the selected target to workspace settings (only for actual devices, not 'All')
+  public saveSelectedTarget() {
+    const currentApp = getSelectedApp();
+    if (currentApp && this.selectedTarget && this.selectedTarget !== specialAllDevice) {
+      updateSetting("selectedDevice", this.selectedTarget, currentApp.folderUri);
+    }
   }
 
   public toggleAllTargetSelection() {
@@ -148,7 +146,6 @@ export class TargetSelector {
       this.prevSelectedApp = this.selectedTarget;
       this.setSelectedTarget(specialAllDevice);
     }
-    this.triggerTargetSelectedEvent(this.selectedTarget);
   }
 
   public async showTargetSelectorMenu() {
@@ -157,7 +154,7 @@ export class TargetSelector {
     });
     if (result) {
       this.setSelectedTarget(result.toString());
-      this.triggerTargetSelectedEvent(result.toString());
+      this.targetSelectedEmitter.fire(result.toString());
     }
     return result;
   }

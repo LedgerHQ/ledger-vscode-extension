@@ -34,6 +34,11 @@
           "group": "inline"
         },
         {
+          "command": "buildUseCase",
+          "when": "view == mainView && viewItem == buildUseCase",
+          "group": "inline"
+        },
+        {
           "command": "rebuildTestUseCaseDeps",
           "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showRebuildTestUseCaseDeps",
           "group": "inline"
@@ -46,21 +51,6 @@
         {
           "command": "selectCheck",
           "when": "view == mainView && viewItem == selectCheck",
-          "group": "inline"
-        },
-        {
-          "command": "selectTests",
-          "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showSelectTests",
-          "group": "inline"
-        },
-        {
-          "command": "refreshTests",
-          "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showRefreshTests",
-          "group": "inline"
-        },
-        {
-          "command": "refreshTestsSpin",
-          "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showRefreshTestsSpin",
           "group": "inline"
         }
       ]
@@ -83,7 +73,7 @@
       "activitybar": [
         {
           "id": "ledger-tools",
-          "title": "Ledger Developer Tools",
+          "title": "Ledger Dev Tools",
           "icon": "resources/ledger-square.png"
         }
       ]
@@ -91,18 +81,13 @@
     "views": {
       "ledger-tools": [
         {
-          "id": "mainView",
-          "name": "",
-          "icon": "resources/ledger-square.png"
+          "id": "appWebView",
+          "type": "webview",
+          "icon": "resources/ledger-square.png",
+          "name": ""
         }
       ]
     },
-    "viewsWelcome": [
-      {
-        "view": "mainView",
-        "contents": "No Ledger app detected in the workspace.\nOpen a Ledger app's folder or open a workspace containing Ledger apps to enable this extension's features.\n[Open App Folder](command:vscode.openFolder)\n[Open Workspace](command:workbench.action.openWorkspace)\n"
-      }
-    ],
     "commands": [
       {
         "command": "executeTask",
@@ -279,6 +264,29 @@
           "description": "Application dedicated settings."
         }
       }
+    },
+    "icons": {
+      "docker-icon": {
+        "description": "docker icon",
+        "default": {
+          "fontPath": "resources/icons.woff",
+          "fontCharacter": "\\f101"
+        }
+      },
+      "git-icon": {
+        "description": "git icon",
+        "default": {
+          "fontPath": "resources/icons.woff",
+          "fontCharacter": "\\f102"
+        }
+      },
+      "x11-icon": {
+        "description": "x11 icon",
+        "default": {
+          "fontPath": "resources/icons.woff",
+          "fontCharacter": "\\f103"
+        }
+      }
     }
   },
   "scripts": {
@@ -295,24 +303,34 @@
     "deploy": "vsce publish"
   },
   "dependencies": {
+    "@formkit/auto-animate": "^0.9.0",
+    "@jis3r/icons": "^2.1.0",
     "@ltd/j-toml": "^1.38.0",
-    "fast-glob": "^3.3.2"
+    "@vscode-elements/elements": "^2.4.0",
+    "bits-ui": "^2.15.4",
+    "fast-glob": "^3.3.3",
+    "simple-git": "^3.30.0"
   },
   "devDependencies": {
-    "@stylistic/eslint-plugin": "^2.11.0",
+    "@stylistic/eslint-plugin": "^2.13.0",
     "@types/mocha": "^10.0.10",
-    "@types/node": "^22.14.1",
-    "@types/vscode": "^1.95.0",
-    "@typescript-eslint/eslint-plugin": "^8.15.0",
-    "@typescript-eslint/parser": "^8.15.0",
-    "@vscode/test-electron": "^2.4.1",
-    "eslint": "^9.15.0",
-    "glob": "^11.0.0",
+    "@types/node": "^22.19.3",
+    "@types/vscode": "^1.107.0",
+    "@typescript-eslint/eslint-plugin": "^8.52.0",
+    "@typescript-eslint/parser": "^8.52.0",
+    "@vscode/test-electron": "^2.5.2",
+    "copy-webpack-plugin": "^13.0.1",
+    "eslint": "^9.39.2",
+    "glob": "^11.1.0",
     "mocha": "^10.8.2",
-    "ts-loader": "^9.5.1",
-    "typescript": "^5.6.3",
-    "webpack": "^5.96.1",
+    "prettier": "^3.7.4",
+    "prettier-plugin-svelte": "^3.4.1",
+    "svelte": "^5.46.1",
+    "svelte-loader": "^3.2.4",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3",
+    "webpack": "^5.104.1",
     "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^5.1.0"
+    "webpack-dev-server": "^5.2.2"
   }
 }

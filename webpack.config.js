@@ -3,6 +3,7 @@
 "use strict";
 
 const path = require("path");
+const CopyPlugin = require("copy-webpack-plugin");
 
 // @ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
@@ -45,4 +46,74 @@ const extensionConfig = {
     level: "log", // enables logging required for problem matchers
   },
 };
-module.exports = [extensionConfig];
+
+/** @type WebpackConfig */
+const webviewConfig = {
+  target: "web",
+  mode: "none",
+  entry: "./src/webview/webview.js",
+  output: {
+    path: path.resolve(__dirname, "dist"),
+    filename: "webview.js",
+  },
+  resolve: {
+    extensions: [".mjs", ".js", ".svelte", ".ts"],
+    mainFields: ["svelte", "browser", "module", "main"],
+    conditionNames: ["svelte", "browser", "import"],
+  },
+  module: {
+    rules: [
+      {
+        test: /\.svelte$/,
+        use: {
+          loader: "svelte-loader",
+          options: {
+            emitCss: false,
+            compilerOptions: {
+              runes: true,
+            },
+          },
+        },
+      },
+      {
+        // Handle .svelte.js files (Svelte 5 runes in JS) from bits-ui
+        test: /\.svelte\.(js|ts)$/,
+        use: {
+          loader: "svelte-loader",
+          options: {
+            emitCss: false,
+            compilerOptions: {
+              runes: true,
+            },
+          },
+        },
+      },
+      {
+        test: /\.ts$/,
+        exclude: /node_modules/,
+        use: [
+          {
+            loader: "ts-loader",
+          },
+        ],
+      },
+    ],
+  },
+  plugins: [
+    new CopyPlugin({
+      patterns: [
+        {
+          from: "node_modules/@vscode/codicons/dist/codicon.css",
+          to: "codicon.css",
+        },
+        {
+          from: "node_modules/@vscode/codicons/dist/codicon.ttf",
+          to: "codicon.ttf",
+        },
+      ],
+    }),
+  ],
+  devtool: "nosources-source-map",
+};
+
+module.exports = [extensionConfig, webviewConfig];

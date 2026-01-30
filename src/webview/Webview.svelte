@@ -4,8 +4,8 @@
   import { Plus, Check, X } from "@jis3r/icons";
   import Switch from "./components/Switch.svelte";
   import Select, { type SelectItem } from "./components/Select.svelte";
-  import type { TaskSpec } from "../types/taskTypes";
-  import ContainerBadge, { type BadgeStatus } from "./components/ContainerBadge.svelte";
+  import type { TaskSpec, BadgeStatus } from "../types";
+  import ContainerBadge from "./components/ContainerBadge.svelte";
 
   let { vscode } = $props();
   let selectedApp = $state("app-boilerplate");

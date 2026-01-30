@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { TaskSpec } from "../taskProvider";
 import { setSelectedTests } from "../appSelector";
 import { LedgerDevice, SpecialAllDevice } from "../targetSelector";
-import type { BadgeStatus } from "./components/ContainerBadge.svelte";
+import type { BadgeStatus } from "../types";
 /**
  * Options for refreshing the webview content.
  * - undefined: skip, don't update this section

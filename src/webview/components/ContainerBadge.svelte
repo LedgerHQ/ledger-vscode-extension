@@ -1,8 +1,6 @@
-<script lang="ts" module>
-  export type BadgeStatus = "running" | "stopped" | "syncing";
-</script>
-
 <script lang="ts">
+  import type { BadgeStatus } from "../../types";
+
   let expanded = $state(false);
 
   interface Props {

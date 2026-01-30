@@ -9,7 +9,7 @@ import { platform } from "node:process";
 import { getDockerUserOpt, getComposeServiceName } from "./containerManager";
 import { TargetSelector, specialAllDevice } from "./targetSelector";
 import { getSelectedApp, App, AppLanguage } from "./appSelector";
-import type { TaskSpec } from "./types/taskTypes";
+import type { TaskSpec } from "./types";
 import { Webview } from "./webview/webviewProvider";
 
 export type { TaskSpec };

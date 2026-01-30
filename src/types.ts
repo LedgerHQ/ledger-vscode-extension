@@ -1,5 +1,5 @@
 /**
- * Shared types for tasks - used by both extension and webview
+ * Shared types - used by both extension and webview
  * This file must NOT import any Node.js or VS Code modules
  */
 
@@ -27,3 +27,9 @@ export interface TaskSpec {
   allSelectedBehavior: BehaviorWhenAllTargetsSelected;
   mainCommand?: boolean;
 }
+
+// Container types
+/**
+ * Status of the Docker container
+ */
+export type BadgeStatus = "running" | "stopped" | "syncing";

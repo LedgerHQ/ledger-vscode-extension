@@ -362,6 +362,23 @@ export class TaskProvider implements vscode.TaskProvider {
     }
   }
 
+  /**
+   * Apply dynamic labels to task specs based on current settings.
+   * Returns a copy of the specs with transformed names for webview display.
+   */
+  private getWebviewTaskSpecs(): TaskSpec[] {
+    const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+    const openAsRoot = conf.get<boolean>("openContainerAsRoot") ?? true;
+
+    return this.taskSpecs.map((spec) => {
+      // Dynamic label for Open Terminal based on root setting
+      if (spec.name === "Open Terminal" && openAsRoot) {
+        return { ...spec, name: "Open Terminal as root" };
+      }
+      return spec;
+    });
+  }
+
   public generateTasks() {
     // Create new promise for this generation cycle if needed
     if (!this.tasksReadyResolve) {
@@ -374,7 +391,7 @@ export class TaskProvider implements vscode.TaskProvider {
     this.resetVars();
     this.checkDisabledTasks(this.taskSpecs);
     this.pushTasks(this.taskSpecs);
-    this.webviewProvider.refresh({ tasks: { list: this.taskSpecs } });
+    this.webviewProvider.refresh({ tasks: { list: this.getWebviewTaskSpecs() } });
 
     // Signal that tasks are ready
     if (this.tasksReadyResolve) {
@@ -399,7 +416,8 @@ export class TaskProvider implements vscode.TaskProvider {
     this.checkDisabledTasks(specsToRegenerate);
     // Push only the regenerated tasks
     this.pushTasks(specsToRegenerate);
-    // TODO : Update only the regenerated tasks in the webview
+    // Refresh webview with updated specs (apply dynamic labels)
+    this.webviewProvider.refresh({ tasks: { list: this.getWebviewTaskSpecs() } });
   }
 
   public async provideTasks(): Promise<vscode.Task[]> {

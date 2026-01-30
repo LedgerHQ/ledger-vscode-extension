@@ -71,7 +71,7 @@
       {#if icon}
         <i class="codicon codicon-{icon}"></i>
       {/if}
-      {selectedLabel ?? placeholder}
+      <span class="badge-label">{selectedLabel ?? placeholder}</span>
       <i class="codicon codicon-chevron-{isOpen ? 'up' : 'down'} chevron"></i>
     {:else}
       <span class="select-value">{selectedLabel ? selectedLabel : placeholder}</span>
@@ -162,6 +162,7 @@
     cursor: pointer;
     transition: background-color 0.1s;
     outline: none;
+    max-width: 130px;
   }
 
   :global(.select-badge:hover) {
@@ -171,6 +172,14 @@
   :global(.select-badge .chevron) {
     font-size: 10px;
     opacity: 0.7;
+    flex-shrink: 0;
+  }
+
+  .badge-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
   }
 
   .select-value {

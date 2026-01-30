@@ -339,7 +339,7 @@
       <!-- Header -->
       <div class="header-section">
         <div class="header-row">
-          {#if buildUseCases.length > 0}
+          {#if buildUseCases.length > 1}
             <Select
               items={buildUseCaseItems}
               bind:value={buildUseCase}
@@ -349,7 +349,7 @@
               tooltip="Select Build Use Case"
             />
           {/if}
-          {#if variants.length > 0}
+          {#if variants.length > 1}
             <Select
               items={variantItems}
               bind:value={variant}
@@ -668,6 +668,15 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  @media (max-width: 250px) {
+    .header-row {
+      flex-direction: column;
+      align-items: flex-start;
+    }
   }
 
   .title {
@@ -701,7 +710,6 @@
   @media (min-width: 350px) {
     .config-grid {
       display: flex;
-      /* grid-template-columns: 1fr 1fr; */
       flex-direction: row;
       gap: 12px;
     }
@@ -715,7 +723,6 @@
   @media (max-width: 349px) {
     .config-grid {
       display: flex;
-      /* grid-template-columns: 1fr 1fr; */
       flex-direction: column;
       gap: 12px;
     }

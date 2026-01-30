@@ -187,11 +187,6 @@
         "tooltip": "Rebuild the dependencies for the selected test use case.",
         "icon": "$(sync)",
         "enablement": "ledgerDevTools.showRebuildTestUseCaseDeps"
-      },
-      {
-        "command": "openWizard",
-        "title": "Open Ledger App Creation Wizard",
-        "category": "Ledger"
       }
     ],
     "configuration": {

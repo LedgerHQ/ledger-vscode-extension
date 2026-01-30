@@ -43,7 +43,7 @@ export interface WebviewRefreshOptions {
 }
 
 /**
- * Manages the Webview Panel that acts as the Form/Wizard
+ * Manages the Webview panel in the VS Code extension
  */
 export class Webview implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView;

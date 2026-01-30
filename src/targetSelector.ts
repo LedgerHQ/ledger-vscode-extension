@@ -61,6 +61,7 @@ export class TargetSelector {
   private targetsArray: (LedgerDevice | SpecialAllDevice)[] = [];
   private sdkModelsArray: Record<string, string> = {};
   private targetSelectedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter<string>();
+  public onTargetSelectedEvent: vscode.Event<string> = this.targetSelectedEmitter.event;
   private prevSelectedApp: string = "";
 
   constructor() {
@@ -147,15 +148,16 @@ export class TargetSelector {
     }
   }
 
-  //   public async showTargetSelectorMenu() {
-  //     const result = await vscode.window.showQuickPick(this.targetsArray, {
-  //       placeHolder: "Please select a target",
-  //     });
-  //     if (result) {
-  //       this.setSelectedTarget(result.toString());
-  //     }
-  //     return result;
-  //   }
+  public async showTargetSelectorMenu() {
+    const result = await vscode.window.showQuickPick(this.targetsArray, {
+      placeHolder: "Please select a target",
+    });
+    if (result) {
+      this.setSelectedTarget(result.toString());
+      this.targetSelectedEmitter.fire(result.toString());
+    }
+    return result;
+  }
 
   public getSelectedTarget() {
     return this.selectedTarget;

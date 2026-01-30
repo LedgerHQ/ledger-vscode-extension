@@ -109,8 +109,22 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
-  // Event listener for target selection.
-  // This event is fired when the user selects a target in the targetSelector menu
+  // Event listener for target selection from quick pick menu.
+  context.subscriptions.push(
+    targetSelector.onTargetSelectedEvent((data) => {
+      taskProvider.generateTasks();
+      statusBarManager.updateTargetItem(data);
+      containerManager.manageContainer();
+      webview.refresh({
+        targets: {
+          list: targetSelector.getTargetsArray(),
+          selected: targetSelector.getSelectedTarget(),
+        },
+      });
+    }),
+  );
+
+  // Event listener for target selection from webview.
   context.subscriptions.push(
     webview.onTargetSelectedEvent((data) => {
       targetSelector.setSelectedTarget(data);
@@ -235,11 +249,11 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
-  //   context.subscriptions.push(
-  //     vscode.commands.registerCommand("selectTarget", () => {
-  //       targetSelector.showTargetSelectorMenu();
-  //     }),
-  //   );
+  context.subscriptions.push(
+    vscode.commands.registerCommand("selectTarget", () => {
+      targetSelector.showTargetSelectorMenu();
+    }),
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("selectVariant", () => {

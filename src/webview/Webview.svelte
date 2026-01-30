@@ -94,11 +94,11 @@
     // Disabled if no mainAction (not populated) OR if allDevices mode and group is disabled on all devices
     if (!group.mainAction) return true;
     if (group.id === "Tests" && testCases.length === 0 && !isRefreshing) return true;
-    return allDevices && (group.disabledOnAllDevices ?? false);
+    return (allDevices && (group.disabledOnAllDevices ?? false)) || group.mainAction.disabled;
   }
 
   function isActionDisabled(action: Action): boolean {
-    return allDevices && (action.disabledOnAllDevices ?? false);
+    return (allDevices && (action.disabledOnAllDevices ?? false)) || action.disabled;
   }
 
   function executeAction(groupId: string, actionId: string) {
@@ -152,22 +152,10 @@
   }
 
   function sendSelectedTarget(target: string) {
+    allDevices = target === "All";
     vscode.postMessage({
       command: "targetSelected",
       selectedTarget: target,
-    });
-  }
-
-  function sendAllDevices() {
-    if (allDevices) {
-      previousSelectedTarget = selectedTarget;
-      selectedTarget = "All";
-    } else {
-      selectedTarget = previousSelectedTarget;
-    }
-    vscode.postMessage({
-      command: "targetSelected",
-      selectedTarget: selectedTarget,
     });
   }
 
@@ -296,7 +284,10 @@
         break;
       case "addTargets":
         targets = [];
-        targets = message.targets.map((target: string) => ({ value: target, label: target }));
+        targets.push({ value: "All", label: "All" });
+        targets.push(
+          ...message.targets.map((target: string) => ({ value: target, label: target })),
+        );
         selectedTarget = message.selectedTarget;
         break;
       case "addBuildUseCases":
@@ -396,22 +387,22 @@
               <Select
                 items={targets}
                 bind:value={selectedTarget}
-                disabled={allDevices}
-                placeholder={allDevices ? "All" : "Select..."}
+                placeholder="Select..."
                 onchange={sendSelectedTarget}
               />
             </div>
           </div>
-          <div class="all-devices-toggle">
-            <label class="toggle-label">
-              <input type="checkbox" bind:checked={allDevices} onchange={sendAllDevices} />
-              <span class="toggle-text">
-                <i class="codicon codicon-layers"></i>
-                Build for all devices
-              </span>
-            </label>
+          <div class="hint-wrapper" use:autoAnimate>
             {#if allDevices}
-              <span class="toggle-hint">Some actions will be disabled</span>
+              <div class="toggle-hint">
+                <i class="codicon codicon-info"></i>
+                Some actions will be disabled
+              </div>
+            {:else if selectedTarget === "Nano X"}
+              <div class="toggle-hint warning">
+                <i class="codicon codicon-warning"></i>
+                Device operations not supported
+              </div>
             {/if}
           </div>
         </div>
@@ -797,40 +788,25 @@
     letter-spacing: 0.5px;
   }
 
-  /* All Devices Toggle */
-  .all-devices-toggle {
+  /* Hint wrapper & toggle hint */
+  .hint-wrapper {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .toggle-hint {
     margin-top: 12px;
     padding-top: 12px;
     border-top: 1px solid var(--vscode-panel-border);
     display: flex;
     align-items: center;
-    justify-content: space-between;
-  }
-
-  .toggle-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    font-size: 12px;
-  }
-
-  .toggle-label input[type="checkbox"] {
-    width: 14px;
-    height: 14px;
-    accent-color: var(--vscode-focusBorder);
-  }
-
-  .toggle-text {
-    display: flex;
-    align-items: center;
     gap: 6px;
-  }
-
-  .toggle-hint {
     font-size: 11px;
     color: var(--vscode-descriptionForeground);
-    font-style: italic;
+  }
+
+  .toggle-hint.warning {
+    color: var(--vscode-editorWarning-foreground);
   }
 
   /* Actions Section */

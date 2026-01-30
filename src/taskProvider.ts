@@ -48,6 +48,16 @@ export async function showChecks() {
   return result;
 }
 
+export function setSelectedCheck(selected: string) {
+  if (validChecks.includes(selected)) {
+    checks.selected = selected;
+  }
+}
+
+export function getChecks(): ChecksList {
+  return checks;
+}
+
 // Cache the Promise to ensure the function is only executed once
 let appLoadRequirementsPromise: Promise<string> | null = null;
 
@@ -274,7 +284,7 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Tools",
-      name: "Guideline Enforcer",
+      name: "Enforcer Checks",
       icon: "checklist",
       builders: { ["Both"]: this.runGuidelineEnforcer },
       toolTip:

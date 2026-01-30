@@ -5,6 +5,8 @@ import {
   TaskProvider,
   taskType,
   onCheckSelectedEvent,
+  setSelectedCheck,
+  getChecks,
   showChecks,
 } from "./taskProvider";
 import { TargetSelector } from "./targetSelector";
@@ -81,6 +83,10 @@ export function activate(context: vscode.ExtensionContext) {
     refreshOptions.variants = {
       list: appList[0].variants ? appList[0].variants.values : [],
       selected: appList[0].variants ? appList[0].variants.selected : "",
+    };
+    refreshOptions.enforcerChecks = {
+      list: getChecks().values,
+      selected: getChecks().selected,
     };
   }
   webview.refresh(refreshOptions);
@@ -173,6 +179,19 @@ export function activate(context: vscode.ExtensionContext) {
   // This event is fired when the user selects a Guideline Enforcer check
   context.subscriptions.push(
     onCheckSelectedEvent(() => {
+      webview.refresh({
+        enforcerChecks: {
+          list: getChecks().values,
+          selected: getChecks().selected,
+        },
+      });
+      taskProvider.generateTasks();
+    }),
+  );
+
+  context.subscriptions.push(
+    webview.onCheckSelectedEvent((check) => {
+      setSelectedCheck(check);
       taskProvider.generateTasks();
     }),
   );
@@ -189,6 +208,12 @@ export function activate(context: vscode.ExtensionContext) {
     onUseCaseSelectedEvent((data) => {
       taskProvider.generateTasks();
       statusBarManager.updateBuildUseCaseItem(data);
+      webview.refresh({
+        buildUseCases: {
+          list: getAppUseCaseNames(getSelectedApp() ? getSelectedApp()!.folderName : ""),
+          selected: getSelectedBuidUseCase(),
+        },
+      });
     }),
   );
 

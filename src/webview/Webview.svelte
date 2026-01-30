@@ -25,6 +25,9 @@
   let variants = $state<string[]>([]);
   let variant = $state("");
 
+  let enforcerChecks = $state<SelectItem[]>([]);
+  let enforcerCheck = $state("");
+
   // Capitalize first letter for display
   function formatBuildUseCase(useCase: string): string {
     return useCase.charAt(0).toUpperCase() + useCase.slice(1);
@@ -203,6 +206,14 @@
     });
   }
 
+  function selectCheck(check: string) {
+    enforcerCheck = check;
+    vscode.postMessage({
+      command: "enforcerCheckSelected",
+      selectedEnforcerCheck: check,
+    });
+  }
+
   // Convert buildUseCases to SelectItem format
   const buildUseCaseItems = $derived<SelectItem[]>(
     buildUseCases.map((uc) => ({ value: uc, label: formatBuildUseCase(uc) })),
@@ -298,6 +309,14 @@
         break;
       case "containerStatus":
         containerStatus = message.status;
+        break;
+      case "addEnforcerChecks":
+        enforcerChecks = [];
+        enforcerChecks = message.enforcerChecks.map((check: string) => ({
+          value: check,
+          label: check,
+        }));
+        enforcerCheck = message.selectedEnforcerCheck;
         break;
     }
     // Handle other commands as needed
@@ -459,30 +478,68 @@
             {#if group.showOptions && !isGroupDisabled(group)}
               <div class="options-panel">
                 {#each group.options as option}
-                  <button
-                    title={option.tooltip}
-                    onclick={() => executeAction(group.id, option.id)}
-                    disabled={option.status === "running" || isActionDisabled(option)}
-                    class="option-button {getStatusClass(option.status)} {isActionDisabled(option)
-                      ? 'disabled'
-                      : ''}"
-                  >
-                    <span class="option-icon">
-                      <i class="codicon codicon-{option.icon}"></i>
-                    </span>
-                    <span class="option-label">{option.label}</span>
-                    {#if option.status !== "idle"}
-                      <span class="status-indicator small">
-                        {#if option.status === "running"}
-                          <span class="spinner small"></span>
-                        {:else if option.status === "success"}
-                          <Check size={12} animate={true} />
-                        {:else}
-                          <X size={12} animate={true} />
+                  {#if group.id === "Tools" && option.label === "Enforcer Checks"}
+                    <div class="test-selector-divider"></div>
+                    <div class="option-inline-row">
+                      <button
+                        title={option.tooltip}
+                        onclick={() => executeAction(group.id, option.id)}
+                        disabled={option.status === "running" || isActionDisabled(option)}
+                        class="option-button inline {getStatusClass(
+                          option.status,
+                        )} {isActionDisabled(option) ? 'disabled' : ''}"
+                      >
+                        <span class="option-icon">
+                          <i class="codicon codicon-{option.icon}"></i>
+                        </span>
+                        <span class="option-label">{option.label}</span>
+                        {#if option.status !== "idle"}
+                          <span class="status-indicator small">
+                            {#if option.status === "running"}
+                              <span class="spinner small"></span>
+                            {:else if option.status === "success"}
+                              <Check size={12} animate={true} />
+                            {:else}
+                              <X size={12} animate={true} />
+                            {/if}
+                          </span>
                         {/if}
+                      </button>
+                      <div class="check-select-wrapper">
+                        <Select
+                          items={enforcerChecks}
+                          bind:value={enforcerCheck}
+                          placeholder="All"
+                          onchange={selectCheck}
+                        />
+                      </div>
+                    </div>
+                  {:else}
+                    <button
+                      title={option.tooltip}
+                      onclick={() => executeAction(group.id, option.id)}
+                      disabled={option.status === "running" || isActionDisabled(option)}
+                      class="option-button {getStatusClass(option.status)} {isActionDisabled(option)
+                        ? 'disabled'
+                        : ''}"
+                    >
+                      <span class="option-icon">
+                        <i class="codicon codicon-{option.icon}"></i>
                       </span>
-                    {/if}
-                  </button>
+                      <span class="option-label">{option.label}</span>
+                      {#if option.status !== "idle"}
+                        <span class="status-indicator small">
+                          {#if option.status === "running"}
+                            <span class="spinner small"></span>
+                          {:else if option.status === "success"}
+                            <Check size={12} animate={true} />
+                          {:else}
+                            <X size={12} animate={true} />
+                          {/if}
+                        </span>
+                      {/if}
+                    </button>
+                  {/if}
                 {/each}
 
                 <!-- Embedded Test Selection (only in tests group) -->
@@ -544,7 +601,6 @@
           </div>
         {/each}
       </div>
-
       <!-- Footer Info -->
       <div class="footer-info">
         <i class="codicon codicon-info"></i>
@@ -1151,5 +1207,38 @@
     gap: 6px;
     font-size: 12px;
     color: var(--vscode-foreground);
+  }
+
+  .check-selector-row {
+    padding: 4px 10px 8px;
+  }
+
+  .option-inline-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .option-button.inline {
+    flex: 1 1 auto;
+    min-width: 60px;
+    max-width: 120px;
+  }
+
+  .option-button.inline .option-label {
+    line-height: 1.2;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .option-button.inline .status-indicator {
+    flex-shrink: 0;
+    align-self: center;
+  }
+
+  .check-select-wrapper {
+    flex: 1 1 auto;
+    min-width: 80px;
   }
 </style>

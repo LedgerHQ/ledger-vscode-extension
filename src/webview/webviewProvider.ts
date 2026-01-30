@@ -36,6 +36,10 @@ export interface WebviewRefreshOptions {
   containerStatus?: {
     status: BadgeStatus;
   } | null;
+  enforcerChecks?: {
+    list: string[];
+    selected: string;
+  } | null;
 }
 
 /**
@@ -51,6 +55,8 @@ export class Webview implements vscode.WebviewViewProvider {
   public onUseCaseSelectedEvent: vscode.Event<string> = this.useCaseSelectedEmitter.event;
   private variantSelectedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter<string>();
   public onVariantSelectedEvent: vscode.Event<string> = this.variantSelectedEmitter.event;
+  private checkSelectedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter<string>();
+  public onCheckSelectedEvent: vscode.Event<string> = this.checkSelectedEmitter.event;
   // Promise resolve for when the webview is ready
   private _webviewReadyResolve!: () => void;
   private _webviewReady: Promise<void>;
@@ -130,6 +136,14 @@ export class Webview implements vscode.WebviewViewProvider {
       this._view.webview.postMessage({
         command: "containerStatus",
         status: options.containerStatus?.status ?? "stopped",
+      });
+    }
+
+    if (options.enforcerChecks !== undefined) {
+      this._view.webview.postMessage({
+        command: "addEnforcerChecks",
+        enforcerChecks: options.enforcerChecks?.list ?? [],
+        selectedEnforcerCheck: options.enforcerChecks?.selected ?? "",
       });
     }
   }
@@ -226,6 +240,13 @@ export class Webview implements vscode.WebviewViewProvider {
             const selectedVariant: string = data.selectedVariant;
             console.log("Variant selected in webview : ", selectedVariant);
             this.variantSelectedEmitter.fire(selectedVariant);
+          }
+          break;
+        case "enforcerCheckSelected":
+          {
+            const selectedEnforcerCheck: string = data.selectedEnforcerCheck;
+            console.log("Updating selected enforcer check from webview : ", selectedEnforcerCheck);
+            this.checkSelectedEmitter.fire(selectedEnforcerCheck);
           }
           break;
       }

@@ -4,8 +4,8 @@
   import { Plus, Check, X } from "@jis3r/icons";
   import Switch from "./components/Switch.svelte";
   import Select, { type SelectItem } from "./components/Select.svelte";
+  import StatusDot from "./components/StatusDot.svelte";
   import type { TaskSpec, BadgeStatus } from "../types";
-  import ContainerBadge from "./components/ContainerBadge.svelte";
 
   let { vscode } = $props();
   let selectedApp = $state("app-boilerplate");
@@ -346,7 +346,6 @@
     </div>
   {:else}
     <!-- Main Content -->
-    <ContainerBadge status={containerStatus} />
     <div class="main-content">
       <!-- Header -->
       <div class="header-section">
@@ -378,6 +377,7 @@
           <div class="config-header">
             <i class="codicon codicon-settings-gear"></i>
             <h2 class="config-title">Configuration</h2>
+            <StatusDot status={containerStatus} />
           </div>
           <div class="config-grid">
             <div class="form-group">
@@ -754,6 +754,7 @@
     font-size: 13px;
     font-weight: 600;
     margin: 0;
+    flex: 1;
   }
 
   @media (min-width: 350px) {

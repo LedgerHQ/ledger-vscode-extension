@@ -55,6 +55,7 @@
     tooltip?: string;
     status: CommandStatus;
     disabledOnAllDevices?: boolean;
+    disabled: boolean;
   }
 
   interface ActionGroup {
@@ -221,7 +222,7 @@
         let specs: TaskSpec[] = message.specs;
         specs.forEach((spec) => {
           const group = actionGroups.find((g) => g.id === spec.group);
-          if (group) {
+          if (group && spec.state !== "unavailable") {
             let action: Action = {
               id: spec.name,
               label: spec.name,
@@ -229,6 +230,7 @@
               taskName: spec.name,
               tooltip: spec.toolTip,
               disabledOnAllDevices: spec.allSelectedBehavior === "disable",
+              disabled: spec.state === "disabled",
               status: "idle",
             };
             if (spec.mainCommand) {

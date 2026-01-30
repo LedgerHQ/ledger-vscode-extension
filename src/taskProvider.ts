@@ -980,7 +980,7 @@ export class TaskProvider implements vscode.TaskProvider {
         else if (
           this.tgtSelector.getSelectedTarget() === "Nano X"
           && this.enableNanoxOps === false
-          && item.group === "Device Operations"
+          && item.group === "Device"
         ) {
           item.state = "disabled";
         }

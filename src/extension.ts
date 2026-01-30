@@ -26,6 +26,7 @@ import {
   setBuildUseCase,
   onVariantSelectedEvent,
   showVariant,
+  setVariant,
   setSelectedAppByName,
   initializeAppSubmodulesIfNeeded,
   getAppUseCaseNames,
@@ -119,10 +120,24 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
+  // Event listener for variant selection from webview.
+  context.subscriptions.push(
+    webview.onVariantSelectedEvent((data) => {
+      setVariant(data);
+      taskProvider.generateTasks();
+    }),
+  );
+
   // Event listener for variant selection.
   // This event is fired when the user selects a build variant
   context.subscriptions.push(
     onVariantSelectedEvent(() => {
+      webview.refresh({
+        variants: {
+          list: getSelectedApp() ? getSelectedApp()!.variants?.values || [] : [],
+          selected: getSelectedApp() ? getSelectedApp()!.variants?.selected || "" : "",
+        },
+      });
       taskProvider.generateTasks();
     }),
   );
@@ -177,22 +192,18 @@ export function activate(context: vscode.ExtensionContext) {
   // This event is fired when the user selects an app in the appSelector menu
   context.subscriptions.push(
     webview.onAppSelectedEvent((selectedAppName) => {
+      let variants: WebviewRefreshOptions = { variants: null };
       const selectedApp = setSelectedAppByName(selectedAppName);
       if (selectedApp) {
         // Initialize git submodules if needed for the selected app
         initializeAppSubmodulesIfNeeded(selectedApp.folderUri);
         if (selectedApp.variants) {
-          if (selectedApp.variants.values.length > 1) {
-            vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", true);
-          }
-          else {
-            vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", false);
-          }
           const variant = getSetting("selectedVariant", selectedApp.folderUri) as string;
           selectedApp.variants.selected = variant;
-        }
-        else {
-          vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectVariant", false);
+          variants.variants = {
+            list: selectedApp.variants.values,
+            selected: selectedApp.variants.selected,
+          };
         }
         const target = getSetting("selectedDevice", selectedApp.folderUri, "defaultDevice") as string;
         if (target) {
@@ -212,6 +223,7 @@ export function activate(context: vscode.ExtensionContext) {
           list: getAppUseCaseNames(selectedAppName),
           selected: getSelectedBuidUseCase(),
         },
+        ...variants,
       });
     }),
   );

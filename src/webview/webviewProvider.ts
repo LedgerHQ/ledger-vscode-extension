@@ -49,6 +49,8 @@ export class Webview implements vscode.WebviewViewProvider {
   public onTargetSelectedEvent: vscode.Event<string> = this.targetSelectedEmitter.event;
   private useCaseSelectedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter<string>();
   public onUseCaseSelectedEvent: vscode.Event<string> = this.useCaseSelectedEmitter.event;
+  private variantSelectedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter<string>();
+  public onVariantSelectedEvent: vscode.Event<string> = this.variantSelectedEmitter.event;
   // Promise resolve for when the webview is ready
   private _webviewReadyResolve!: () => void;
   private _webviewReady: Promise<void>;
@@ -217,6 +219,13 @@ export class Webview implements vscode.WebviewViewProvider {
             const selectedBuildUseCase: string = data.selectedBuildUseCase;
             console.log("Updating selected build use case from webview : ", selectedBuildUseCase);
             this.useCaseSelectedEmitter.fire(selectedBuildUseCase);
+          }
+          break;
+        case "variantSelected":
+          {
+            const selectedVariant: string = data.selectedVariant;
+            console.log("Variant selected in webview : ", selectedVariant);
+            this.variantSelectedEmitter.fire(selectedVariant);
           }
           break;
       }

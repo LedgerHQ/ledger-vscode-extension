@@ -363,18 +363,17 @@ export function initializeAppSubmodulesIfNeeded(appFolderUri: vscode.Uri) {
   }
 }
 
-// export async function showAppSelectorMenu(targetSelector: TargetSelector) {
-//   const appFolderNames = appList.map(app => app.folderName);
-//   const result = await vscode.window.showQuickPick(appFolderNames, {
-//     placeHolder: "Please select an app",
-//   });
-//   if (result) {
-//     setSelectedApp(appList.find(app => app.folderName === result));
-//     // appSelectedEmitter.fire();
-//   }
-//   getAndBuildAppTestsDependencies(targetSelector);
-//   return result;
-// }
+export async function showAppSelectorMenu(targetSelector: TargetSelector) {
+  const appFolderNames = appList.map(app => app.folderName);
+  const result = await vscode.window.showQuickPick(appFolderNames, {
+    placeHolder: "Please select an app",
+  });
+  if (result) {
+    setSelectedApp(appList.find(app => app.folderName === result));
+  }
+  getAndBuildAppTestsDependencies(targetSelector);
+  return result;
+}
 
 export async function showTestsSelectorMenu(targetSelector: TargetSelector) {
   if (selectedApp && selectedApp.functionalTestsList) {

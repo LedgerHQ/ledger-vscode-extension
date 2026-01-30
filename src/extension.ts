@@ -32,6 +32,7 @@ import {
   setSelectedAppByName,
   initializeAppSubmodulesIfNeeded,
   getAppUseCaseNames,
+  showAppSelectorMenu,
 } from "./appSelector";
 import { Webview, WebviewRefreshOptions } from "./webview/webviewProvider";
 
@@ -316,12 +317,6 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
-  //   context.subscriptions.push(
-  //     vscode.commands.registerCommand("selectTests", () => {
-  //       showTestsSelectorMenu(targetSelector);
-  //     }),
-  //   );
-
   context.subscriptions.push(
     vscode.commands.registerCommand("refreshTests", () => {
       getAppTestsList(targetSelector, false, webview);
@@ -336,11 +331,11 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(vscode.commands.registerCommand("rebuildTestUseCaseDepsSpin", () => {}));
 
-  //   context.subscriptions.push(
-  //     vscode.commands.registerCommand("showAppList", () => {
-  //       showAppSelectorMenu(targetSelector);
-  //     }),
-  //   );
+  context.subscriptions.push(
+    vscode.commands.registerCommand("showAppList", () => {
+      showAppSelectorMenu(targetSelector);
+    }),
+  );
 
   vscode.tasks.onDidStartTask((event) => {
     const taskName = event.execution.task.name;

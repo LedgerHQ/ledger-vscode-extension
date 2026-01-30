@@ -119,7 +119,7 @@ export class TaskProvider implements vscode.TaskProvider {
     {
       group: "Tools",
       name: "Update Container",
-      icon: "package",
+      icon: "desktop-download",
       builders: { ["Both"]: this.runDevToolsImageExec },
       toolTip: "Update docker container (pull image and restart container)",
       state: "enabled",
@@ -128,7 +128,7 @@ export class TaskProvider implements vscode.TaskProvider {
     {
       group: "Tools",
       name: "Create Container",
-      icon: "package",
+      icon: "vm",
       builders: { ["Both"]: this.createContainerExec },
       toolTip: "Create docker container from existing local image (without pulling)",
       state: "enabled",

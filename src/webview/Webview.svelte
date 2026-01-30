@@ -836,8 +836,8 @@
   .action-button {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
+    gap: 8px;
+    padding: 6px 10px;
     border: 1px solid var(--vscode-input-border);
     background-color: transparent;
     color: var(--vscode-foreground);
@@ -949,8 +949,8 @@
   .option-button {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
+    gap: 6px;
+    padding: 4px 8px;
     border: none;
     border-radius: 2px;
     background-color: transparent;

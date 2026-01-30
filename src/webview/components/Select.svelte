@@ -61,6 +61,7 @@
 
 <Select.Root
   type="single"
+  {value}
   {disabled}
   {items}
   onValueChange={handleValueChange}

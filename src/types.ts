@@ -19,6 +19,7 @@ export type BehaviorWhenAllTargetsSelected = "enable" | "disable" | "executeForE
 export interface TaskSpec {
   group?: string;
   name: string;
+  label?: string;
   toolTip?: string;
   icon?: string;
   builders: BuilderForLanguage;

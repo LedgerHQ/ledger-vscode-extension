@@ -223,7 +223,7 @@ export class TaskProvider implements vscode.TaskProvider {
     {
       group: "Tests",
       name: "Tests with Display",
-      icon: "device-desktop",
+      icon: "eye",
       builders: { ["Both"]: this.functionalTestsDisplayExec },
       dependsOn: this.functionalTestsRequirementsExec,
       toolTip: "Run Python functional tests (with Qt display enabled)",
@@ -364,7 +364,7 @@ export class TaskProvider implements vscode.TaskProvider {
 
   /**
    * Apply dynamic labels to task specs based on current settings.
-   * Returns a copy of the specs with transformed names for webview display.
+   * Returns a copy of the specs with transformed labels for webview display.
    */
   private getWebviewTaskSpecs(): TaskSpec[] {
     const conf = vscode.workspace.getConfiguration("ledgerDevTools");
@@ -373,7 +373,7 @@ export class TaskProvider implements vscode.TaskProvider {
     return this.taskSpecs.map((spec) => {
       // Dynamic label for Open Terminal based on root setting
       if (spec.name === "Open Terminal" && openAsRoot) {
-        return { ...spec, name: "Open Terminal as root" };
+        return { ...spec, label: "Open Terminal as root" };
       }
       return spec;
     });

@@ -156,7 +156,7 @@
           if (group && spec.state !== "unavailable") {
             let action: Action = {
               id: spec.name,
-              label: spec.name,
+              label: spec.label ?? spec.name,
               icon: spec.icon,
               taskName: spec.name,
               tooltip: spec.toolTip,

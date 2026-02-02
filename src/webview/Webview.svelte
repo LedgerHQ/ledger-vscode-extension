@@ -1,22 +1,20 @@
 <script lang="ts">
   import "@vscode-elements/elements/dist/vscode-icon/index.js";
   import autoAnimate from "@formkit/auto-animate";
-  import { Plus, Check, X } from "@jis3r/icons";
-  import Switch from "./components/Switch.svelte";
   import Select, { type SelectItem } from "./components/Select.svelte";
   import StatusDot from "./components/StatusDot.svelte";
+  import ActionGroup, { type ActionGroupData, type Action } from "./components/ActionGroup.svelte";
+  import TestsList from "./components/TestsList.svelte";
+  import type { TestCase } from "./components/TestsList.svelte";
   import type { TaskSpec, BadgeStatus } from "../types";
 
   let { vscode } = $props();
   let selectedApp = $state("app-boilerplate");
   let selectedTarget = $state("Stax");
   let allDevices = $state(false);
-  let hoveredGroupId = $state<string | null>(null);
   let apps = $state<SelectItem[]>([]);
   let targets = $state<SelectItem[]>([]);
   let containerStatus: BadgeStatus = $state("stopped");
-
-  let previousSelectedTarget: string = "";
 
   // Build use case
   let buildUseCase = $state("");
@@ -45,61 +43,23 @@
     }
   }
 
-  type CommandStatus = "idle" | "running" | "success" | "error";
-
-  interface Action {
-    id: string;
-    label: string;
-    icon?: string; // codicon name
-    taskName?: string;
-    tooltip?: string;
-    status: CommandStatus;
-    disabledOnAllDevices?: boolean;
-    disabled: boolean;
-  }
-
-  interface ActionGroup {
-    id: string;
-    icon: string;
-    mainAction?: Action;
-    options: Action[];
-    showOptions: boolean;
-    disabledOnAllDevices?: boolean;
-  }
-
-  interface TestCase {
-    id: string;
-    name: string;
-    selected: boolean;
-  }
-
   let testCases = $state<TestCase[]>([]);
   let verboseTests = $state(false);
   let isRefreshing = $state(false);
 
-  let actionGroups = $state<ActionGroup[]>([
-    { id: "Build", icon: "tools", options: [], showOptions: false },
-    { id: "Emulator", icon: "play", options: [], showOptions: false, disabledOnAllDevices: true },
-    { id: "Tests", icon: "beaker", options: [], showOptions: false },
-    {
-      id: "Device",
-      icon: "device-mobile",
-      options: [],
-      showOptions: false,
-      disabledOnAllDevices: true,
-    },
-    { id: "Tools", icon: "terminal", options: [], showOptions: false },
+  let actionGroups = $state<ActionGroupData[]>([
+    { id: "Build", icon: "tools", options: [] },
+    { id: "Emulator", icon: "play", options: [], disabledOnAllDevices: true },
+    { id: "Tests", icon: "beaker", options: [] },
+    { id: "Device", icon: "device-mobile", options: [], disabledOnAllDevices: true },
+    { id: "Tools", icon: "terminal", options: [] },
   ]);
 
-  function isGroupDisabled(group: ActionGroup): boolean {
+  function isGroupDisabled(group: ActionGroupData): boolean {
     // Disabled if no mainAction (not populated) OR if allDevices mode and group is disabled on all devices
     if (!group.mainAction) return true;
     if (group.id === "Tests" && testCases.length === 0 && !isRefreshing) return true;
     return (allDevices && (group.disabledOnAllDevices ?? false)) || group.mainAction.disabled;
-  }
-
-  function isActionDisabled(action: Action): boolean {
-    return (allDevices && (action.disabledOnAllDevices ?? false)) || action.disabled;
   }
 
   function executeAction(groupId: string, actionId: string) {
@@ -122,26 +82,10 @@
     action.status = "running";
   }
 
-  function toggleOptions(groupId: string) {
-    const group = actionGroups.find((g) => g.id === groupId);
-    if (group) {
-      group.showOptions = !group.showOptions;
-    }
-  }
-
-  function toggleAllTests(select: boolean) {
-    testCases.forEach((t) => (t.selected = select));
-    sendSelectedTests();
-  }
-
-  function getSelectedTestCount(): number {
-    return testCases.filter((t) => t.selected).length;
-  }
-
-  function sendSelectedTests() {
+  function sendSelectedTests(testsCases: TestCase[]) {
     vscode.postMessage({
       command: "updateSelectedTests",
-      selectedTests: testCases.filter((t) => t.selected).map((t) => t.id),
+      selectedTests: testsCases.filter((t) => t.selected).map((t) => t.id),
     });
   }
 
@@ -164,19 +108,6 @@
     isRefreshing = true;
     testCases = [];
     vscode.postMessage({ command: "refreshTests" });
-  }
-
-  function getStatusClass(status: CommandStatus): string {
-    switch (status) {
-      case "running":
-        return "status-running";
-      case "success":
-        return "status-success";
-      case "error":
-        return "status-error";
-      default:
-        return "";
-    }
   }
 
   function selectBuildUseCase(useCase: string) {
@@ -413,185 +344,49 @@
       <!-- Action Groups -->
       <div class="actions-section">
         {#each actionGroups as group}
-          <div class="action-group {isGroupDisabled(group) ? 'disabled' : ''}" use:autoAnimate>
-            <div class="action-group-header">
-              {#if group.mainAction}
-                <button
-                  onclick={() => executeAction(group.id, group.mainAction?.id ?? "")}
-                  disabled={group.mainAction.status === "running" || isGroupDisabled(group)}
-                  class="action-button main {getStatusClass(group.mainAction.status)}"
-                  title={group.mainAction.tooltip}
-                >
-                  <span class="action-icon">
-                    <i class="codicon codicon-{group.icon}"></i>
-                  </span>
-                  <div class="action-label">
-                    <div class="action-title">{group.id}</div>
-                    <div class="action-subtitle">{group.mainAction.label}</div>
-                  </div>
-                  {#if group.mainAction.status !== "idle"}
-                    <span class="status-indicator">
-                      {#if group.mainAction.status === "running"}
-                        <span class="spinner"></span>
-                      {:else if group.mainAction.status === "success"}
-                        <Check size={16} animate={true} />
-                      {:else}
-                        <X size={16} animate={true} />
-                      {/if}
-                    </span>
-                  {/if}
-                </button>
-              {:else}
-                <button disabled={true} class="action-button main disabled">
-                  <span class="action-icon">
-                    <i class="codicon codicon-{group.icon}"></i>
-                  </span>
-                  <div class="action-label">
-                    <div class="action-title">{group.id}</div>
-                    <div class="action-subtitle">Not available</div>
-                  </div>
-                </button>
-              {/if}
-              <button
-                onmouseenter={() => (hoveredGroupId = group.id)}
-                onmouseleave={() => (hoveredGroupId = null)}
-                class="gear-button {group.showOptions && !isGroupDisabled(group) ? 'active' : ''}"
-                onclick={() => toggleOptions(group.id)}
-                disabled={isGroupDisabled(group)}
-              >
-                <span
-                  class="plus-icon"
-                  class:rotated={group.showOptions && !isGroupDisabled(group)}
-                >
-                  <Plus size={16} animate={hoveredGroupId === group.id}></Plus>
-                </span>
-              </button>
-            </div>
-
-            {#if group.showOptions && !isGroupDisabled(group)}
-              <div class="options-panel">
-                {#each group.options as option}
-                  {#if group.id === "Tools" && option.label === "Enforcer Checks"}
-                    <div class="test-selector-divider"></div>
-                    <div class="option-inline-row">
-                      <button
-                        title={option.tooltip}
-                        onclick={() => executeAction(group.id, option.id)}
-                        disabled={option.status === "running" || isActionDisabled(option)}
-                        class="option-button inline {getStatusClass(
-                          option.status,
-                        )} {isActionDisabled(option) ? 'disabled' : ''}"
-                      >
-                        <span class="option-icon">
-                          <i class="codicon codicon-{option.icon}"></i>
-                        </span>
-                        <span class="option-label">{option.label}</span>
-                        {#if option.status !== "idle"}
-                          <span class="status-indicator small">
-                            {#if option.status === "running"}
-                              <span class="spinner small"></span>
-                            {:else if option.status === "success"}
-                              <Check size={12} animate={true} />
-                            {:else}
-                              <X size={12} animate={true} />
-                            {/if}
-                          </span>
-                        {/if}
-                      </button>
-                      <div class="check-select-wrapper">
-                        <Select
-                          items={enforcerChecks}
-                          bind:value={enforcerCheck}
-                          placeholder="All"
-                          onchange={selectCheck}
-                        />
-                      </div>
-                    </div>
-                  {:else}
-                    <button
-                      title={option.tooltip}
-                      onclick={() => executeAction(group.id, option.id)}
-                      disabled={option.status === "running" || isActionDisabled(option)}
-                      class="option-button {getStatusClass(option.status)} {isActionDisabled(option)
-                        ? 'disabled'
-                        : ''}"
-                    >
-                      <span class="option-icon">
-                        <i class="codicon codicon-{option.icon}"></i>
-                      </span>
-                      <span class="option-label">{option.label}</span>
-                      {#if option.status !== "idle"}
-                        <span class="status-indicator small">
-                          {#if option.status === "running"}
-                            <span class="spinner small"></span>
-                          {:else if option.status === "success"}
-                            <Check size={12} animate={true} />
-                          {:else}
-                            <X size={12} animate={true} />
-                          {/if}
-                        </span>
-                      {/if}
-                    </button>
-                  {/if}
-                {/each}
-
-                <!-- Embedded Test Selection (only in tests group) -->
-                {#if group.id === "Tests"}
-                  <div class="test-selector-embedded">
-                    <div class="test-selector-divider"></div>
-
-                    <!-- Verbose toggle -->
-                    <div class="verbose-toggle-row">
-                      <span class="verbose-label">
-                        <i class="codicon codicon-output"></i>
-                        Verbose output
-                      </span>
-                      <Switch bind:checked={verboseTests} />
-                    </div>
-
-                    <div class="test-selector-header-inline">
-                      <span class="test-selector-title">
-                        <i class="codicon codicon-list-selection"></i>
-                        Tests to run
-                      </span>
-                      <div class="test-header-actions">
-                        <button
-                          class="icon-button"
-                          onclick={refreshTests}
-                          title="Refresh test list"
-                        >
-                          <i class="codicon codicon-refresh {isRefreshing ? 'spinning' : ''}"></i>
-                        </button>
-                        <span class="test-count">{getSelectedTestCount()}/{testCases.length}</span>
-                      </div>
-                    </div>
-                    <div class="test-quick-actions">
-                      <button class="text-button" onclick={() => toggleAllTests(true)}>
-                        <i class="codicon codicon-check-all"></i>
-                        All
-                      </button>
-                      <button class="text-button" onclick={() => toggleAllTests(false)}>
-                        <i class="codicon codicon-close-all"></i>
-                        None
-                      </button>
-                    </div>
-                    <div class="test-list-compact" use:autoAnimate>
-                      {#each testCases as test}
-                        <label class="test-item-compact">
-                          <input
-                            type="checkbox"
-                            bind:checked={test.selected}
-                            onchange={sendSelectedTests}
-                          />
-                          <span class="test-name">{test.name}</span>
-                        </label>
-                      {/each}
-                    </div>
+          {#if group.id === "Tests"}
+            <ActionGroup
+              {group}
+              disabled={isGroupDisabled(group)}
+              {allDevices}
+              onExecute={(actionId) => executeAction(group.id, actionId)}
+            >
+              <TestsList
+                bind:testCases
+                bind:verboseTests
+                {isRefreshing}
+                {refreshTests}
+                {sendSelectedTests}
+              />
+            </ActionGroup>
+          {:else if group.id === "Tools"}
+            <ActionGroup
+              {group}
+              disabled={isGroupDisabled(group)}
+              {allDevices}
+              onExecute={(actionId) => executeAction(group.id, actionId)}
+            >
+              {#snippet optionSuffix(option)}
+                {#if option.label === "Enforcer Checks"}
+                  <div class="check-select-wrapper">
+                    <Select
+                      items={enforcerChecks}
+                      bind:value={enforcerCheck}
+                      placeholder="All"
+                      onchange={selectCheck}
+                    />
                   </div>
                 {/if}
-              </div>
-            {/if}
-          </div>
+              {/snippet}
+            </ActionGroup>
+          {:else}
+            <ActionGroup
+              {group}
+              disabled={isGroupDisabled(group)}
+              {allDevices}
+              onExecute={(actionId) => executeAction(group.id, actionId)}
+            />
+          {/if}
         {/each}
       </div>
       <!-- Footer Info -->
@@ -728,12 +523,6 @@
     }
   }
 
-  .title {
-    font-size: 18px;
-    font-weight: 600;
-    margin: 0;
-  }
-
   /* Configuration Card */
   .config-card {
     background-color: var(--vscode-sideBar-background);
@@ -819,322 +608,6 @@
     gap: 8px;
   }
 
-  .action-group {
-    display: flex;
-    flex-direction: column;
-    transition: opacity 0.2s;
-  }
-
-  .action-group.disabled {
-    opacity: 0.4;
-    pointer-events: none;
-  }
-
-  .action-group-header {
-    display: flex;
-  }
-
-  .action-button {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    border: 1px solid var(--vscode-input-border);
-    background-color: transparent;
-    color: var(--vscode-foreground);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-
-  .action-button.main {
-    flex: 1;
-    border-radius: 3px 0 0 3px;
-  }
-
-  .action-button:hover:not(:disabled) {
-    background-color: var(--vscode-list-hoverBackground);
-  }
-
-  .action-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .action-button.status-running {
-    border-color: var(--vscode-focusBorder);
-    background-color: var(--vscode-list-activeSelectionBackground);
-  }
-
-  .action-button.status-success {
-    border-color: var(--vscode-testing-iconPassed);
-  }
-
-  .action-button.status-error {
-    border-color: var(--vscode-testing-iconFailed);
-  }
-
-  .action-icon {
-    font-size: 16px;
-    width: 20px;
-    text-align: center;
-    color: var(--vscode-descriptionForeground);
-  }
-
-  .action-label {
-    flex: 1;
-    text-align: left;
-  }
-
-  .action-title {
-    font-weight: 500;
-    font-size: 12px;
-  }
-
-  .action-subtitle {
-    font-size: 11px;
-    color: var(--vscode-descriptionForeground);
-  }
-
-  .gear-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    border: 1px solid var(--vscode-input-border);
-    border-left: none;
-    border-radius: 0 3px 3px 0;
-    background-color: transparent;
-    color: var(--vscode-descriptionForeground);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-
-  .gear-button:hover:not(:disabled) {
-    background-color: var(--vscode-list-hoverBackground);
-    color: var(--vscode-foreground);
-  }
-
-  .gear-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .gear-button.active {
-    background-color: var(--vscode-list-activeSelectionBackground);
-    color: var(--vscode-foreground);
-  }
-
-  .plus-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
-    transition: transform 0.2s ease;
-  }
-
-  .plus-icon.rotated {
-    transform: rotate(45deg);
-  }
-
-  .options-panel {
-    display: flex;
-    flex-direction: column;
-    margin-top: 2px;
-    margin-left: 20px;
-    padding: 4px;
-    background-color: var(--vscode-sideBar-background);
-    border: 1px solid var(--vscode-panel-border);
-    border-radius: 3px;
-  }
-
-  .option-button {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 8px;
-    border: none;
-    border-radius: 2px;
-    background-color: transparent;
-    color: var(--vscode-foreground);
-    cursor: pointer;
-    transition: all 0.1s;
-    text-align: left;
-  }
-
-  .option-button:hover:not(:disabled) {
-    background-color: var(--vscode-list-hoverBackground);
-  }
-
-  .option-button:disabled,
-  .option-button.disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  .option-button.status-running {
-    background-color: var(--vscode-list-activeSelectionBackground);
-  }
-
-  .option-icon {
-    font-size: 14px;
-    color: var(--vscode-descriptionForeground);
-  }
-
-  .option-label {
-    flex: 1;
-    font-size: 12px;
-  }
-
-  .status-indicator {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .status-indicator.small {
-    font-size: 12px;
-  }
-
-  /* Running - uses progress bar color which is designed to stand out */
-  .status-running .status-indicator {
-    color: var(--vscode-progressBar-background);
-  }
-
-  /* Success - green */
-  .status-success .status-indicator {
-    color: var(--vscode-testing-iconPassed);
-  }
-
-  /* Error - red */
-  .status-error .status-indicator {
-    color: var(--vscode-testing-iconFailed);
-  }
-
-  .spin {
-    animation: spin 1s linear infinite;
-  }
-
-  /* Embedded Test Selector (inside Tests options) */
-  .test-selector-embedded {
-    margin-top: 4px;
-  }
-
-  .test-selector-divider {
-    height: 1px;
-    background-color: var(--vscode-panel-border);
-    margin: 8px 0;
-  }
-
-  .test-selector-header-inline {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 4px 10px;
-  }
-
-  .test-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .icon-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-    padding: 0;
-    border: none;
-    background: none;
-    color: var(--vscode-descriptionForeground);
-    cursor: pointer;
-    border-radius: 3px;
-  }
-
-  .icon-button:hover {
-    background-color: var(--vscode-list-hoverBackground);
-    color: var(--vscode-foreground);
-  }
-
-  .icon-button .spinning {
-    animation: spin 0.8s linear infinite;
-  }
-
-  .test-selector-title {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    color: var(--vscode-descriptionForeground);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .test-count {
-    font-size: 10px;
-    background-color: var(--vscode-badge-background);
-    color: var(--vscode-badge-foreground);
-    padding: 1px 5px;
-    border-radius: 8px;
-  }
-
-  .test-quick-actions {
-    display: flex;
-    gap: 8px;
-    padding: 2px 10px 6px;
-  }
-
-  .text-button {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    background: none;
-    border: none;
-    color: var(--vscode-textLink-foreground);
-    cursor: pointer;
-    font-size: 10px;
-    padding: 2px 4px;
-    border-radius: 2px;
-  }
-
-  .text-button:hover {
-    background-color: var(--vscode-list-hoverBackground);
-  }
-
-  .test-list-compact {
-    display: flex;
-    flex-direction: column;
-    max-height: 150px;
-    overflow-y: auto;
-    padding: 0 4px;
-  }
-
-  .test-item-compact {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 6px;
-    border-radius: 2px;
-    cursor: pointer;
-    font-size: 11px;
-  }
-
-  .test-item-compact:hover {
-    background-color: var(--vscode-list-hoverBackground);
-  }
-
-  .test-item-compact input[type="checkbox"] {
-    width: 12px;
-    height: 12px;
-    accent-color: var(--vscode-focusBorder);
-  }
-
-  .test-name {
-    font-family: var(--vscode-editor-font-family);
-    color: var(--vscode-foreground);
-  }
-
   /* Footer */
   .footer-info {
     display: flex;
@@ -1154,66 +627,6 @@
     to {
       transform: rotate(360deg);
     }
-  }
-
-  .spinner {
-    width: 16px;
-    height: 16px;
-    border: 2px solid var(--vscode-editor-background);
-    border-top-color: #facc15;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
-  .spinner.small {
-    width: 12px;
-    height: 12px;
-    border-width: 1.5px;
-  }
-
-  /* Verbose toggle row */
-  .verbose-toggle-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 6px 10px;
-    margin-bottom: 4px;
-  }
-
-  .verbose-label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: var(--vscode-foreground);
-  }
-
-  .check-selector-row {
-    padding: 4px 10px 8px;
-  }
-
-  .option-inline-row {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-wrap: wrap;
-  }
-
-  .option-button.inline {
-    flex: 1 1 auto;
-    min-width: 60px;
-    max-width: 120px;
-  }
-
-  .option-button.inline .option-label {
-    line-height: 1.2;
-    white-space: normal;
-    word-break: break-word;
-  }
-
-  .option-button.inline .status-indicator {
-    flex-shrink: 0;
-    align-self: center;
   }
 
   .check-select-wrapper {

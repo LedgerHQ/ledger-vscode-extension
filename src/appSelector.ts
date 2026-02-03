@@ -499,6 +499,31 @@ export function getAppList() {
   return appList;
 }
 
+export function getAppTestsPrerequisites(): string {
+  const currentApp = getSelectedApp();
+  if (!currentApp) {
+    return "";
+  }
+  const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+  const additionalReqsPerApp = conf.get<Record<string, string>>("additionalReqsPerApp");
+  if (additionalReqsPerApp && additionalReqsPerApp[currentApp.folderName]) {
+    return additionalReqsPerApp[currentApp.folderName];
+  }
+  return "";
+}
+
+export function updateAppTestsPrerequisites(value: string) {
+  const currentApp = getSelectedApp();
+  if (!currentApp) {
+    return;
+  }
+  const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+  const additionalReqsPerApp = conf.get<Record<string, string>>("additionalReqsPerApp") ?? {};
+  additionalReqsPerApp[currentApp.folderName] = value;
+  conf.update("additionalReqsPerApp", additionalReqsPerApp, vscode.ConfigurationTarget.Global);
+  console.log(`Ledger: Updated test dependencies for ${currentApp.folderName}: ${value}`);
+}
+
 export function setAppTestsPrerequisites(taskProvider: TaskProvider) {
   const currentApp = getSelectedApp();
   const conf = vscode.workspace.getConfiguration("ledgerDevTools");
@@ -511,7 +536,7 @@ export function setAppTestsPrerequisites(taskProvider: TaskProvider) {
     // Let user input string in a popup and save it in the additionalReqsPerApp configuration
     vscode.window
       .showInputBox({
-        prompt: "Please enter additional test dependencies for this app",
+        prompt: "Enter additional test dependencies for this app",
         value: currentValue,
         ignoreFocusOut: true,
       })

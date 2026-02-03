@@ -20,6 +20,8 @@ import {
   getAppTestsList,
   onTestsSelectedEvent,
   setAppTestsPrerequisites,
+  getAppTestsPrerequisites,
+  updateAppTestsPrerequisites,
   showTestUseCaseSelectorMenu,
   onTestUseCaseSelected,
   onUseCaseSelectedEvent,
@@ -91,6 +93,9 @@ export function activate(context: vscode.ExtensionContext) {
     };
   }
   webview.refresh(refreshOptions);
+  if (hasApps) {
+    webview.sendTestDependencies(getAppTestsPrerequisites());
+  }
 
   let taskProvider = new TaskProvider(targetSelector, webview);
   context.subscriptions.push(vscode.tasks.registerTaskProvider(taskType, taskProvider));
@@ -198,6 +203,12 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
+    webview.onTestDepsUpdatedEvent((deps) => {
+      updateAppTestsPrerequisites(deps);
+    }),
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand("selectCheck", () => {
       showChecks();
     }),
@@ -265,6 +276,7 @@ export function activate(context: vscode.ExtensionContext) {
         },
         ...variants,
       });
+      webview.sendTestDependencies(getAppTestsPrerequisites());
     }),
   );
 

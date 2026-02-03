@@ -57,6 +57,8 @@ export class Webview implements vscode.WebviewViewProvider {
   public onVariantSelectedEvent: vscode.Event<string> = this.variantSelectedEmitter.event;
   private checkSelectedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter<string>();
   public onCheckSelectedEvent: vscode.Event<string> = this.checkSelectedEmitter.event;
+  private testDepsUpdatedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter<string>();
+  public onTestDepsUpdatedEvent: vscode.Event<string> = this.testDepsUpdatedEmitter.event;
   // Promise resolve for when the webview is ready
   private _webviewReadyResolve!: () => void;
   private _webviewReady: Promise<void>;
@@ -148,6 +150,16 @@ export class Webview implements vscode.WebviewViewProvider {
     }
   }
 
+  public async sendTestDependencies(value: string): Promise<void> {
+    await this._webviewReady;
+    if (this._view) {
+      this._view.webview.postMessage({
+        command: "setTestDependencies",
+        testDependencies: value,
+      });
+    }
+  }
+
   public async onEndTaskProcess(taskName: string, success: boolean) {
     await this._webviewReady;
     if (this._view) {
@@ -189,6 +201,13 @@ export class Webview implements vscode.WebviewViewProvider {
             await vscode.commands.executeCommand("executeTask", taskName);
           }
           break;
+        case "executeCommand":
+        {
+          const command: string = data.commandName;
+          const args: any[] = data.args || [];
+          console.log("Executing command from webview : ", command, args);
+          await vscode.commands.executeCommand(command, ...args);
+        }
         case "updateSelectedTests":
           {
             const selectedTests: string[] = data.selectedTests;
@@ -247,6 +266,13 @@ export class Webview implements vscode.WebviewViewProvider {
             const selectedEnforcerCheck: string = data.selectedEnforcerCheck;
             console.log("Updating selected enforcer check from webview : ", selectedEnforcerCheck);
             this.checkSelectedEmitter.fire(selectedEnforcerCheck);
+          }
+          break;
+        case "testDependenciesUpdated":
+          {
+            const deps: string = data.testDependencies;
+            console.log("Updating test dependencies from webview : ", deps);
+            this.testDepsUpdatedEmitter.fire(deps);
           }
           break;
       }

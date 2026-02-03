@@ -1,6 +1,7 @@
 <script lang="ts">
   import "@vscode-elements/elements/dist/vscode-icon/index.js";
   import autoAnimate from "@formkit/auto-animate";
+  import { Popover } from "bits-ui";
   import Select, { type SelectItem } from "./components/Select.svelte";
   import StatusDot from "./components/StatusDot.svelte";
   import ActionGroup, { type ActionGroupData, type Action } from "./components/ActionGroup.svelte";
@@ -46,6 +47,18 @@
   let testCases = $state<TestCase[]>([]);
   let verboseTests = $state(false);
   let isRefreshing = $state(false);
+  let testDependencies = $state("");
+  let depsPopoverOpen = $state(false);
+  let depsInputValue = $state("");
+
+  $effect(() => {
+    depsInputValue = testDependencies;
+  });
+
+  function saveDependencies() {
+    updateTestDependencies(depsInputValue);
+    depsPopoverOpen = false;
+  }
 
   let actionGroups = $state<ActionGroupData[]>([
     { id: "Build", icon: "tools", options: [] },
@@ -80,6 +93,14 @@
     });
 
     action.status = "running";
+  }
+
+  function executeCommand(commandName: string, args: any[] = []) {
+    vscode.postMessage({
+      command: "executeCommand",
+      commandName,
+      args,
+    });
   }
 
   function sendSelectedTests(testsCases: TestCase[]) {
@@ -131,6 +152,14 @@
     vscode.postMessage({
       command: "enforcerCheckSelected",
       selectedEnforcerCheck: check,
+    });
+  }
+
+  function updateTestDependencies(value: string) {
+    testDependencies = value;
+    vscode.postMessage({
+      command: "testDependenciesUpdated",
+      testDependencies: value,
     });
   }
 
@@ -242,6 +271,9 @@
         }));
         enforcerCheck = message.selectedEnforcerCheck;
         break;
+      case "setTestDependencies":
+        testDependencies = message.testDependencies ?? "";
+        break;
     }
     // Handle other commands as needed
   });
@@ -351,6 +383,48 @@
               {allDevices}
               onExecute={(actionId) => executeAction(group.id, actionId)}
             >
+              <div class="option-row">
+                <Popover.Root bind:open={depsPopoverOpen}>
+                  <Popover.Trigger openOnHover openDelay={1000} class="option-button">
+                    <span class="option-icon">
+                      <i class="codicon codicon-type-hierarchy"></i>
+                    </span>
+                    <span class="option-label">Add Test Dependencies</span>
+                  </Popover.Trigger>
+                  <Popover.Portal>
+                    <Popover.Content class="deps-popover" side="top" sideOffset={4}>
+                      <div class="deps-popover-content">
+                        <label class="deps-label" for="deps-input"
+                          >Additional test dependencies</label
+                        >
+                        <div class="dep-warning-row">
+                          <i class="codicon codicon-warning"></i>
+                          <button
+                            class="dep-warning-link"
+                            onclick={() =>
+                              vscode.postMessage({
+                                command: "executeCommand",
+                                commandName: "workbench.action.openSettings",
+                                args: ["ledgerDevTools.openContainerAsRoot"],
+                              })}
+                          >
+                            Enable root on container
+                          </button>
+                        </div>
+
+                        <input
+                          id="deps-input"
+                          type="text"
+                          class="deps-input"
+                          bind:value={depsInputValue}
+                          placeholder="e.g. apt install package_name"
+                        />
+                        <button class="deps-save-button" onclick={saveDependencies}>Save</button>
+                      </div>
+                    </Popover.Content>
+                  </Popover.Portal>
+                </Popover.Root>
+              </div>
               <TestsList
                 bind:testCases
                 bind:verboseTests
@@ -586,6 +660,28 @@
     flex-direction: column;
   }
 
+  .dep-warning-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--vscode-editorWarning-foreground);
+    font-size: 11px;
+  }
+
+  .dep-warning-link {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--vscode-editorWarning-foreground);
+    font-size: 11px;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+
+  .dep-warning-link:hover {
+    opacity: 0.8;
+  }
+
   .toggle-hint {
     margin-top: 12px;
     padding-top: 12px;
@@ -632,5 +728,90 @@
   .check-select-wrapper {
     flex: 1 1 auto;
     min-width: 80px;
+  }
+
+  /* Shared option button styles (same as ActionGroup) */
+  .option-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  :global(.option-button) {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 2px;
+    background-color: transparent;
+    color: var(--vscode-foreground);
+    cursor: pointer;
+    transition: all 0.1s;
+    text-align: left;
+    flex: 1;
+  }
+
+  :global(.option-button:hover) {
+    background-color: var(--vscode-list-hoverBackground);
+  }
+
+  .option-icon {
+    font-size: 14px;
+    color: var(--vscode-descriptionForeground);
+  }
+
+  .option-label {
+    flex: 1;
+    font-size: 12px;
+  }
+
+  :global(.deps-popover) {
+    background-color: var(--vscode-editorWidget-background);
+    border: 1px solid var(--vscode-editorWidget-border);
+    border-radius: 4px;
+    padding: 12px;
+    box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+    z-index: 1000;
+  }
+
+  :global(.deps-popover-content) {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 220px;
+  }
+
+  :global(.deps-label) {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+  }
+
+  :global(.deps-input) {
+    padding: 4px 8px;
+    font-size: 12px;
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  :global(.deps-input:focus) {
+    border-color: var(--vscode-focusBorder);
+  }
+
+  :global(.deps-save-button) {
+    padding: 4px 10px;
+    font-size: 12px;
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+
+  :global(.deps-save-button:hover) {
+    background-color: var(--vscode-button-hoverBackground);
   }
 </style>

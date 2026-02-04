@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "Ledger Dev Tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "1.4.0",
+  "version": "2.0.0",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",
@@ -300,7 +300,8 @@
     "lint": "eslint . --format stylish",
     "lint:fix": "eslint . --format stylish --fix",
     "test": "node ./out/test/runTest.js",
-    "deploy": "vsce publish"
+    "deploy": "vsce publish",
+    "deploy-prerelease": "vsce publish --pre-release"
   },
   "dependencies": {
     "@formkit/auto-animate": "^0.9.0",

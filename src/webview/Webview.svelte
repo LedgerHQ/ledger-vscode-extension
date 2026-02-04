@@ -344,12 +344,18 @@
           </div>
           <div class="config-grid">
             <div class="form-group">
-              <label for="app-select">Application</label>
-              <Select items={apps} bind:value={selectedApp} onchange={sendSelectedApp} />
+              <Select
+                icon="file-code"
+                groupLabel="Application"
+                items={apps}
+                bind:value={selectedApp}
+                onchange={sendSelectedApp}
+              />
             </div>
             <div class="form-group">
-              <label for="target-select">Target Device</label>
               <Select
+                icon="device-mobile"
+                groupLabel="Device"
                 items={targets}
                 bind:value={selectedTarget}
                 placeholder="Select..."
@@ -560,12 +566,9 @@
   }
 
   .container {
-    background-color: var(--vscode-editor-background);
     color: var(--vscode-editor-foreground);
     font-family: var(--vscode-font-family);
     min-width: 200px;
-    padding: 12px;
-    border-radius: 8px;
   }
 
   .main-content {
@@ -573,13 +576,13 @@
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 10px;
   }
 
   .header-section {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
   }
 
   .header-row {
@@ -602,19 +605,19 @@
     background-color: var(--vscode-sideBar-background);
     border-radius: 4px;
     border: 1px solid var(--vscode-panel-border);
-    padding: 12px;
+    padding: 8px;
   }
 
   .config-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: 6px;
+    margin-bottom: 8px;
     color: var(--vscode-foreground);
   }
 
   .config-title {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     margin: 0;
     flex: 1;
@@ -624,7 +627,7 @@
     .config-grid {
       display: flex;
       flex-direction: row;
-      gap: 12px;
+      gap: 8px;
     }
 
     .config-grid .form-group {
@@ -637,7 +640,7 @@
     .config-grid {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 6px;
     }
   }
 
@@ -645,13 +648,6 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-  }
-
-  .form-group label {
-    font-size: 11px;
-    color: var(--vscode-descriptionForeground);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
   }
 
   /* Hint wrapper & toggle hint */
@@ -683,8 +679,8 @@
   }
 
   .toggle-hint {
-    margin-top: 12px;
-    padding-top: 12px;
+    margin-top: 8px;
+    padding-top: 8px;
     border-top: 1px solid var(--vscode-panel-border);
     display: flex;
     align-items: center;
@@ -701,7 +697,7 @@
   .actions-section {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
   }
 
   /* Footer */
@@ -712,7 +708,7 @@
     gap: 6px;
     font-size: 11px;
     color: var(--vscode-descriptionForeground);
-    padding: 8px;
+    padding: 4px;
   }
 
   /* Animations */

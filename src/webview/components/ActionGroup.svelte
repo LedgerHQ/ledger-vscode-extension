@@ -170,8 +170,8 @@
   .action-button {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
+    gap: 6px;
+    padding: 5px 8px;
     border: 1px solid var(--vscode-input-border);
     background-color: transparent;
     color: var(--vscode-foreground);
@@ -207,8 +207,8 @@
   }
 
   .action-icon {
-    font-size: 16px;
-    width: 20px;
+    font-size: 14px;
+    width: 16px;
     text-align: center;
     color: var(--vscode-descriptionForeground);
   }
@@ -232,7 +232,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
+    width: 28px;
     border: 1px solid var(--vscode-input-border);
     border-left: none;
     border-radius: 0 3px 3px 0;
@@ -272,9 +272,8 @@
   .options-panel {
     display: flex;
     flex-direction: column;
-    margin-top: 2px;
-    margin-left: 20px;
-    padding: 4px;
+    margin-top: 1px;
+    padding: 3px;
     background-color: var(--vscode-sideBar-background);
     border: 1px solid var(--vscode-panel-border);
     border-radius: 3px;
@@ -289,8 +288,8 @@
   .option-button {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 8px;
+    gap: 5px;
+    padding: 3px 6px;
     border: none;
     border-radius: 2px;
     background-color: transparent;
@@ -316,7 +315,7 @@
   }
 
   .option-icon {
-    font-size: 14px;
+    font-size: 13px;
     color: var(--vscode-descriptionForeground);
   }
 

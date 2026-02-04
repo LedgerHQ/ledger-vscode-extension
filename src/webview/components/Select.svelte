@@ -20,8 +20,9 @@
     disabled?: boolean;
     onchange?: (value: string) => void;
     variant?: SelectVariant;
-    icon?: string; // codicon name for badge variant
+    icon?: string; // codicon name for trigger icon
     tooltip?: string;
+    groupLabel?: string; // optional label shown at top of dropdown list
   }
 
   let {
@@ -34,6 +35,7 @@
     variant = "default",
     icon,
     tooltip,
+    groupLabel,
   }: Props = $props();
 
   const selectedLabel = $derived(items.find((item) => item.value === value)?.label);
@@ -75,6 +77,11 @@
       <span class="badge-label">{selectedLabel ?? placeholder}</span>
       <i class="codicon codicon-chevron-{isOpen ? 'up' : 'down'} chevron"></i>
     {:else}
+      {#if icon}
+        <span class="trigger-icon">
+          <i class="codicon codicon-{icon}"></i>
+        </span>
+      {/if}
       <span class="select-value">{selectedLabel ? selectedLabel : placeholder}</span>
       <span class="select-icon">
         <ChevronDown size={14} />
@@ -87,6 +94,9 @@
         <ChevronUp size={12} />
       </Select.ScrollUpButton>
       <Select.Viewport class="select-viewport">
+        {#if groupLabel}
+          <div class="select-group-label">{groupLabel}</div>
+        {/if}
         {#each items as item (item.value)}
           <Select.Item
             value={item.value}
@@ -146,6 +156,15 @@
   :global(.select-trigger[data-disabled]) {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .trigger-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--vscode-descriptionForeground);
+    font-size: 14px;
+    flex-shrink: 0;
   }
 
   /* Badge variant */
@@ -216,6 +235,16 @@
     padding: 4px;
     max-height: inherit;
     overflow-y: auto;
+  }
+
+  :global(.select-group-label) {
+    padding: 4px 8px 2px 8px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--vscode-descriptionForeground);
+    font-family: var(--vscode-font-family);
+    user-select: none;
   }
 
   :global(.select-item) {

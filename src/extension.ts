@@ -69,42 +69,66 @@ export function activate(context: vscode.ExtensionContext) {
   let targetSelector = new TargetSelector();
   targetSelector.updateTargetsInfos();
 
-  // Initial webview refresh with apps, build use cases, and targets
-  let refreshOptions: WebviewRefreshOptions = {
-    targets: {
-      list: targetSelector.getTargetsArray(),
-      selected: targetSelector.getSelectedTarget(),
-    },
-  };
-  if (hasApps) {
-    refreshOptions.apps = {
-      list: appList.map(app => app.folderName),
-      selected: appList[0].folderName,
-    };
-    refreshOptions.buildUseCases = {
-      list: getAppUseCaseNames(appList[0].folderName),
-      selected: getSelectedBuidUseCase(),
-    };
-    refreshOptions.variants = {
-      list: appList[0].variants ? appList[0].variants.values : [],
-      selected: appList[0].variants ? appList[0].variants.selected : "",
-    };
-    refreshOptions.enforcerChecks = {
-      list: getChecks().values,
-      selected: getChecks().selected,
-    };
-  }
-  webview.refresh(refreshOptions);
-  if (hasApps) {
-    webview.sendTestDependencies(getAppTestsPrerequisites());
-  }
-
   let taskProvider = new TaskProvider(targetSelector, webview);
   context.subscriptions.push(vscode.tasks.registerTaskProvider(taskType, taskProvider));
 
   let statusBarManager = new StatusBarManager(targetSelector.getSelectedTarget(), getSelectedBuidUseCase());
 
   let containerManager = new ContainerManager(taskProvider);
+
+  let isInitialActivation = true;
+
+  // Helper to build full webview refresh options from current state
+  const buildFullRefreshOptions = (): WebviewRefreshOptions => {
+    const appList = getAppList();
+    const selectedApp = getSelectedApp();
+
+    const options: WebviewRefreshOptions = {
+      targets: {
+        list: targetSelector.getTargetsArray(),
+        selected: targetSelector.getSelectedTarget(),
+      },
+    };
+
+    if (selectedApp) {
+      options.apps = {
+        list: appList.map(app => app.folderName),
+        selected: selectedApp.folderName,
+      };
+      options.buildUseCases = {
+        list: getAppUseCaseNames(selectedApp.folderName),
+        selected: getSelectedBuidUseCase(),
+      };
+      options.variants = selectedApp.variants
+        ? { list: selectedApp.variants.values, selected: selectedApp.variants.selected }
+        : null;
+      options.enforcerChecks = {
+        list: getChecks().values,
+        selected: getChecks().selected,
+      };
+    }
+
+    // Include container status (for re-resolution)
+    const containerStatus = containerManager.getContainerStatus();
+    options.containerStatus = {
+      status: containerStatus === DevImageStatus.running
+        ? "running"
+        : containerStatus === DevImageStatus.stopped
+          ? "stopped"
+          : "syncing",
+    };
+
+    return options;
+  };
+
+  // Helper to refresh webview with full state
+  const refreshWebviewFullState = () => {
+    webview.refresh(buildFullRefreshOptions());
+    if (getSelectedApp()) {
+      webview.sendTestDependencies(getAppTestsPrerequisites());
+    }
+    taskProvider.generateTasks();
+  };
 
   // Event listener for container status.
   // This event is fired when the container status changes
@@ -501,10 +525,22 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // Wait for webview to be ready before managing container (avoids focus stealing during startup)
-  webview.waitUntilReady().then(() => {
-    containerManager.manageContainer();
-  });
+  // Listen for webview ready event (fires on initial load and re-resolution when moved to new sidebar)
+  context.subscriptions.push(
+    webview.onWebviewReadyEvent(() => {
+      refreshWebviewFullState();
+      if (isInitialActivation) {
+        isInitialActivation = false;
+        containerManager.manageContainer();
+      }
+      else {
+        // On re-resolution, fetch tests if container is already running (onStatusEvent won't fire)
+        if (containerManager.getContainerStatus() === DevImageStatus.running) {
+          getAppTestsList(targetSelector, false, webview);
+        }
+      }
+    }),
+  );
 
   console.log(`Ledger: extension activated`);
   return 0;

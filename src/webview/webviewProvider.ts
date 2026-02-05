@@ -59,6 +59,8 @@ export class Webview implements vscode.WebviewViewProvider {
   public onCheckSelectedEvent: vscode.Event<string> = this.checkSelectedEmitter.event;
   private testDepsUpdatedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter<string>();
   public onTestDepsUpdatedEvent: vscode.Event<string> = this.testDepsUpdatedEmitter.event;
+  private webviewReadyEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+  public onWebviewReadyEvent: vscode.Event<void> = this.webviewReadyEmitter.event;
   // Promise resolve for when the webview is ready
   private _webviewReadyResolve!: () => void;
   private _webviewReady: Promise<void>;
@@ -171,9 +173,14 @@ export class Webview implements vscode.WebviewViewProvider {
     }
   }
 
-  // Called when the webview is resolved
+  // Called when the webview is resolved (or re-resolved after being moved)
   public resolveWebviewView(webviewView: vscode.WebviewView) {
     this._view = webviewView;
+
+    // Reset the ready promise for this (re-)resolution
+    this._webviewReady = new Promise((resolve) => {
+      this._webviewReadyResolve = resolve;
+    });
 
     // Enable scripts in the webview
     webviewView.webview.options = {
@@ -190,8 +197,11 @@ export class Webview implements vscode.WebviewViewProvider {
         case "webviewReady":
           {
             console.log("Webview signaled ready");
-            // Signal that the webview is ready - this resolves pending addToWebview calls
+            // Signal that the webview is ready - this resolves pending refresh calls
             this._webviewReadyResolve();
+            // Fire event for extension.ts to handle
+            this.webviewReadyEmitter.fire();
+            // Note: promise is reset in resolveWebviewView, not here
           }
           break;
         case "executeTask":

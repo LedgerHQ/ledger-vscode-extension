@@ -11,7 +11,7 @@
     "url": "https://github.com/LedgerHQ/ledger-vscode-extension/"
   },
   "engines": {
-    "vscode": "^1.96.1"
+    "vscode": "^1.103.0"
   },
   "categories": [
     "Other"
@@ -232,7 +232,7 @@
     "@stylistic/eslint-plugin": "^5.7.1",
     "@types/mocha": "^10.0.10",
     "@types/node": "^25.2.0",
-    "@types/vscode": "^1.109.0",
+    "@types/vscode": "^1.103.0",
     "@typescript-eslint/eslint-plugin": "^8.54.0",
     "@typescript-eslint/parser": "^8.54.0",
     "@vscode/test-electron": "^2.5.2",

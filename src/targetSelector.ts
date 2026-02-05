@@ -105,6 +105,9 @@ export class TargetSelector {
       this.selectedSDKModel = this.sdkModelsArray[this.selectedTarget];
       this.selectedTargetId = targetIds[this.selectedTarget];
     }
+
+    // Save the selected target to workspace settings
+    this.saveSelectedTarget();
   }
 
   // Function that updates the targets infos based on the app language
@@ -125,6 +128,11 @@ export class TargetSelector {
       }
       else {
         vscode.commands.executeCommand("setContext", "ledgerDevTools.showToggleAllTargets", false);
+      }
+      // Get the previously selected target from workspace settings and set it if it's still valid
+      const savedTarget = getSetting("selectedDevice", currentApp.folderUri, "defaultDevice") as string;
+      if (savedTarget && this.isValidDevice(savedTarget) && (this.targetsArray.includes(savedTarget))) {
+        this.setSelectedTarget(savedTarget);
       }
     }
   }

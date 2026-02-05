@@ -17,6 +17,7 @@ import {
   findAppsInWorkspace,
   getSelectedApp,
   setSelectedApp,
+  getAppList,
   getAppTestsList,
   onTestsSelectedEvent,
   setAppTestsPrerequisites,
@@ -25,6 +26,7 @@ import {
   showTestUseCaseSelectorMenu,
   onTestUseCaseSelected,
   onUseCaseSelectedEvent,
+  onAppSelectedEvent,
   getAndBuildAppTestsDependencies,
   getSelectedBuidUseCase,
   setBuildUseCase,
@@ -239,33 +241,39 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
-  // Event listener for app selection.
-  // This event is fired when the user selects an app in the appSelector menu
+  // Event listener for app selection from webview - just triggers setSelectedAppByName which fires onAppSelectedEvent
   context.subscriptions.push(
     webview.onAppSelectedEvent((selectedAppName) => {
-      let variants: WebviewRefreshOptions = { variants: null };
-      const selectedApp = setSelectedAppByName(selectedAppName);
-      if (selectedApp) {
-        // Initialize git submodules if needed for the selected app
-        initializeAppSubmodulesIfNeeded(selectedApp.folderUri);
-        if (selectedApp.variants) {
-          const variant = getSetting("selectedVariant", selectedApp.folderUri) as string;
-          selectedApp.variants.selected = variant;
-          variants.variants = {
-            list: selectedApp.variants.values,
-            selected: selectedApp.variants.selected,
-          };
-        }
-        const target = getSetting("selectedDevice", selectedApp.folderUri, "defaultDevice") as string;
-        if (target) {
-          targetSelector.setSelectedTarget(target);
-          statusBarManager.updateTargetItem(target);
-        }
+      setSelectedAppByName(selectedAppName);
+    }),
+  );
+
+  // Event listener for app selection (shared handler for webview and quick pick menu)
+  context.subscriptions.push(
+    onAppSelectedEvent((selectedAppName) => {
+      const selectedApp = getSelectedApp()!;
+      // Initialize git submodules if needed for the selected app
+      initializeAppSubmodulesIfNeeded(selectedApp.folderUri);
+
+      if (selectedApp.variants) {
+        selectedApp.variants.selected = getSetting("selectedVariant", selectedApp.folderUri) as string;
       }
+
+      const target = getSetting("selectedDevice", selectedApp.folderUri, "defaultDevice") as string;
+      if (target) {
+        targetSelector.setSelectedTarget(target);
+        statusBarManager.updateTargetItem(target);
+      }
+
       containerManager.manageContainer();
       taskProvider.generateTasks();
       targetSelector.updateTargetsInfos();
+      const appList = getAppList();
       webview.refresh({
+        apps: {
+          list: appList.map(app => app.folderName),
+          selected: selectedAppName,
+        },
         targets: {
           list: targetSelector.getTargetsArray(),
           selected: targetSelector.getSelectedTarget(),
@@ -274,7 +282,13 @@ export function activate(context: vscode.ExtensionContext) {
           list: getAppUseCaseNames(selectedAppName),
           selected: getSelectedBuidUseCase(),
         },
-        ...variants,
+        variants: selectedApp.variants
+          ? { list: selectedApp.variants.values, selected: selectedApp.variants.selected }
+          : null,
+        enforcerChecks: {
+          list: getChecks().values,
+          selected: getChecks().selected,
+        },
       });
       webview.sendTestDependencies(getAppTestsPrerequisites());
     }),

@@ -72,8 +72,8 @@ export interface App {
 let appList: App[] = [];
 let selectedApp: App | undefined;
 
-let appSelectedEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
-export const onAppSelectedEvent: vscode.Event<void> = appSelectedEmitter.event;
+let appSelectedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter<string>();
+export const onAppSelectedEvent: vscode.Event<string> = appSelectedEmitter.event;
 
 let testUseCaseSelected: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
 export const onTestUseCaseSelected: vscode.Event<void> = testUseCaseSelected.event;
@@ -471,6 +471,7 @@ export function setSelectedAppByName(appName: string): App | undefined {
 export function setSelectedApp(app: App | undefined) {
   selectedApp = app;
   if (app) {
+    appSelectedEmitter.fire(app.folderName);
     if (app.testsUseCases) {
       vscode.commands.executeCommand("setContext", "ledgerDevTools.showRebuildTestUseCaseDeps", true);
       if (app.testsUseCases.length > 1) {

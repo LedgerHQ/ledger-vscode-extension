@@ -55,24 +55,22 @@
       Tests to run
     </span>
     <div class="test-header-actions">
+      {#if !isRefreshing}
+        <button class="icon-button" onclick={() => toggleAllTests(true)} title="Select all">
+          <i class="codicon codicon-check-all"></i>
+        </button>
+        <button class="icon-button" onclick={() => toggleAllTests(false)} title="Deselect all">
+          <i class="codicon codicon-close-all"></i>
+        </button>
+      {/if}
       <button class="icon-button" onclick={refreshTests} title="Refresh test list">
         <i class="codicon codicon-refresh {isRefreshing ? 'spinning' : ''}"></i>
       </button>
+
       <span class="test-count">{getSelectedTestCount()}/{testCases.length}</span>
     </div>
   </div>
-  <div class="test-quick-actions" use:autoAnimate>
-    {#if !isRefreshing}
-      <button class="text-button" onclick={() => toggleAllTests(true)}>
-        <i class="codicon codicon-check-all"></i>
-        All
-      </button>
-      <button class="text-button" onclick={() => toggleAllTests(false)}>
-        <i class="codicon codicon-close-all"></i>
-        None
-      </button>
-    {/if}
-  </div>
+  <div class="test-quick-actions" use:autoAnimate></div>
   <div class="test-list-compact" use:autoAnimate>
     {#each testCases as test}
       <label class="test-item-compact">
@@ -120,15 +118,15 @@
   .test-header-actions {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
   }
 
   .icon-button {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     padding: 0;
     border: none;
     background: none;
@@ -149,11 +147,11 @@
   .test-selector-title {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     font-size: 11px;
     color: var(--vscode-descriptionForeground);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
   }
 
   .test-count {
@@ -168,23 +166,6 @@
     display: flex;
     gap: 8px;
     padding: 2px 10px 6px;
-  }
-
-  .text-button {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    background: none;
-    border: none;
-    color: var(--vscode-textLink-foreground);
-    cursor: pointer;
-    font-size: 10px;
-    padding: 2px 4px;
-    border-radius: 2px;
-  }
-
-  .text-button:hover {
-    background-color: var(--vscode-list-hoverBackground);
   }
 
   .test-list-compact {

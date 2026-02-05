@@ -12,8 +12,8 @@
   :global(.switch-root) {
     display: inline-flex;
     align-items: center;
-    width: 36px;
-    height: 20px;
+    width: 30px;
+    height: 16px;
     padding: 2px;
     background-color: var(--vscode-input-background);
     border: 1px solid var(--vscode-input-border);
@@ -36,8 +36,8 @@
   }
 
   :global(.switch-root[data-state="checked"]) {
-    background-color: #22c55e;
-    border-color: #16a34a;
+    background-color: var(--vscode-focusBorder);
+    border-color: var(--vscode-focusBorder);
   }
 
   :global(.switch-thumb) {

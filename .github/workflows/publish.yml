@@ -26,14 +26,15 @@ jobs:
 
     - name: Check tag version against CHANGELOG version
       run: |
-        if [ "${{ github.ref_name }}" != "${CHANGELOG_VERSION}" ]; then
+        TAG_VERSION=$(echo "${{ github.ref_name }}" | sed 's/\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/')
+        if [ "${TAG_VERSION}" != "${CHANGELOG_VERSION}" ]; then
             echo "Tag '${{ github.ref_name }}' and CHANGELOG '${CHANGELOG_VERSION}' versions mismatch!"
             exit 1
         fi
 
     - name: Check tag version against package.json version
       run: |
-        if [ "${{ github.ref_name }}" != "${PACKAGE_VERSION}" ]; then
+        if [ "${TAG_VERSION}" != "${PACKAGE_VERSION}" ]; then
             echo "Tag '${{ github.ref_name }}' and package.json '${PACKAGE_VERSION}' versions mismatch!"
             exit 1
         fi
@@ -56,6 +57,11 @@ jobs:
       run: npm install @vscode/vsce --save-dev
 
     - name: Publish to Visual Studio Marketplace
-      run: npm run deploy
+      run: |
+        if [[ "${{ github.ref_name }}" == *"-"* ]]; then
+          npm run deploy-prerelease
+        else
+          npm run deploy
+        fi
       env:
         VSCE_PAT: ${{ secrets.VSCE_PAT }}

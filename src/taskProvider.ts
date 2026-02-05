@@ -6,10 +6,13 @@ import * as os from "os";
 import * as fs from "fs";
 import * as fg from "fast-glob";
 import { platform } from "node:process";
-import { getDockerUserOpt } from "./containerManager";
+import { getDockerUserOpt, getComposeServiceName } from "./containerManager";
 import { TargetSelector, specialAllDevice } from "./targetSelector";
 import { getSelectedApp, App, AppLanguage } from "./appSelector";
-import { TreeDataProvider } from "./treeView";
+import type { TaskSpec } from "./types";
+import { Webview } from "./webview/webviewProvider";
+
+export type { TaskSpec };
 
 export const taskType = "L";
 
@@ -19,12 +22,6 @@ const udevRulesUrl = "https://raw.githubusercontent.com/LedgerHQ/udev-rules/mast
 let udevRulesDone: boolean = false;
 
 type CustomTaskFunction = () => void;
-type ExecBuilder = () => string | [string, CustomTaskFunction];
-type TaskTargetLanguage = AppLanguage | "Both";
-type BuilderForLanguage = Partial<Record<TaskTargetLanguage, ExecBuilder>>;
-
-type TaskState = "enabled" | "disabled" | "unavailable";
-type BehaviorWhenAllTargetsSelected = "enable" | "disable" | "executeForEveryTarget";
 
 export interface ChecksList {
   selected: string;
@@ -51,6 +48,16 @@ export async function showChecks() {
   return result;
 }
 
+export function setSelectedCheck(selected: string) {
+  if (validChecks.includes(selected)) {
+    checks.selected = selected;
+  }
+}
+
+export function getChecks(): ChecksList {
+  return checks;
+}
+
 // Cache the Promise to ensure the function is only executed once
 let appLoadRequirementsPromise: Promise<string> | null = null;
 
@@ -70,16 +77,6 @@ async function fetchUdevRules(): Promise<string> {
   return tempFilePath; // Return the path to the temporary file
 }
 
-export interface TaskSpec {
-  group?: string;
-  name: string;
-  toolTip?: string;
-  builders: BuilderForLanguage;
-  dependsOn?: ExecBuilder;
-  state: TaskState;
-  allSelectedBehavior: BehaviorWhenAllTargetsSelected;
-}
-
 class MyTask extends vscode.Task {
   public customFunction: CustomTaskFunction | undefined;
   constructor(
@@ -96,7 +93,7 @@ class MyTask extends vscode.Task {
 }
 
 export class TaskProvider implements vscode.TaskProvider {
-  private treeProvider: TreeDataProvider;
+  private webviewProvider: Webview;
   private tgtSelector: TargetSelector;
   private image: string;
   private onboardPin: string;
@@ -120,32 +117,37 @@ export class TaskProvider implements vscode.TaskProvider {
   private selectedTests?: string[];
   private taskSpecs: TaskSpec[] = [
     {
-      group: "Docker Container",
-      name: "Update container",
+      group: "Tools",
+      name: "Update Container",
+      icon: "desktop-download",
       builders: { ["Both"]: this.runDevToolsImageExec },
       toolTip: "Update docker container (pull image and restart container)",
       state: "enabled",
       allSelectedBehavior: "enable",
     },
     {
-      group: "Docker Container",
-      name: "Create container",
+      group: "Tools",
+      name: "Create Container",
+      icon: "vm",
       builders: { ["Both"]: this.createContainerExec },
       toolTip: "Create docker container from existing local image (without pulling)",
       state: "enabled",
       allSelectedBehavior: "enable",
     },
     {
-      group: "Docker Container",
-      name: "Open default terminal",
+      group: "Tools",
+      name: "Open Terminal",
+      icon: "terminal",
       builders: { ["Both"]: this.openDefaultTerminalExec },
       toolTip: "Open terminal in container with default configuration",
       state: "enabled",
       allSelectedBehavior: "enable",
+      mainCommand: true,
     },
     {
-      group: "Docker Container",
-      name: "Open compose terminal",
+      group: "Tools",
+      name: "Open Compose Terminal",
+      icon: "terminal-bash",
       builders: { ["Both"]: this.openComposeTerminalExec },
       toolTip: "Open terminal in container with 'docker-compose.yml' configuration",
       state: "disabled",
@@ -153,15 +155,18 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Build",
-      name: "Build (incremental)",
+      name: "Build App",
+      icon: "tools",
       builders: { ["c"]: this.cBuildExec, ["rust"]: this.rustBuildExec },
-      toolTip: "Build application incrementally (faster, only rebuilds changed files)",
+      toolTip: "Build app incrementally (faster, only rebuilds changed files)",
       state: "enabled",
       allSelectedBehavior: "executeForEveryTarget",
+      mainCommand: true,
     },
     {
       group: "Build",
-      name: "Build (full)",
+      name: "Clean & Build",
+      icon: "sync",
       builders: { ["c"]: this.cBuildFullExec },
       toolTip: "Clean and build application from scratch (guarantees fresh build)",
       state: "enabled",
@@ -169,7 +174,8 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Build",
-      name: "Clean the target build files",
+      name: "Clean Target Build",
+      icon: "trash",
       builders: { ["c"]: this.cCleanTargetExec },
       toolTip: "Clean the app build files for the selected target",
       state: "enabled",
@@ -177,40 +183,47 @@ export class TaskProvider implements vscode.TaskProvider {
     },
     {
       group: "Build",
-      name: "Clean all the build files",
+      name: "Clean All Builds",
+      icon: "clear-all",
       builders: { ["c"]: this.cCleanAllExec, ["rust"]: this.rustCleanAllExec },
       toolTip: "Clean the app build files for all targets",
       state: "enabled",
       allSelectedBehavior: "enable",
     },
     {
-      group: "Functional Tests",
-      name: "Run with emulator",
+      group: "Emulator",
+      name: "Run with Emulator",
+      icon: "play",
       builders: { ["Both"]: this.runInSpeculosExec },
       toolTip: "Run app with emulator (Speculos)",
       state: "enabled",
       allSelectedBehavior: "disable",
+      mainCommand: true,
     },
     {
-      group: "Functional Tests",
-      name: "Kill emulator",
+      group: "Emulator",
+      name: "Kill Emulator",
+      icon: "debug-stop",
       builders: { ["Both"]: this.killSpeculosExec },
       toolTip: "Kill emulator (Speculos) instance",
       state: "enabled",
       allSelectedBehavior: "disable",
     },
     {
-      group: "Functional Tests",
-      name: "Run tests",
+      group: "Tests",
+      name: "Run Tests",
+      icon: "beaker",
       builders: { ["Both"]: this.functionalTestsExec },
       dependsOn: this.functionalTestsRequirementsExec,
       toolTip: "Run Python functional tests (with Qt display disabled)",
       state: "enabled",
       allSelectedBehavior: "executeForEveryTarget",
+      mainCommand: true,
     },
     {
-      group: "Functional Tests",
-      name: "Run tests with display",
+      group: "Tests",
+      name: "Tests with Display",
+      icon: "eye",
       builders: { ["Both"]: this.functionalTestsDisplayExec },
       dependsOn: this.functionalTestsRequirementsExec,
       toolTip: "Run Python functional tests (with Qt display enabled)",
@@ -218,8 +231,9 @@ export class TaskProvider implements vscode.TaskProvider {
       allSelectedBehavior: "executeForEveryTarget",
     },
     {
-      group: "Functional Tests",
-      name: "Run tests with display - on device",
+      group: "Tests",
+      name: "Tests on Device",
+      icon: "device-mobile",
       builders: { ["Both"]: this.functionalTestsDisplayOnDeviceExec },
       dependsOn: this.functionalTestsRequirementsExec,
       toolTip: "Run Python functional tests (with Qt display enabled) on real device",
@@ -227,8 +241,9 @@ export class TaskProvider implements vscode.TaskProvider {
       allSelectedBehavior: "disable",
     },
     {
-      group: "Functional Tests",
-      name: "Generate golden snapshots",
+      group: "Tests",
+      name: "Generate Snapshots",
+      icon: "file-media",
       builders: { ["Both"]: this.functionalTestsGoldenRunExec },
       dependsOn: this.functionalTestsRequirementsExec,
       toolTip:
@@ -237,17 +252,20 @@ export class TaskProvider implements vscode.TaskProvider {
       allSelectedBehavior: "executeForEveryTarget",
     },
     {
-      group: "Device Operations",
-      name: "Load app on device",
+      group: "Device",
+      name: "Load on Device",
+      icon: "cloud-upload",
       builders: { ["Both"]: this.appLoadExec },
       dependsOn: this.appLoadRequirementsExec,
       toolTip: "Load app on a physical device",
       state: "enabled",
       allSelectedBehavior: "disable",
+      mainCommand: true,
     },
     {
-      group: "Device Operations",
-      name: "Delete app from device",
+      group: "Device",
+      name: "Delete App from Device",
+      icon: "trash",
       builders: { ["Both"]: this.appDeleteExec },
       dependsOn: this.appLoadRequirementsExec,
       toolTip: "Delete app from a physical device",
@@ -255,8 +273,9 @@ export class TaskProvider implements vscode.TaskProvider {
       allSelectedBehavior: "disable",
     },
     {
-      group: "Device Operations",
-      name: "Quick initial device setup",
+      group: "Device",
+      name: "Quick Device Setup",
+      icon: "zap",
       builders: { ["Both"]: this.deviceOnboardingExec },
       dependsOn: this.appLoadRequirementsExec,
       toolTip: "Automatic initial device setup with pre-defined test seed and PIN",
@@ -264,7 +283,9 @@ export class TaskProvider implements vscode.TaskProvider {
       allSelectedBehavior: "disable",
     },
     {
-      name: "Run Guideline Enforcer",
+      group: "Tools",
+      name: "Enforcer Checks",
+      icon: "checklist",
       builders: { ["Both"]: this.runGuidelineEnforcer },
       toolTip:
         "Run Guideline Enforcer checks. These checks are also run in the app's repository CI and must pass before the app can be deployed.",
@@ -273,8 +294,8 @@ export class TaskProvider implements vscode.TaskProvider {
     },
   ];
 
-  constructor(treeProvider: TreeDataProvider, targetSelector: TargetSelector) {
-    this.treeProvider = treeProvider;
+  constructor(targetSelector: TargetSelector, webviewProvider: Webview) {
+    this.webviewProvider = webviewProvider;
     this.tgtSelector = targetSelector;
     this.appLanguage = "c";
     this.appName = "";
@@ -341,6 +362,23 @@ export class TaskProvider implements vscode.TaskProvider {
     }
   }
 
+  /**
+   * Apply dynamic labels to task specs based on current settings.
+   * Returns a copy of the specs with transformed labels for webview display.
+   */
+  private getWebviewTaskSpecs(): TaskSpec[] {
+    const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+    const openAsRoot = conf.get<boolean>("openContainerAsRoot") ?? true;
+
+    return this.taskSpecs.map((spec) => {
+      // Dynamic label for Open Terminal based on root setting
+      if (spec.name === "Open Terminal" && openAsRoot) {
+        return { ...spec, label: "Open Terminal as root" };
+      }
+      return spec;
+    });
+  }
+
   public generateTasks() {
     // Create new promise for this generation cycle if needed
     if (!this.tasksReadyResolve) {
@@ -353,7 +391,7 @@ export class TaskProvider implements vscode.TaskProvider {
     this.resetVars();
     this.checkDisabledTasks(this.taskSpecs);
     this.pushTasks(this.taskSpecs);
-    this.treeProvider.addAllTasksToTree(this.taskSpecs);
+    this.webviewProvider.refresh({ tasks: { list: this.getWebviewTaskSpecs() } });
 
     // Signal that tasks are ready
     if (this.tasksReadyResolve) {
@@ -378,12 +416,12 @@ export class TaskProvider implements vscode.TaskProvider {
     this.checkDisabledTasks(specsToRegenerate);
     // Push only the regenerated tasks
     this.pushTasks(specsToRegenerate);
-    // Update tree view with all tasks
-    this.treeProvider.addAllTasksToTree(this.taskSpecs);
+    // Refresh webview with updated specs (apply dynamic labels)
+    this.webviewProvider.refresh({ tasks: { list: this.getWebviewTaskSpecs() } });
   }
 
   public async provideTasks(): Promise<vscode.Task[]> {
-    this.generateTasks();
+    // Tasks are generated by extension.ts when webview is ready
     return this.tasks;
   }
 
@@ -542,7 +580,7 @@ export class TaskProvider implements vscode.TaskProvider {
   }
 
   private openComposeTerminalExec(): string {
-    const serviceName = this.treeProvider.getComposeServiceName();
+    const serviceName = getComposeServiceName();
     const exec = `docker compose run --rm --remove-orphans ${getDockerUserOpt()} ${serviceName}`;
     return exec;
   }
@@ -936,7 +974,7 @@ export class TaskProvider implements vscode.TaskProvider {
         }
 
         // Check docker-compose.yml availability
-        if (item.name === "Open compose terminal") {
+        if (item.name === "Open Compose Terminal") {
           const dockerComposeFile: string = "docker-compose.yml";
           const appDir = this.currentApp!.folderUri.fsPath;
           const searchPatterns = path.join(appDir, `**/${dockerComposeFile}`).replace(/\\/g, "/");
@@ -960,7 +998,7 @@ export class TaskProvider implements vscode.TaskProvider {
         else if (
           this.tgtSelector.getSelectedTarget() === "Nano X"
           && this.enableNanoxOps === false
-          && item.group === "Device Operations"
+          && item.group === "Device"
         ) {
           item.state = "disabled";
         }

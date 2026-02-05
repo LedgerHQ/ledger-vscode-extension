@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "Ledger Dev Tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "1.4.0",
+  "version": "2.0.0",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",
@@ -21,50 +21,6 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
-    "menus": {
-      "view/item/context": [
-        {
-          "command": "toggleAllTargets",
-          "when": "view == mainView && viewItem == selectTarget && ledgerDevTools.showToggleAllTargets",
-          "group": "inline"
-        },
-        {
-          "command": "selectTestUseCase",
-          "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showSelectTestUseCase",
-          "group": "inline"
-        },
-        {
-          "command": "rebuildTestUseCaseDeps",
-          "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showRebuildTestUseCaseDeps",
-          "group": "inline"
-        },
-        {
-          "command": "rebuildTestUseCaseDepsSpin",
-          "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showrebuildTestUseCaseDepsSpin",
-          "group": "inline"
-        },
-        {
-          "command": "selectCheck",
-          "when": "view == mainView && viewItem == selectCheck",
-          "group": "inline"
-        },
-        {
-          "command": "selectTests",
-          "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showSelectTests",
-          "group": "inline"
-        },
-        {
-          "command": "refreshTests",
-          "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showRefreshTests",
-          "group": "inline"
-        },
-        {
-          "command": "refreshTestsSpin",
-          "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showRefreshTestsSpin",
-          "group": "inline"
-        }
-      ]
-    },
     "taskDefinitions": [
       {
         "type": "ledger",
@@ -83,7 +39,7 @@
       "activitybar": [
         {
           "id": "ledger-tools",
-          "title": "Ledger Developer Tools",
+          "title": "Ledger Dev Tools",
           "icon": "resources/ledger-square.png"
         }
       ]
@@ -91,18 +47,13 @@
     "views": {
       "ledger-tools": [
         {
-          "id": "mainView",
-          "name": "",
-          "icon": "resources/ledger-square.png"
+          "id": "appWebView",
+          "type": "webview",
+          "icon": "resources/ledger-square.png",
+          "name": ""
         }
       ]
     },
-    "viewsWelcome": [
-      {
-        "view": "mainView",
-        "contents": "No Ledger app detected in the workspace.\nOpen a Ledger app's folder or open a workspace containing Ledger apps to enable this extension's features.\n[Open App Folder](command:vscode.openFolder)\n[Open Workspace](command:workbench.action.openWorkspace)\n"
-      }
-    ],
     "commands": [
       {
         "command": "executeTask",
@@ -125,16 +76,7 @@
         "command": "buildUseCase",
         "title": "Select build use case",
         "category": "Ledger",
-        "tooltip": "Select the use case you want to build with.",
-        "icon": "$(gear)"
-      },
-      {
-        "command": "toggleAllTargets",
-        "title": "Toggle selection of all targets",
-        "category": "Ledger",
-        "tooltip": "Toggle selection of all compatible targets of the current app, for eligible tasks.",
-        "icon": "$(check-all)",
-        "enablement": "ledgerDevTools.showToggleAllTargets"
+        "tooltip": "Select the use case you want to build with."
       },
       {
         "command": "selectTestUseCase",
@@ -143,38 +85,6 @@
         "tooltip": "Select the test use case you want to run, when manifest contains multiple test use cases.",
         "icon": "$(selection)",
         "enablement": "ledgerDevTools.showSelectTestUseCase"
-      },
-      {
-        "command": "selectTests",
-        "title": "Select the functional tests you want to run",
-        "category": "Ledger",
-        "tooltip": "Select the functional tests you want to run.",
-        "icon": "$(filter)",
-        "enablement": "ledgerDevTools.showSelectTests"
-      },
-      {
-        "command": "refreshTests",
-        "title": "Refresh the list of functional tests",
-        "category": "Ledger",
-        "tooltip": "Refresh the list of functional tests.",
-        "icon": "$(refresh)",
-        "enablement": "ledgerDevTools.showRefreshTests"
-      },
-      {
-        "command": "refreshTestsSpin",
-        "title": "Refreshing functional tests list...",
-        "category": "Ledger",
-        "tooltip": "Refreshing the list of functional tests.",
-        "icon": "$(loading~spin)",
-        "enablement": "ledgerDevTools.showRefreshTestsSpin"
-      },
-      {
-        "command": "rebuildTestUseCaseDepsSpin",
-        "title": "Building test dependencies...",
-        "category": "Ledger",
-        "tooltip": "Rebuild the dependencies for the selected test use case.",
-        "icon": "$(sync~spin)",
-        "enablement": "ledgerDevTools.showrebuildTestUseCaseDepsSpin"
       },
       {
         "command": "showAppList",
@@ -190,18 +100,9 @@
       },
       {
         "command": "selectCheck",
-        "title": "Select a Guideline Enforcer Check",
+        "title": "Select Guideline Enforcer Check",
         "category": "Ledger",
-        "tooltip": "Select the check you want to run, or All by default.",
-        "icon": "$(pass)"
-      },
-      {
-        "command": "rebuildTestUseCaseDeps",
-        "title": "Rebuild test use case dependencies",
-        "category": "Ledger",
-        "tooltip": "Rebuild the dependencies for the selected test use case.",
-        "icon": "$(sync)",
-        "enablement": "ledgerDevTools.showRebuildTestUseCaseDeps"
+        "tooltip": "Select the check you want to run, or All by default."
       }
     ],
     "configuration": {
@@ -279,6 +180,29 @@
           "description": "Application dedicated settings."
         }
       }
+    },
+    "icons": {
+      "docker-icon": {
+        "description": "docker icon",
+        "default": {
+          "fontPath": "resources/icons.woff",
+          "fontCharacter": "\\f101"
+        }
+      },
+      "git-icon": {
+        "description": "git icon",
+        "default": {
+          "fontPath": "resources/icons.woff",
+          "fontCharacter": "\\f102"
+        }
+      },
+      "x11-icon": {
+        "description": "x11 icon",
+        "default": {
+          "fontPath": "resources/icons.woff",
+          "fontCharacter": "\\f103"
+        }
+      }
     }
   },
   "scripts": {
@@ -292,27 +216,38 @@
     "lint": "eslint . --format stylish",
     "lint:fix": "eslint . --format stylish --fix",
     "test": "node ./out/test/runTest.js",
-    "deploy": "vsce publish"
+    "deploy": "vsce publish",
+    "deploy-prerelease": "vsce publish --pre-release"
   },
   "dependencies": {
+    "@formkit/auto-animate": "^0.9.0",
+    "@jis3r/icons": "^2.3.0",
     "@ltd/j-toml": "^1.38.0",
-    "fast-glob": "^3.3.2"
+    "@vscode-elements/elements": "^2.4.0",
+    "bits-ui": "^2.15.5",
+    "fast-glob": "^3.3.3",
+    "simple-git": "^3.30.0"
   },
   "devDependencies": {
-    "@stylistic/eslint-plugin": "^2.11.0",
+    "@stylistic/eslint-plugin": "^5.7.1",
     "@types/mocha": "^10.0.10",
-    "@types/node": "^22.14.1",
-    "@types/vscode": "^1.95.0",
-    "@typescript-eslint/eslint-plugin": "^8.15.0",
-    "@typescript-eslint/parser": "^8.15.0",
-    "@vscode/test-electron": "^2.4.1",
-    "eslint": "^9.15.0",
-    "glob": "^11.0.0",
-    "mocha": "^10.8.2",
-    "ts-loader": "^9.5.1",
-    "typescript": "^5.6.3",
-    "webpack": "^5.96.1",
-    "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^5.1.0"
+    "@types/node": "^25.2.0",
+    "@types/vscode": "^1.109.0",
+    "@typescript-eslint/eslint-plugin": "^8.54.0",
+    "@typescript-eslint/parser": "^8.54.0",
+    "@vscode/test-electron": "^2.5.2",
+    "copy-webpack-plugin": "^13.0.1",
+    "eslint": "^9.39.2",
+    "glob": "^13.0.1",
+    "mocha": "^11.7.5",
+    "prettier": "^3.8.1",
+    "prettier-plugin-svelte": "^3.4.1",
+    "svelte": "^5.49.2",
+    "svelte-loader": "^3.2.4",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3",
+    "webpack": "^5.105.0",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.3"
   }
 }

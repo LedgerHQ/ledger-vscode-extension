@@ -21,40 +21,6 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
-    "menus": {
-      "view/item/context": [
-        {
-          "command": "toggleAllTargets",
-          "when": "view == mainView && viewItem == selectTarget && ledgerDevTools.showToggleAllTargets",
-          "group": "inline"
-        },
-        {
-          "command": "selectTestUseCase",
-          "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showSelectTestUseCase",
-          "group": "inline"
-        },
-        {
-          "command": "buildUseCase",
-          "when": "view == mainView && viewItem == buildUseCase",
-          "group": "inline"
-        },
-        {
-          "command": "rebuildTestUseCaseDeps",
-          "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showRebuildTestUseCaseDeps",
-          "group": "inline"
-        },
-        {
-          "command": "rebuildTestUseCaseDepsSpin",
-          "when": "view == mainView && viewItem == functionalTests && ledgerDevTools.showrebuildTestUseCaseDepsSpin",
-          "group": "inline"
-        },
-        {
-          "command": "selectCheck",
-          "when": "view == mainView && viewItem == selectCheck",
-          "group": "inline"
-        }
-      ]
-    },
     "taskDefinitions": [
       {
         "type": "ledger",
@@ -110,16 +76,7 @@
         "command": "buildUseCase",
         "title": "Select build use case",
         "category": "Ledger",
-        "tooltip": "Select the use case you want to build with.",
-        "icon": "$(gear)"
-      },
-      {
-        "command": "toggleAllTargets",
-        "title": "Toggle selection of all targets",
-        "category": "Ledger",
-        "tooltip": "Toggle selection of all compatible targets of the current app, for eligible tasks.",
-        "icon": "$(check-all)",
-        "enablement": "ledgerDevTools.showToggleAllTargets"
+        "tooltip": "Select the use case you want to build with."
       },
       {
         "command": "selectTestUseCase",
@@ -128,38 +85,6 @@
         "tooltip": "Select the test use case you want to run, when manifest contains multiple test use cases.",
         "icon": "$(selection)",
         "enablement": "ledgerDevTools.showSelectTestUseCase"
-      },
-      {
-        "command": "selectTests",
-        "title": "Select the functional tests you want to run",
-        "category": "Ledger",
-        "tooltip": "Select the functional tests you want to run.",
-        "icon": "$(filter)",
-        "enablement": "ledgerDevTools.showSelectTests"
-      },
-      {
-        "command": "refreshTests",
-        "title": "Refresh the list of functional tests",
-        "category": "Ledger",
-        "tooltip": "Refresh the list of functional tests.",
-        "icon": "$(refresh)",
-        "enablement": "ledgerDevTools.showRefreshTests"
-      },
-      {
-        "command": "refreshTestsSpin",
-        "title": "Refreshing functional tests list...",
-        "category": "Ledger",
-        "tooltip": "Refreshing the list of functional tests.",
-        "icon": "$(loading~spin)",
-        "enablement": "ledgerDevTools.showRefreshTestsSpin"
-      },
-      {
-        "command": "rebuildTestUseCaseDepsSpin",
-        "title": "Building test dependencies...",
-        "category": "Ledger",
-        "tooltip": "Rebuild the dependencies for the selected test use case.",
-        "icon": "$(sync~spin)",
-        "enablement": "ledgerDevTools.showrebuildTestUseCaseDepsSpin"
       },
       {
         "command": "showAppList",
@@ -175,18 +100,9 @@
       },
       {
         "command": "selectCheck",
-        "title": "Select a Guideline Enforcer Check",
+        "title": "Select Guideline Enforcer Check",
         "category": "Ledger",
-        "tooltip": "Select the check you want to run, or All by default.",
-        "icon": "$(pass)"
-      },
-      {
-        "command": "rebuildTestUseCaseDeps",
-        "title": "Rebuild test use case dependencies",
-        "category": "Ledger",
-        "tooltip": "Rebuild the dependencies for the selected test use case.",
-        "icon": "$(sync)",
-        "enablement": "ledgerDevTools.showRebuildTestUseCaseDeps"
+        "tooltip": "Select the check you want to run, or All by default."
       }
     ],
     "configuration": {

@@ -64,8 +64,12 @@ export class Webview implements vscode.WebviewViewProvider {
   // Promise resolve for when the webview is ready
   private _webviewReadyResolve!: () => void;
   private _webviewReady: Promise<void>;
+  private readonly _extensionUri: vscode.Uri;
+  private readonly _context: vscode.ExtensionContext;
 
-  constructor(private readonly _extensionUri: vscode.Uri) {
+  constructor(context: vscode.ExtensionContext) {
+    this._extensionUri = context.extensionUri;
+    this._context = context;
     this._webviewReady = new Promise((resolve) => {
       this._webviewReadyResolve = resolve;
     });
@@ -199,9 +203,15 @@ export class Webview implements vscode.WebviewViewProvider {
             console.log("Webview signaled ready");
             // Signal that the webview is ready - this resolves pending refresh calls
             this._webviewReadyResolve();
+            // Restore UI state from global state (only on activation)
+            this._view?.webview.postMessage({
+              command: "setState",
+              pinnedIds: this._context.globalState.get<string[]>("pinnedActions", []),
+              expandedIds: this._context.globalState.get<string[]>("expandedGroups", []),
+              showActions: this._context.globalState.get<boolean>("showActions", true),
+            });
             // Fire event for extension.ts to handle
             this.webviewReadyEmitter.fire();
-            // Note: promise is reset in resolveWebviewView, not here
           }
           break;
         case "executeTask":
@@ -283,6 +293,16 @@ export class Webview implements vscode.WebviewViewProvider {
             const deps: string = data.testDependencies;
             console.log("Updating test dependencies from webview : ", deps);
             this.testDepsUpdatedEmitter.fire(deps);
+          }
+          break;
+        case "saveUIState":
+          {
+            const pinnedIds: string[] = data.pinnedIds ?? [];
+            const expandedIds: string[] = data.expandedIds ?? [];
+            const showActions: boolean = data.showActions ?? true;
+            this._context.globalState.update("pinnedActions", pinnedIds);
+            this._context.globalState.update("expandedGroups", expandedIds);
+            this._context.globalState.update("showActions", showActions);
           }
           break;
       }

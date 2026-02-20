@@ -50,7 +50,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   outputChannel = vscode.window.createOutputChannel("Ledger DevTools");
 
-  let webview = new Webview(context.extensionUri);
+  let webview = new Webview(context);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("appWebView", webview, {
       webviewOptions: { retainContextWhenHidden: true },

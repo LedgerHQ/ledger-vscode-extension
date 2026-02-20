@@ -10,6 +10,7 @@
     status: CommandStatus;
     disabledOnAllDevices?: boolean;
     disabled: boolean;
+    pinned?: boolean;
   }
 
   export interface ActionGroupData {
@@ -18,6 +19,7 @@
     mainAction?: Action;
     options: Action[];
     disabledOnAllDevices?: boolean;
+    expanded?: boolean;
   }
 </script>
 
@@ -31,14 +33,24 @@
     disabled: boolean;
     allDevices: boolean;
     onExecute: (actionId: string) => void;
+    onTogglePin: (actionId: string) => void;
+    onToggleExpand?: () => void;
     optionSuffix?: Snippet<[Action]>; // content to render inline after an option
     children?: Snippet;
   }
 
-  let { group, disabled, allDevices, onExecute, optionSuffix, children }: Props = $props();
+  let {
+    group,
+    disabled,
+    allDevices,
+    onExecute,
+    onTogglePin,
+    onToggleExpand,
+    optionSuffix,
+    children,
+  }: Props = $props();
 
   let hovered = $state(false);
-  let showOptions = $state(false);
 
   function isActionDisabled(action: Action): boolean {
     return (allDevices && (action.disabledOnAllDevices ?? false)) || action.disabled;
@@ -61,31 +73,41 @@
 <div class="action-group" class:disabled use:autoAnimate>
   <div class="action-group-header">
     {#if group.mainAction}
-      <button
-        onclick={() => onExecute(group.mainAction?.id ?? "")}
-        disabled={group.mainAction.status === "running" || disabled}
-        class="action-button main {getStatusClass(group.mainAction.status)}"
-        title={group.mainAction.tooltip}
-      >
-        <span class="action-icon">
-          <i class="codicon codicon-{group.icon}"></i>
-        </span>
-        <div class="action-label">
-          <div class="action-title">{group.id}</div>
-          <div class="action-subtitle">{group.mainAction.label}</div>
-        </div>
-        {#if group.mainAction.status !== "idle"}
-          <span class="status-indicator">
-            {#if group.mainAction.status === "running"}
-              <span class="spinner"></span>
-            {:else if group.mainAction.status === "success"}
-              <Check size={16} animate={true} />
-            {:else}
-              <X size={16} animate={true} />
-            {/if}
+      <div class="main-action-wrapper">
+        <button
+          onclick={() => onExecute(group.mainAction?.id ?? "")}
+          disabled={group.mainAction.status === "running" || disabled}
+          class="action-button main {getStatusClass(group.mainAction.status)}"
+          title={group.mainAction.tooltip}
+        >
+          <span class="action-icon">
+            <i class="codicon codicon-{group.icon}"></i>
           </span>
-        {/if}
-      </button>
+          <div class="action-label">
+            <div class="action-title">{group.id}</div>
+            <div class="action-subtitle">{group.mainAction.label}</div>
+          </div>
+          {#if group.mainAction.status !== "idle"}
+            <span class="status-indicator">
+              {#if group.mainAction.status === "running"}
+                <span class="spinner"></span>
+              {:else if group.mainAction.status === "success"}
+                <Check size={16} animate={true} />
+              {:else}
+                <X size={16} animate={true} />
+              {/if}
+            </span>
+          {/if}
+        </button>
+        <button
+          class="pin-button main"
+          class:pinned={group.mainAction.pinned}
+          title={group.mainAction.pinned ? "Unpin from toolbar" : "Pin to toolbar"}
+          onclick={() => onTogglePin(group.mainAction?.id ?? "")}
+        >
+          <i class="codicon codicon-{group.mainAction.pinned ? 'pinned' : 'pin'}"></i>
+        </button>
+      </div>
     {:else}
       <button disabled={true} class="action-button main disabled">
         <span class="action-icon">
@@ -101,17 +123,17 @@
       onmouseenter={() => (hovered = true)}
       onmouseleave={() => (hovered = false)}
       class="gear-button"
-      class:active={showOptions && !disabled}
-      onclick={() => (showOptions = !showOptions)}
+      class:active={group.expanded && !disabled}
+      onclick={() => onToggleExpand?.()}
       {disabled}
     >
-      <span class="plus-icon" class:rotated={showOptions && !disabled}>
+      <span class="plus-icon" class:rotated={group.expanded && !disabled}>
         <Plus size={16} animate={hovered} />
       </span>
     </button>
   </div>
 
-  {#if showOptions && !disabled}
+  {#if group.expanded && !disabled}
     <div class="options-panel">
       {#each group.options as option}
         <div class="option-row">
@@ -138,6 +160,14 @@
                 {/if}
               </span>
             {/if}
+          </button>
+          <button
+            class="pin-button small"
+            class:pinned={option.pinned}
+            title={option.pinned ? "Unpin from toolbar" : "Pin to toolbar"}
+            onclick={() => onTogglePin(option.id)}
+          >
+            <i class="codicon codicon-{option.pinned ? 'pinned' : 'pin'}"></i>
           </button>
           {#if optionSuffix}
             {@render optionSuffix(option)}
@@ -365,5 +395,76 @@
     to {
       transform: rotate(360deg);
     }
+  }
+
+  .main-action-wrapper {
+    display: flex;
+    flex: 1;
+  }
+
+  .main-action-wrapper .action-button.main {
+    flex: 1;
+  }
+
+  .pin-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--vscode-descriptionForeground);
+    cursor: pointer;
+    opacity: 0;
+    flex-shrink: 0;
+    transition:
+      opacity 0.15s,
+      background 0.15s,
+      color 0.15s;
+  }
+
+  .pin-button.main {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 20px;
+  }
+
+  .main-action-wrapper {
+    position: relative;
+  }
+
+  .main-action-wrapper:hover .pin-button.main,
+  .option-row:hover .pin-button {
+    opacity: 1;
+  }
+
+  /* Hide pin button when status is active */
+  .action-button.main.status-running ~ .pin-button.main,
+  .action-button.main.status-success ~ .pin-button.main,
+  .action-button.main.status-error ~ .pin-button.main,
+  .option-button.status-running ~ .pin-button.small,
+  .option-button.status-success ~ .pin-button.small,
+  .option-button.status-error ~ .pin-button.small {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .pin-button:hover {
+    background: var(--vscode-toolbar-hoverBackground);
+    color: var(--vscode-foreground);
+  }
+
+  .pin-button.small {
+    position: static;
+    transform: none;
+  }
+
+  .pin-button .codicon {
+    font-size: 12px;
   }
 </style>

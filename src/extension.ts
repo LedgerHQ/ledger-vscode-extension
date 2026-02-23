@@ -110,13 +110,8 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Include container status (for re-resolution)
     const containerStatus = containerManager.getContainerStatus();
-    options.containerStatus = {
-      status: containerStatus === DevImageStatus.running
-        ? "running"
-        : containerStatus === DevImageStatus.stopped
-          ? "stopped"
-          : "syncing",
-    };
+    options.containerStatus = containerStatus;
+    options.imageOutdated = containerManager.isImageOutdated();
 
     return options;
   };
@@ -134,11 +129,10 @@ export function activate(context: vscode.ExtensionContext) {
   // This event is fired when the container status changes
   context.subscriptions.push(
     containerManager.onStatusEvent((data) => {
-      statusBarManager.updateDevImageItem(data);
+      statusBarManager.updateDevImageItem(data, containerManager.isImageOutdated());
       webview.refresh({
-        containerStatus: {
-          status: data === DevImageStatus.running ? "running" : data === DevImageStatus.stopped ? "stopped" : "syncing",
-        },
+        containerStatus: data,
+        imageOutdated: containerManager.isImageOutdated(),
       });
       if (data === DevImageStatus.running) {
         getAndBuildAppTestsDependencies(targetSelector);

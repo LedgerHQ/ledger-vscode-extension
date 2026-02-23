@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { TaskSpec } from "../taskProvider";
 import { setSelectedTests } from "../appSelector";
 import { LedgerDevice, SpecialAllDevice } from "../targetSelector";
-import type { BadgeStatus } from "../types";
+import type { ContainerStatus } from "../types";
 /**
  * Options for refreshing the webview content.
  * - undefined: skip, don't update this section
@@ -33,9 +33,8 @@ export interface WebviewRefreshOptions {
     list: string[];
     selected: string;
   } | null;
-  containerStatus?: {
-    status: BadgeStatus;
-  } | null;
+  containerStatus?: ContainerStatus | null;
+  imageOutdated?: boolean;
   enforcerChecks?: {
     list: string[];
     selected: string;
@@ -143,7 +142,8 @@ export class Webview implements vscode.WebviewViewProvider {
     if (options.containerStatus !== undefined) {
       this._view.webview.postMessage({
         command: "containerStatus",
-        status: options.containerStatus?.status ?? "stopped",
+        status: options.containerStatus ?? "stopped",
+        imageOutdated: options.imageOutdated ?? false,
       });
     }
 

@@ -44,9 +44,9 @@ export function getComposeServiceName(): string {
 }
 
 export enum DevImageStatus {
-  running = "sync",
-  syncing = "sync~spin",
-  stopped = "notebook-stop",
+  running = "running",
+  syncing = "syncing",
+  stopped = "stopped",
 }
 
 export class ContainerManager {
@@ -88,6 +88,49 @@ export class ContainerManager {
   private getDockerImage(): string {
     const conf = vscode.workspace.getConfiguration("ledgerDevTools");
     return conf.get<string>("dockerImage") || "";
+  }
+
+  private getLocalDigest(): string | null {
+    const localImage = this.getDockerImage();
+    try {
+      const command = `docker inspect --format="{{index .RepoDigests 0}}" ${localImage}`;
+      const execOptions: ExecSyncOptionsWithStringEncoding = { stdio: "pipe", encoding: "utf-8" };
+      const output = execSync(command, execOptions).toString().trim().split("@")[1];
+      return output;
+    }
+    catch (error: any) {
+      console.log(`Ledger: Failed to get local image digest: ${error.message}`);
+      return null;
+    }
+  }
+
+  private getRemoteDigest(): string | null {
+    const imageName = this.getDockerImage();
+    try {
+      const command = `docker buildx imagetools inspect ${imageName} --format "{{json .}}"`;
+      const execOptions: ExecSyncOptionsWithStringEncoding = { stdio: "pipe", encoding: "utf-8" };
+      const json = execSync(command, execOptions);
+      const output = JSON.parse(json).manifest.digest;
+      return output;
+    }
+    catch (error: any) {
+      console.log(`Ledger: Failed to get remote image digest: ${error.message}`);
+      return null;
+    }
+  }
+
+  public isImageOutdated(): boolean {
+    const containerStatus = this.getContainerStatus();
+    // We check if image is outdated only if container is running.
+    if (containerStatus === DevImageStatus.running) {
+      const localDigest = this.getLocalDigest();
+      const remoteDigest = this.getRemoteDigest();
+      if (localDigest && remoteDigest) {
+        return localDigest !== remoteDigest;
+      }
+    }
+    // If not running or if we can't determine digests, assume it's up to date to avoid unnecessary pulls
+    return false;
   }
 
   public getContainerStatus(): DevImageStatus {

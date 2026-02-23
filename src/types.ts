@@ -33,4 +33,4 @@ export interface TaskSpec {
 /**
  * Status of the Docker container
  */
-export type BadgeStatus = "running" | "stopped" | "syncing";
+export type ContainerStatus = "running" | "stopped" | "syncing";

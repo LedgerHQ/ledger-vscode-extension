@@ -9,7 +9,7 @@
   import { ChevronDown, ChevronRight } from "@jis3r/icons";
   import TestsList from "./components/TestsList.svelte";
   import type { TestCase } from "./components/TestsList.svelte";
-  import type { TaskSpec, BadgeStatus } from "../types";
+  import type { TaskSpec, ContainerStatus } from "../types";
 
   let { vscode } = $props();
   let selectedApp = $state("app-boilerplate");
@@ -20,7 +20,8 @@
   let expandedIds: string[] = [];
   let apps = $state<SelectItem[]>([]);
   let targets = $state<SelectItem[]>([]);
-  let containerStatus: BadgeStatus = $state("stopped");
+  let containerStatus: ContainerStatus = $state("stopped");
+  let imageOutdated = $state(false);
 
   // Build use case
   let buildUseCase = $state("");
@@ -320,6 +321,7 @@
         break;
       case "containerStatus":
         containerStatus = message.status;
+        imageOutdated = message.imageOutdated ?? false;
         break;
       case "addEnforcerChecks":
         enforcerChecks = [];
@@ -395,7 +397,7 @@
           <div class="config-header">
             <i class="codicon codicon-settings-gear"></i>
             <h2 class="config-title">Configuration</h2>
-            <StatusDot status={containerStatus} />
+            <StatusDot {vscode} status={containerStatus} {imageOutdated} />
           </div>
           <div class="config-grid">
             <div class="form-group">

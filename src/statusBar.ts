@@ -5,6 +5,7 @@ import { getSelectedApp } from "./appSelector";
 import { ContainerManager, DevImageStatus } from "./containerManager";
 
 const imageToolTip = "Click to update image and respawn container.";
+const outdatedToolTip = "Container is running but image is outdated. Click to update image and respawn container.";
 
 export class StatusBarManager {
   private buildUseCaseItem: vscode.StatusBarItem;
@@ -49,10 +50,18 @@ export class StatusBarManager {
     this.buildUseCaseItem.show();
   }
 
-  public updateDevImageItem(status: DevImageStatus): void {
+  private statusIcon(status: DevImageStatus): string {
+    switch (status) {
+      case DevImageStatus.running: return "sync";
+      case DevImageStatus.syncing: return "sync~spin";
+      case DevImageStatus.stopped: return "notebook-stop";
+    }
+  }
+
+  public updateDevImageItem(status: DevImageStatus, imageOutdated: boolean = false): void {
     const currentApp = getSelectedApp();
     if (currentApp) {
-      this.devImageItem.text = `$(${status.toString()}) L : ${currentApp.folderName}`;
+      this.devImageItem.text = `$(${this.statusIcon(status)}) L : ${currentApp.folderName}`;
       let statusText = "[stopped] ";
       switch (status) {
         case DevImageStatus.running:
@@ -70,7 +79,14 @@ export class StatusBarManager {
           this.devImageItem.backgroundColor = new vscode.ThemeColor("statusBarItem.errorBackground");
           break;
       }
-      this.devImageItem.tooltip = statusText + imageToolTip;
+      if (imageOutdated) {
+        statusText = "[outdated] ";
+        this.devImageItem.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground");
+        this.devImageItem.tooltip = statusText + outdatedToolTip;
+      }
+      else {
+        this.devImageItem.tooltip = statusText + imageToolTip;
+      }
       this.devImageItem.show();
     }
     else {

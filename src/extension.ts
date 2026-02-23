@@ -485,9 +485,23 @@ export function activate(context: vscode.ExtensionContext) {
   };
 
   // FileSystemWatcher catches external changes (terminal, other apps)
-  const conftestWatcher = vscode.workspace.createFileSystemWatcher("**/conftest.py", false, true, false);
-  conftestWatcher.onDidCreate(() => refreshTestsIfReady());
-  conftestWatcher.onDidDelete(() => webview.refresh({ testCases: null }));
+  const conftestWatcher = vscode.workspace.createFileSystemWatcher("{**/conftest.py,docker-compose.yml}", false, true, false);
+  conftestWatcher.onDidCreate((uri) => {
+    if (uri.fsPath.endsWith("conftest.py")) {
+      refreshTestsIfReady();
+    }
+    if (uri.fsPath.endsWith("docker-compose.yml")) {
+      taskProvider.generateTasks();
+    }
+  });
+  conftestWatcher.onDidDelete((uri) => {
+    if (uri.fsPath.endsWith("conftest.py")) {
+      webview.refresh({ testCases: null });
+    }
+    if (uri.fsPath.endsWith("docker-compose.yml")) {
+      taskProvider.generateTasks();
+    }
+  });
   context.subscriptions.push(conftestWatcher);
 
   // VS Code explorer operations are caught by workspace events
@@ -496,10 +510,16 @@ export function activate(context: vscode.ExtensionContext) {
       if (event.files.some(uri => isTestsRelatedPath(uri.fsPath))) {
         webview.refresh({ testCases: null });
       }
+      if (event.files.some(uri => uri.fsPath.endsWith("docker-compose.yml"))) {
+        taskProvider.generateTasks();
+      }
     }),
     vscode.workspace.onDidCreateFiles((event) => {
       if (event.files.some(uri => uri.fsPath.endsWith("conftest.py"))) {
         refreshTestsIfReady();
+      }
+      if (event.files.some(uri => uri.fsPath.endsWith("docker-compose.yml"))) {
+        taskProvider.generateTasks();
       }
     }),
   );

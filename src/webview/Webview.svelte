@@ -389,7 +389,7 @@
     <!-- Main Content -->
     <div class="main-content">
       <!-- Quick Actions Toolbar (at top) -->
-      <Toolbar {actionGroups} {allDevices} onExecute={executeAction} />
+      <Toolbar {actionGroups} {allDevices} onExecute={executeAction} {isGroupDisabled} />
       <!-- Header -->
       <div class="header-section">
         <!-- Configuration Card -->

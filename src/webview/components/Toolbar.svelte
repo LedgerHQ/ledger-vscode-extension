@@ -10,30 +10,34 @@
     tooltip?: string;
     status: "idle" | "running" | "success" | "error";
     disabled: boolean;
-    showDivider: boolean;
+  }
+
+  interface ToolbarGroup {
+    id: string;
+    actions: ToolbarAction[];
   }
 </script>
 
 <script lang="ts">
-  import { Tooltip } from "bits-ui";
-  import { Check, X } from "@jis3r/icons";
+  import { Toolbar, Tooltip } from "bits-ui";
   import autoAnimate from "@formkit/auto-animate";
 
   interface Props {
     actionGroups: ActionGroupData[];
     allDevices: boolean;
     onExecute: (groupId: string, actionId: string) => void;
+    isGroupDisabled?: (group: ActionGroupData) => boolean;
   }
 
-  let { actionGroups, allDevices, onExecute }: Props = $props();
+  let { actionGroups, allDevices, onExecute, isGroupDisabled }: Props = $props();
 
-  // Derive pinned actions from groups, with divider markers between groups
-  let actions = $derived.by(() => {
-    const pinned: ToolbarAction[] = [];
-    let lastGroup = "";
+  // Group pinned actions by their source group
+  let groups = $derived.by(() => {
+    const result: ToolbarGroup[] = [];
     for (const group of actionGroups) {
+      const actions: ToolbarAction[] = [];
       const addAction = (action: Action, icon: string) => {
-        pinned.push({
+        actions.push({
           id: action.id,
           label: action.label,
           icon,
@@ -41,10 +45,11 @@
           taskName: action.taskName,
           tooltip: action.tooltip,
           status: action.status,
-          disabled: action.disabled || (allDevices && (action.disabledOnAllDevices ?? false)),
-          showDivider: lastGroup !== "" && lastGroup !== group.id,
+          disabled:
+            (isGroupDisabled?.(group) ?? false) ||
+            action.disabled ||
+            (allDevices && (action.disabledOnAllDevices ?? false)),
         });
-        lastGroup = group.id;
       };
       if (group.mainAction?.pinned) {
         addAction(group.mainAction, group.mainAction.icon ?? group.icon);
@@ -54,8 +59,11 @@
           addAction(opt, opt.icon ?? "symbol-method");
         }
       }
+      if (actions.length > 0) {
+        result.push({ id: group.id, actions });
+      }
     }
-    return pinned;
+    return result;
   });
 
   function getStatusClass(status: ToolbarAction["status"]): string {
@@ -73,18 +81,18 @@
 </script>
 
 <div class="toolbar-wrapper" use:autoAnimate>
-  {#if actions.length > 0}
+  {#if groups.length > 0}
     <Tooltip.Provider>
-      <div class="toolbar-root">
-        <div class="toolbar-inner" use:autoAnimate>
-          {#each actions as action}
-            {#if action.showDivider}
-              <div class="toolbar-divider"></div>
-            {/if}
+      <Toolbar.Root class="toolbar-root" orientation="horizontal" loop>
+        {#each groups as group, i}
+          {#if i > 0}
+            <div class="toolbar-divider"></div>
+          {/if}
+          {#each group.actions as action}
             <Tooltip.Root delayDuration={500}>
               <Tooltip.Trigger>
                 {#snippet child({ props })}
-                  <button
+                  <Toolbar.Button
                     {...props}
                     class="toolbar-button {getStatusClass(action.status)}"
                     disabled={action.disabled || action.status === "running"}
@@ -93,11 +101,11 @@
                     <span class="toolbar-icon">
                       <i class="codicon codicon-{action.icon}"></i>
                     </span>
-                  </button>
+                  </Toolbar.Button>
                 {/snippet}
               </Tooltip.Trigger>
               <Tooltip.Portal>
-                <Tooltip.Content class="toolbar-tooltip" sideOffset={8}>
+                <Tooltip.Content class="toolbar-tooltip" sideOffset={8} collisionPadding={8}>
                   <span class="tooltip-label">{action.label}</span>
                   {#if action.tooltip}
                     <span class="tooltip-desc">{action.tooltip}</span>
@@ -106,23 +114,22 @@
               </Tooltip.Portal>
             </Tooltip.Root>
           {/each}
-        </div>
-      </div>
+        {/each}
+      </Toolbar.Root>
     </Tooltip.Provider>
   {/if}
 </div>
 
 <style>
-  .toolbar-root {
-    display: inline-flex;
-    align-items: center;
+  .toolbar-wrapper {
     margin-bottom: 4px;
   }
 
-  .toolbar-inner {
+  :global(.toolbar-root) {
     display: flex;
     align-items: center;
     gap: 1px;
+    flex-wrap: wrap;
   }
 
   .toolbar-divider {
@@ -132,7 +139,7 @@
     margin: 0 3px;
   }
 
-  .toolbar-button {
+  :global(.toolbar-button) {
     position: relative;
     display: flex;
     align-items: center;
@@ -149,21 +156,21 @@
       color 0.1s ease;
   }
 
-  .toolbar-button:hover:not(:disabled) {
+  :global(.toolbar-button:hover:not(:disabled)) {
     color: var(--vscode-foreground);
     background: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
   }
 
-  .toolbar-button:active:not(:disabled) {
+  :global(.toolbar-button:active:not(:disabled)) {
     background: var(--vscode-toolbar-activeBackground, rgba(99, 102, 241, 0.2));
   }
 
-  .toolbar-button:disabled {
+  :global(.toolbar-button:disabled) {
     opacity: 0.4;
     cursor: not-allowed;
   }
 
-  .toolbar-button.status-running {
+  :global(.toolbar-button.status-running) {
     color: var(--vscode-focusBorder);
     animation: pulse-glow 1.5s ease-in-out infinite;
     cursor: progress;
@@ -172,20 +179,20 @@
   @keyframes pulse-glow {
     0%,
     100% {
-      box-shadow: 0 0 4px 1px var(--vscode-focusBorder);
+      text-shadow: 0 0 4px 1px var(--vscode-focusBorder);
       opacity: 0.7;
     }
     50% {
-      box-shadow: 0 0 10px 3px var(--vscode-focusBorder);
+      text-shadow: 0 0 10px 3px var(--vscode-focusBorder);
       opacity: 1;
     }
   }
 
-  .toolbar-button.status-success {
+  :global(.toolbar-button.status-success) {
     color: var(--vscode-testing-iconPassed);
   }
 
-  .toolbar-button.status-error {
+  :global(.toolbar-button.status-error) {
     color: var(--vscode-testing-iconFailed);
   }
 
@@ -199,21 +206,6 @@
     font-size: 16px;
   }
 
-  .spinner {
-    width: 6px;
-    height: 6px;
-    border: 1px solid currentColor;
-    border-top-color: transparent;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
   :global(.toolbar-tooltip) {
     display: flex;
     flex-direction: column;
@@ -224,6 +216,8 @@
     border-radius: 3px;
     box-shadow: 0 2px 8px var(--vscode-widget-shadow);
     z-index: 1000;
+    max-width: min(300px, calc(100vw - 16px));
+    word-wrap: break-word;
   }
 
   :global(.tooltip-label) {

@@ -178,6 +178,11 @@
           "type": "object",
           "scope": "resource",
           "description": "Application dedicated settings."
+        },
+        "ledgerDevTools.dockerAutoUpdate": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Automatically check for updates of the Ledger developer tools Docker image and update it in the background if a new version is available."
         }
       }
     },

@@ -172,33 +172,43 @@ export class ContainerManager {
       if (currentApp) {
         const containerName = currentApp.containerName;
 
-        // Check if container exists but is just stopped
-        if (this.checkContainerExists(containerName)) {
-          console.log(`Ledger: Container ${containerName} exists but is stopped, restarting...`);
+        const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+        const autoUpdate: boolean = conf.get<boolean>("dockerAutoUpdate") || false;
+
+        if (autoUpdate) {
+          console.log(`Ledger: Auto-update is enabled, checking for container updates...`);
           this.triggerStatusEvent(DevImageStatus.syncing);
-          try {
-            const execOptions: ExecSyncOptionsWithStringEncoding = { stdio: "pipe", encoding: "utf-8" };
-            execSync(`docker start ${containerName}`, execOptions);
-            console.log(`Ledger: Container ${containerName} restarted successfully`);
-            this.triggerStatusEvent(DevImageStatus.running);
-          }
-          catch (error: any) {
-            console.log(`Ledger: Failed to restart container: ${error.message}`);
-            this.triggerStatusEvent(DevImageStatus.stopped);
-          }
+          await this.taskProvider.executeTaskByName("Update Container");
         }
         else {
-          // Container doesn't exist, check if image exists to create it
-          const imageName = this.getDockerImage();
-          if (this.checkImageExists(imageName)) {
-            console.log(`Ledger: Container ${containerName} does not exist but image ${imageName} is present. Creating container...`);
+          // Check if container exists but is just stopped
+          if (this.checkContainerExists(containerName)) {
+            console.log(`Ledger: Container ${containerName} exists but is stopped, restarting...`);
             this.triggerStatusEvent(DevImageStatus.syncing);
-            await this.taskProvider.executeTaskByName("Create Container");
+            try {
+              const execOptions: ExecSyncOptionsWithStringEncoding = { stdio: "pipe", encoding: "utf-8" };
+              execSync(`docker start ${containerName}`, execOptions);
+              console.log(`Ledger: Container ${containerName} restarted successfully`);
+              this.triggerStatusEvent(DevImageStatus.running);
+            }
+            catch (error: any) {
+              console.log(`Ledger: Failed to restart container: ${error.message}`);
+              this.triggerStatusEvent(DevImageStatus.stopped);
+            }
           }
           else {
-            console.log(`Ledger: Container ${containerName} and image ${imageName} do not exist. Pulling image and creating container...`);
-            this.triggerStatusEvent(DevImageStatus.syncing);
-            await this.taskProvider.executeTaskByName("Update Container");
+            // Container doesn't exist, check if image exists to create it
+            const imageName = this.getDockerImage();
+            if (this.checkImageExists(imageName)) {
+              console.log(`Ledger: Container ${containerName} does not exist but image ${imageName} is present. Creating container...`);
+              this.triggerStatusEvent(DevImageStatus.syncing);
+              await this.taskProvider.executeTaskByName("Create Container");
+            }
+            else {
+              console.log(`Ledger: Container ${containerName} and image ${imageName} do not exist. Pulling image and creating container...`);
+              this.triggerStatusEvent(DevImageStatus.syncing);
+              await this.taskProvider.executeTaskByName("Update Container");
+            }
           }
         }
       }

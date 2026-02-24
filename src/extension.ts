@@ -79,7 +79,7 @@ export function activate(context: vscode.ExtensionContext) {
   let taskProvider = new TaskProvider(targetSelector, webview);
   context.subscriptions.push(vscode.tasks.registerTaskProvider(taskType, taskProvider));
 
-  let statusBarManager = new StatusBarManager(targetSelector.getSelectedTarget(), getSelectedBuidUseCase());
+  let statusBarManager = new StatusBarManager();
 
   let containerManager = new ContainerManager(taskProvider);
 
@@ -574,6 +574,8 @@ export function activate(context: vscode.ExtensionContext) {
       refreshWebviewFullState();
       if (isInitialActivation) {
         isInitialActivation = false;
+        statusBarManager.updateTargetItem(targetSelector.getSelectedTarget());
+        statusBarManager.updateBuildUseCaseItem(getSelectedBuidUseCase());
         containerManager.manageContainer();
       }
       else {

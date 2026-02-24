@@ -1,7 +1,7 @@
 "use strict";
 import * as vscode from "vscode";
 import { platform } from "node:process";
-import { execSync, ExecSyncOptions } from "child_process";
+import { execSync, exec, ExecSyncOptions } from "child_process";
 import { getSelectedApp } from "./appSelector";
 import { TaskProvider } from "./taskProvider";
 import { ExecSyncOptionsWithStringEncoding } from "child_process";
@@ -53,6 +53,7 @@ export class ContainerManager {
   private taskProvider: TaskProvider;
   private nbUpdate: number = 0;
   private statusEmitter: vscode.EventEmitter<DevImageStatus> = new vscode.EventEmitter<DevImageStatus>();
+  private imageOutdatedEmitter: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
   private dockerUnavailableEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
 
   constructor(taskProvider: TaskProvider) {
@@ -61,6 +62,7 @@ export class ContainerManager {
   }
 
   public readonly onStatusEvent: vscode.Event<DevImageStatus> = this.statusEmitter.event;
+  public readonly onImageOutdatedEvent: vscode.Event<boolean> = this.imageOutdatedEmitter.event;
   public readonly onDockerUnavailableEvent: vscode.Event<void> = this.dockerUnavailableEmitter.event;
 
   public triggerStatusEvent(data: DevImageStatus) {
@@ -106,33 +108,32 @@ export class ContainerManager {
     }
   }
 
-  private getRemoteDigest(): string | null {
-    const imageName = this.getDockerImage();
-    try {
-      const command = `docker buildx imagetools inspect ${imageName} --format "{{json .}}"`;
-      const execOptions: ExecSyncOptionsWithStringEncoding = { stdio: "pipe", encoding: "utf-8" };
-      const json = execSync(command, execOptions);
-      const output = JSON.parse(json).manifest.digest;
-      return output;
+  /**
+   * Runs the image outdated check in the background.
+   * Compares local and remote digests, then fires a status event to update the UI.
+   */
+  public checkImageOutdated(): void {
+    const localDigest = this.getLocalDigest();
+    if (!localDigest) {
+      return;
     }
-    catch (error: any) {
-      console.log(`Ledger: Failed to get remote image digest: ${error.message}`);
-      return null;
-    }
-  }
 
-  public isImageOutdated(): boolean {
-    const containerStatus = this.getContainerStatus();
-    // We check if image is outdated only if container is running.
-    if (containerStatus === DevImageStatus.running) {
-      const localDigest = this.getLocalDigest();
-      const remoteDigest = this.getRemoteDigest();
-      if (localDigest && remoteDigest) {
-        return localDigest !== remoteDigest;
+    const imageName = this.getDockerImage();
+    const command = `docker buildx imagetools inspect ${imageName} --format "{{json .}}"`;
+
+    exec(command, (error, stdout) => {
+      if (error) {
+        console.log(`Ledger: Failed to get remote image digest: ${error.message}`);
+        return;
       }
-    }
-    // If not running or if we can't determine digests, assume it's up to date to avoid unnecessary pulls
-    return false;
+      try {
+        const remoteDigest = JSON.parse(stdout.trim()).manifest.digest;
+        this.imageOutdatedEmitter.fire(localDigest !== remoteDigest);
+      }
+      catch (parseError: any) {
+        console.log(`Ledger: Failed to parse remote image digest: ${parseError.message}`);
+      }
+    });
   }
 
   public getContainerStatus(): DevImageStatus {

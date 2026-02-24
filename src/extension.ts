@@ -115,12 +115,11 @@ export function activate(context: vscode.ExtensionContext) {
       };
     }
 
-    // Include container status (for re-resolution)
-    const containerStatus = containerManager.getContainerStatus();
-    options.containerStatus = containerStatus;
-    options.imageOutdated = containerManager.isImageOutdated();
-
+    // Use cached docker status and default values,
+    // Status events will update the webview.
+    options.containerStatus = "stopped";
     options.dockerRunning = dockerRunning;
+    options.imageOutdated = false;
     return options;
   };
 
@@ -138,15 +137,17 @@ export function activate(context: vscode.ExtensionContext) {
   // This event is fired when the container status changes
   context.subscriptions.push(
     containerManager.onStatusEvent((data) => {
-      statusBarManager.updateDevImageItem(data, containerManager.isImageOutdated());
+      statusBarManager.updateDevImageItem(data, false);
       // If we get a status event, Docker is running
       dockerRunning = true;
       webview.refresh({
         containerStatus: data,
-        imageOutdated: containerManager.isImageOutdated(),
         dockerRunning: true,
       });
       if (data === DevImageStatus.running) {
+        // Check image outdated in the background (hits Docker registry).
+        // Result arrives via onImageOutdatedEvent.
+        containerManager.checkImageOutdated();
         getAndBuildAppTestsDependencies(targetSelector);
         getAppTestsList(targetSelector, false, webview);
       }
@@ -160,6 +161,15 @@ export function activate(context: vscode.ExtensionContext) {
       webview.refresh({ dockerRunning: false, containerStatus: DevImageStatus.stopped });
     }),
   );
+
+  // Event listener for image outdated check result (fires after background digest comparison)
+  context.subscriptions.push(
+    containerManager.onImageOutdatedEvent((imageOutdated) => {
+      statusBarManager.updateDevImageItem(DevImageStatus.running, imageOutdated);
+      webview.refresh({ containerStatus: DevImageStatus.running, imageOutdated, dockerRunning });
+    }),
+  );
+
   // Event listener for target selection from quick pick menu.
   context.subscriptions.push(
     targetSelector.onTargetSelectedEvent((data) => {

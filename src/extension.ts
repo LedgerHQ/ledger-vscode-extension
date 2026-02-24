@@ -124,12 +124,17 @@ export function activate(context: vscode.ExtensionContext) {
   };
 
   // Helper to refresh webview with full state
-  const refreshWebviewFullState = () => {
-    webview.refresh(buildFullRefreshOptions());
+  const refreshWebviewFullState = async () => {
+    await webview.refresh(buildFullRefreshOptions());
     if (getSelectedApp()) {
-      webview.sendTestDependencies(getAppTestsPrerequisites());
+      await webview.sendTestDependencies(getAppTestsPrerequisites());
+      try {
+        taskProvider.generateTasks();
+      }
+      catch (e) {
+        console.error("Ledger: Failed to generate tasks:", e);
+      }
     }
-    taskProvider.generateTasks();
     await webview.sendReady();
   };
 
@@ -570,8 +575,8 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Listen for webview ready event (fires on initial load and re-resolution when moved to new sidebar)
   context.subscriptions.push(
-    webview.onWebviewReadyEvent(() => {
-      refreshWebviewFullState();
+    webview.onWebviewReadyEvent(async () => {
+      await refreshWebviewFullState();
       if (isInitialActivation) {
         isInitialActivation = false;
         statusBarManager.updateTargetItem(targetSelector.getSelectedTarget());

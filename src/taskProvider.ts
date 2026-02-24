@@ -704,7 +704,10 @@ export class TaskProvider implements vscode.TaskProvider {
   private appLoadExec(): string {
     let exec = "";
     let keyconfig = "";
-    const hostBuildDirPath = path.join(this.appFolderUri!.fsPath, this.buildDir);
+    if (!this.appFolderUri) {
+      return exec;
+    }
+    const hostBuildDirPath = path.join(this.appFolderUri.fsPath, this.buildDir);
     const tgtBuildDir = this.tgtSelector.getTargetBuildDirName();
 
     if (this.scpConfig === true) {

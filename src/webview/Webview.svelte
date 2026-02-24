@@ -312,6 +312,7 @@
           ...message.targets.map((target: string) => ({ value: target, label: target })),
         );
         selectedTarget = message.selectedTarget;
+        allDevices = selectedTarget === "All";
         break;
       case "addBuildUseCases":
         buildUseCases = message.buildUseCases;

@@ -53,6 +53,7 @@ export class ContainerManager {
   private taskProvider: TaskProvider;
   private nbUpdate: number = 0;
   private statusEmitter: vscode.EventEmitter<DevImageStatus> = new vscode.EventEmitter<DevImageStatus>();
+  private dockerUnavailableEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
 
   constructor(taskProvider: TaskProvider) {
     this.taskProvider = taskProvider;
@@ -60,6 +61,7 @@ export class ContainerManager {
   }
 
   public readonly onStatusEvent: vscode.Event<DevImageStatus> = this.statusEmitter.event;
+  public readonly onDockerUnavailableEvent: vscode.Event<void> = this.dockerUnavailableEmitter.event;
 
   public triggerStatusEvent(data: DevImageStatus) {
     this.statusEmitter.fire(data);
@@ -156,7 +158,18 @@ export class ContainerManager {
     }
     catch (error: any) {
       console.log(`Docker error : ${error.message}`);
+      this.dockerUnavailableEmitter.fire();
       return DevImageStatus.stopped;
+    }
+  }
+
+  public static isDockerRunning(): boolean {
+    try {
+      execSync("docker info", { stdio: "ignore" });
+      return true;
+    }
+    catch (error) {
+      return false;
     }
   }
 

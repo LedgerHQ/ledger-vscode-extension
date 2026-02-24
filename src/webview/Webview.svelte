@@ -20,7 +20,9 @@
   let expandedIds: string[] = [];
   let apps = $state<SelectItem[]>([]);
   let targets = $state<SelectItem[]>([]);
+  let ready = $state(false);
   let containerStatus: ContainerStatus = $state("stopped");
+  let dockerRunning = $state(false);
   let imageOutdated = $state(false);
 
   // Build use case
@@ -321,6 +323,7 @@
         break;
       case "containerStatus":
         containerStatus = message.status;
+        dockerRunning = message.dockerRunning ?? false;
         imageOutdated = message.imageOutdated ?? false;
         break;
       case "addEnforcerChecks":
@@ -352,6 +355,9 @@
         }
         break;
       }
+      case "ready":
+        ready = true;
+        break;
     }
     // Handle other commands as needed
   });
@@ -364,8 +370,39 @@
 </script>
 
 <div class="container">
-  <!-- Welcome View when no apps found -->
-  {#if apps.length === 0}
+  <!-- Welcome View when docker is not running -->
+  {#if ready && !dockerRunning}
+    <div class="welcome-view">
+      <i class="codicon codicon-error welcome-icon error"></i>
+      <p class="welcome-title">Docker is not running</p>
+      <p class="welcome-description">
+        Please install and start Docker to use the extension. Once Docker is running, reload the
+        extension.
+      </p>
+      <div class="welcome-buttons">
+        <a
+          class="vscode-button"
+          href="https://docs.docker.com/get-docker/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Get Docker
+        </a>
+        <button
+          class="vscode-button secondary"
+          onclick={() =>
+            vscode.postMessage({
+              command: "executeCommand",
+              commandName: "workbench.action.reloadWindow",
+            })}
+        >
+          Reload Extension
+        </button>
+      </div>
+      <img class="wordmark" src={(window as any).resourceUris?.wordmark} alt="Ledger" />
+    </div>
+    <!-- Welcome View when no apps found -->
+  {:else if ready && apps.length === 0}
     <div class="welcome-view">
       <i class="codicon codicon-warning welcome-icon"></i>
       <p class="welcome-title">No Ledger app detected</p>
@@ -385,7 +422,7 @@
       </div>
       <img class="wordmark" src={(window as any).resourceUris?.wordmark} alt="Ledger" />
     </div>
-  {:else}
+  {:else if ready && apps.length > 0}
     <!-- Main Content -->
     <div class="main-content">
       <!-- Quick Actions Toolbar (at top) -->
@@ -598,6 +635,10 @@
     margin-bottom: 12px;
   }
 
+  .welcome-icon.error {
+    color: var(--vscode-editorError-foreground);
+  }
+
   .welcome-title {
     font-size: var(--vscode-font-size);
     font-weight: 600;
@@ -620,11 +661,13 @@
   }
 
   .vscode-button {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
     padding: 4px 14px;
+    box-sizing: border-box;
+    text-decoration: none;
     border: none;
     border-radius: 2px;
     font-size: var(--vscode-font-size);

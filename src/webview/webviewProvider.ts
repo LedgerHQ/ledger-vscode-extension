@@ -34,6 +34,7 @@ export interface WebviewRefreshOptions {
     selected: string;
   } | null;
   containerStatus?: ContainerStatus | null;
+  dockerRunning?: boolean;
   imageOutdated?: boolean;
   enforcerChecks?: {
     list: string[];
@@ -139,20 +140,29 @@ export class Webview implements vscode.WebviewViewProvider {
       });
     }
 
-    if (options.containerStatus !== undefined) {
-      this._view.webview.postMessage({
-        command: "containerStatus",
-        status: options.containerStatus ?? "stopped",
-        imageOutdated: options.imageOutdated ?? false,
-      });
-    }
-
     if (options.enforcerChecks !== undefined) {
       this._view.webview.postMessage({
         command: "addEnforcerChecks",
         enforcerChecks: options.enforcerChecks?.list ?? [],
         selectedEnforcerCheck: options.enforcerChecks?.selected ?? "",
       });
+    }
+
+    // Send containerStatus last — the webview uses it as a "ready" signal
+    if (options.containerStatus !== undefined) {
+      this._view.webview.postMessage({
+        command: "containerStatus",
+        status: options.containerStatus ?? "stopped",
+        imageOutdated: options.imageOutdated ?? false,
+        dockerRunning: options.dockerRunning ?? false,
+      });
+    }
+  }
+
+  public async sendReady(): Promise<void> {
+    await this._webviewReady;
+    if (this._view) {
+      this._view.webview.postMessage({ command: "ready" });
     }
   }
 

@@ -57,16 +57,23 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
-  const appList = findAppsInWorkspace();
-  const hasApps = appList && appList.length > 0;
+  let targetSelector = new TargetSelector();
 
-  if (hasApps) {
-    setSelectedApp(appList[0]);
-    // Initialize git submodules for the default selected app (event not fired on setSelectedApp)
-    initializeAppSubmodulesIfNeeded(appList[0].folderUri);
+  // Check Docker availability once at activation (execSync is slow, avoid repeated calls)
+  let dockerRunning = ContainerManager.isDockerRunning();
+
+  // Detect apps early so targetSelector and taskProvider have a selected app
+  // (findAppsInWorkspace runs docker commands for C app name detection, so guard with dockerRunning)
+  if (dockerRunning) {
+    const appList = findAppsInWorkspace();
+    const hasApps = appList && appList.length > 0;
+    if (hasApps) {
+      setSelectedApp(appList[0]);
+      // Initialize git submodules for the default selected app (event not fired on setSelectedApp)
+      initializeAppSubmodulesIfNeeded(appList[0].folderUri);
+    }
   }
 
-  let targetSelector = new TargetSelector();
   targetSelector.updateTargetsInfos();
 
   let taskProvider = new TaskProvider(targetSelector, webview);
@@ -113,6 +120,7 @@ export function activate(context: vscode.ExtensionContext) {
     options.containerStatus = containerStatus;
     options.imageOutdated = containerManager.isImageOutdated();
 
+    options.dockerRunning = dockerRunning;
     return options;
   };
 
@@ -123,6 +131,7 @@ export function activate(context: vscode.ExtensionContext) {
       webview.sendTestDependencies(getAppTestsPrerequisites());
     }
     taskProvider.generateTasks();
+    await webview.sendReady();
   };
 
   // Event listener for container status.
@@ -130,9 +139,12 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     containerManager.onStatusEvent((data) => {
       statusBarManager.updateDevImageItem(data, containerManager.isImageOutdated());
+      // If we get a status event, Docker is running
+      dockerRunning = true;
       webview.refresh({
         containerStatus: data,
         imageOutdated: containerManager.isImageOutdated(),
+        dockerRunning: true,
       });
       if (data === DevImageStatus.running) {
         getAndBuildAppTestsDependencies(targetSelector);
@@ -141,6 +153,13 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
+  // Event listener for Docker becoming unavailable (daemon stopped after activation)
+  context.subscriptions.push(
+    containerManager.onDockerUnavailableEvent(() => {
+      dockerRunning = false;
+      webview.refresh({ dockerRunning: false, containerStatus: DevImageStatus.stopped });
+    }),
+  );
   // Event listener for target selection from quick pick menu.
   context.subscriptions.push(
     targetSelector.onTargetSelectedEvent((data) => {

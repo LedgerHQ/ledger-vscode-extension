@@ -2,7 +2,8 @@
 
 import * as vscode from "vscode";
 import { getSelectedApp } from "./appSelector";
-import { ContainerManager, DevImageStatus } from "./containerManager";
+import { ContainerManager } from "./containerManager";
+import { DevImageStatus } from "./types";
 
 const imageToolTip = "Click to update image and respawn container.";
 const outdatedToolTip = "Container is running but image is outdated. Click to update image and respawn container.";

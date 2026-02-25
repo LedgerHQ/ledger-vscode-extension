@@ -9,7 +9,8 @@
   import { ChevronDown, ChevronRight } from "@jis3r/icons";
   import TestsList from "./components/TestsList.svelte";
   import type { TestCase } from "./components/TestsList.svelte";
-  import type { TaskSpec, ContainerStatus } from "../types";
+  import type { TaskSpec } from "../types";
+  import { DevImageStatus } from "../types";
 
   let { vscode } = $props();
   let selectedApp = $state("app-boilerplate");
@@ -21,7 +22,7 @@
   let apps = $state<SelectItem[]>([]);
   let targets = $state<SelectItem[]>([]);
   let ready = $state(false);
-  let containerStatus: ContainerStatus = $state("stopped");
+  let containerStatus: DevImageStatus = $state(DevImageStatus.stopped);
   let dockerRunning = $state(false);
   let imageOutdated = $state(false);
 

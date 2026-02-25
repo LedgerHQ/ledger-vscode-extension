@@ -11,7 +11,8 @@ import {
 } from "./taskProvider";
 import { TargetSelector } from "./targetSelector";
 import { StatusBarManager } from "./statusBar";
-import { ContainerManager, DevImageStatus } from "./containerManager";
+import { ContainerManager } from "./containerManager";
+import { DevImageStatus } from "./types";
 import {
   showBuildUseCase,
   findAppsInWorkspace,
@@ -117,7 +118,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Use cached docker status and default values,
     // Status events will update the webview.
-    options.containerStatus = "stopped";
+    options.containerStatus = DevImageStatus.stopped;
     options.dockerRunning = dockerRunning;
     options.imageOutdated = false;
     return options;

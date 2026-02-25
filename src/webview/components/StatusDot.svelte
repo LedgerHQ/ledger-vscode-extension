@@ -1,10 +1,10 @@
 <script lang="ts">
   import { Tooltip } from "bits-ui";
-  import type { ContainerStatus } from "../../types";
+  import { DevImageStatus } from "../../types";
 
   interface Props {
     vscode: any;
-    status: ContainerStatus;
+    status: DevImageStatus;
     imageOutdated?: boolean;
   }
 
@@ -12,24 +12,24 @@
 
   const color = $derived.by(() => {
     switch (status) {
-      case "running":
+      case DevImageStatus.running:
         return imageOutdated
           ? "var(--vscode-editorWarning-foreground)"
           : "var(--vscode-testing-iconPassed)";
-      case "stopped":
+      case DevImageStatus.stopped:
         return "var(--vscode-testing-iconFailed)";
-      case "syncing":
+      case DevImageStatus.syncing:
         return "var(--vscode-testing-iconQueued)";
     }
   });
 
   const label = $derived.by(() => {
     switch (status) {
-      case "running":
+      case DevImageStatus.running:
         return "Container running";
-      case "stopped":
+      case DevImageStatus.stopped:
         return "Container stopped";
-      case "syncing":
+      case DevImageStatus.syncing:
         return "Container syncing";
     }
   });
@@ -41,7 +41,7 @@
       <span class="status-dot" style="background-color: {color};"></span>
     </Tooltip.Trigger>
     <Tooltip.Portal>
-      <Tooltip.Content class="status-tooltip" sideOffset={6}>
+      <Tooltip.Content class="status-tooltip" sideOffset={6} collisionPadding={8}>
         <div class="status-row">
           <i class="codicon codicon-vm"></i>
           {label}

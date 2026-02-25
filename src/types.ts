@@ -30,7 +30,8 @@ export interface TaskSpec {
 }
 
 // Container types
-/**
- * Status of the Docker container
- */
-export type ContainerStatus = "running" | "stopped" | "syncing";
+export enum DevImageStatus {
+  running = "running",
+  syncing = "syncing",
+  stopped = "stopped",
+}

@@ -5,6 +5,7 @@ import { execSync, exec, ExecSyncOptions } from "child_process";
 import { getSelectedApp } from "./appSelector";
 import { TaskProvider } from "./taskProvider";
 import { ExecSyncOptionsWithStringEncoding } from "child_process";
+import { DevImageStatus } from "./types";
 
 // Helper to get Docker user option based on configuration
 export function getDockerUserOpt(): string {
@@ -41,12 +42,6 @@ export function getComposeServiceName(): string {
   let cleanCmd: string = `docker compose config --services`;
   const output = execSync(cleanCmd, optionsExecSync).toString().trim();
   return output.split("\n")[0];
-}
-
-export enum DevImageStatus {
-  running = "running",
-  syncing = "syncing",
-  stopped = "stopped",
 }
 
 export class ContainerManager {

@@ -171,8 +171,11 @@ export function activate(context: vscode.ExtensionContext) {
   // Event listener for image outdated check result (fires after background digest comparison)
   context.subscriptions.push(
     containerManager.onImageOutdatedEvent((imageOutdated) => {
-      statusBarManager.updateDevImageItem(DevImageStatus.running, imageOutdated);
-      webview.refresh({ containerStatus: DevImageStatus.running, imageOutdated, dockerRunning });
+      const currentStatus = containerManager.getContainerStatus();
+      if (currentStatus === DevImageStatus.running) {
+        statusBarManager.updateDevImageItem(currentStatus, imageOutdated);
+        webview.refresh({ containerStatus: currentStatus, imageOutdated, dockerRunning });
+      }
     }),
   );
 

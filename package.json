@@ -182,7 +182,7 @@
         "ledgerDevTools.dockerAutoUpdate": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Automatically check for updates of the Ledger developer tools Docker image and update it in the background if a new version is available."
+          "markdownDescription": "Automatically update the Ledger developer tools Docker image in the background whenever the development container is started or is not ready."
         }
       }
     },

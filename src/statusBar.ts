@@ -23,8 +23,6 @@ export class StatusBarManager {
     };
     this.devImageItem.command = runDevImageCommand;
     this.updateDevImageItem(DevImageStatus.stopped);
-
-    imageToolTip;
   }
 
   public updateTargetItem(target: string) {

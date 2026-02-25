@@ -232,10 +232,10 @@
         console.log("Received addTasks message:", message);
         let specs: TaskSpec[] = message.specs;
 
-        // Build new options per group first
-        const newOpts: Record<string, Action[]> = {};
+        // Reset all groups before rebuilding from specs
         actionGroups.forEach((g) => {
-          newOpts[g.id] = [];
+          g.mainAction = undefined;
+          g.options = [];
         });
 
         specs.forEach((spec) => {
@@ -255,13 +255,9 @@
             if (spec.mainCommand) {
               group.mainAction = action;
             } else {
-              newOpts[group.id].push(action);
+              group.options.push(action);
             }
           }
-        });
-        // Assign options atomically
-        actionGroups.forEach((group) => {
-          group.options = newOpts[group.id];
         });
         break;
       case "endTaskProcess":

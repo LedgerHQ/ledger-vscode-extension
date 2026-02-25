@@ -94,8 +94,12 @@ export class ContainerManager {
     try {
       const command = `docker inspect --format="{{index .RepoDigests 0}}" ${localImage}`;
       const execOptions: ExecSyncOptionsWithStringEncoding = { stdio: "pipe", encoding: "utf-8" };
-      const output = execSync(command, execOptions).toString().trim().split("@")[1];
-      return output;
+      const parts = execSync(command, execOptions).toString().trim().split("@");
+      if (parts.length < 2 || !parts[1]) {
+        // RepoDigest is missing or does not contain a digest part
+        return null;
+      }
+      return parts[1];
     }
     catch (error: any) {
       console.log(`Ledger: Failed to get local image digest: ${error.message}`);

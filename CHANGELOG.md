@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Improve docker-compose.yml file detection.
 * Remove footer info (redundant with selectors showing app, target, variant).
 
+### Fixed
+
+* Fixed debug mode for Rust apps (now uses `--features debug`)
+
 ## [2.0.0]
 
 ### Changed

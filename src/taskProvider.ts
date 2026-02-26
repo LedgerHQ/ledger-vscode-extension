@@ -11,6 +11,7 @@ import { TargetSelector, specialAllDevice } from "./targetSelector";
 import { getSelectedApp, App, AppLanguage } from "./appSelector";
 import type { TaskSpec } from "./types";
 import { Webview } from "./webview/webviewProvider";
+import { debug } from "vscode";
 
 export type { TaskSpec };
 
@@ -529,20 +530,24 @@ export class TaskProvider implements vscode.TaskProvider {
     const exec = `docker exec ${getDockerUserOpt()} -it ${
       this.containerName
     } bash -c 'export BOLOS_SDK=$(echo ${this.tgtSelector.getSelectedSDK()}) && make -C ${this.buildDir} -j ${buildOpt}'`;
-    // Builds the app using the make command, inside the docker container.
     return exec;
   }
 
   private rustBuildExec(): string {
     const tgtBuildDir = this.tgtSelector.getTargetBuildDirName();
+    let debug: string = "";
+    if (this.currentApp?.selectedBuildUseCase?.name === "debug") {
+      debug = "--features debug";
+    }
+
     const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c 'cd ${
       this.buildDir
-    } && cargo ledger build ${this.tgtSelector.getSelectedSDKModel()} -- -Zunstable-options --out-dir build/${tgtBuildDir}/bin && mv build/${tgtBuildDir}/bin/${
+    } && cargo ledger build ${this.tgtSelector.getSelectedSDKModel()} -- ${debug} -Zunstable-options --out-dir build/${tgtBuildDir}/bin && mv build/${tgtBuildDir}/bin/${
+
       this.packageName
     } build/${tgtBuildDir}/bin/app.elf && mv build/${tgtBuildDir}/bin/${
       this.packageName
     }.apdu build/${tgtBuildDir}/bin/app.apdu'`;
-    // Builds the app in release mode using the make command, inside the docker container.
     return exec;
   }
 

@@ -47,9 +47,11 @@ export function getComposeServiceName(): string {
 export class ContainerManager {
   private taskProvider: TaskProvider;
   private nbUpdate: number = 0;
+  private dockerAvailable: boolean = true;
   private statusEmitter: vscode.EventEmitter<DevImageStatus> = new vscode.EventEmitter<DevImageStatus>();
   private imageOutdatedEmitter: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
   private dockerUnavailableEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+  private dockerAvailableEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
 
   constructor(taskProvider: TaskProvider) {
     this.taskProvider = taskProvider;
@@ -59,9 +61,18 @@ export class ContainerManager {
   public readonly onStatusEvent: vscode.Event<DevImageStatus> = this.statusEmitter.event;
   public readonly onImageOutdatedEvent: vscode.Event<boolean> = this.imageOutdatedEmitter.event;
   public readonly onDockerUnavailableEvent: vscode.Event<void> = this.dockerUnavailableEmitter.event;
+  public readonly onDockerAvailableEvent: vscode.Event<void> = this.dockerAvailableEmitter.event;
 
   public triggerStatusEvent(data: DevImageStatus) {
     this.statusEmitter.fire(data);
+  }
+
+  public notifyDockerAvailable(): void {
+    if (!this.dockerAvailable) {
+      console.log(`Ledger: Docker is now available again.`);
+      this.dockerAvailable = true;
+      this.dockerAvailableEmitter.fire();
+    }
   }
 
   private checkContainerExists(containerName: string): boolean {
@@ -158,7 +169,6 @@ export class ContainerManager {
     }
     catch (error: any) {
       console.log(`Docker error : ${error.message}`);
-      this.dockerUnavailableEmitter.fire();
       return DevImageStatus.stopped;
     }
   }
@@ -180,6 +190,20 @@ export class ContainerManager {
   }
 
   public async manageContainer(): Promise<void> {
+    if (!ContainerManager.isDockerRunning()) {
+      if (this.dockerAvailable) {
+        this.dockerAvailable = false;
+        console.log(`Ledger: Docker is not running, skipping container management.`);
+        this.triggerStatusEvent(DevImageStatus.stopped);
+        this.dockerUnavailableEmitter.fire();
+      }
+      return;
+    }
+
+    if (!this.dockerAvailable) {
+      this.notifyDockerAvailable();
+    }
+
     if (this.isContainerReady() === false) {
       const currentApp = getSelectedApp();
       if (currentApp) {

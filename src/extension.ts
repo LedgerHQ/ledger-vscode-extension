@@ -144,11 +144,9 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     containerManager.onStatusEvent((data) => {
       statusBarManager.updateDevImageItem(data, false);
-      // If we get a status event, Docker is running
-      dockerRunning = true;
       webview.refresh({
         containerStatus: data,
-        dockerRunning: true,
+        dockerRunning,
       });
       if (data === DevImageStatus.running) {
         // Check image outdated in the background (hits Docker registry).
@@ -165,6 +163,14 @@ export function activate(context: vscode.ExtensionContext) {
     containerManager.onDockerUnavailableEvent(() => {
       dockerRunning = false;
       webview.refresh({ dockerRunning: false, containerStatus: DevImageStatus.stopped });
+    }),
+  );
+
+  // Event listener for Docker becoming available again (daemon restarted after being unavailable)
+  context.subscriptions.push(
+    containerManager.onDockerAvailableEvent(() => {
+      dockerRunning = true;
+      webview.refresh({ dockerRunning: true });
     }),
   );
 
@@ -423,6 +429,10 @@ export function activate(context: vscode.ExtensionContext) {
     const taskName = event.execution.task.name;
     if (taskName.startsWith("Update Container") || taskName.startsWith("Create Container")) {
       event.execution.task.isBackground = true;
+      // A container task starting proves Docker is running - notify if it was previously unavailable
+      if (ContainerManager.isDockerRunning()) {
+        containerManager.notifyDockerAvailable();
+      }
       containerManager.triggerStatusEvent(DevImageStatus.syncing);
     }
     if (taskName.startsWith("Quick initial device")) {

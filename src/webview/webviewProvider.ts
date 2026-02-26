@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { TaskSpec } from "../taskProvider";
 import { setSelectedTests } from "../appSelector";
 import { LedgerDevice, SpecialAllDevice } from "../targetSelector";
-import type { BadgeStatus } from "../types";
+import { DevImageStatus } from "../types";
 /**
  * Options for refreshing the webview content.
  * - undefined: skip, don't update this section
@@ -33,9 +33,9 @@ export interface WebviewRefreshOptions {
     list: string[];
     selected: string;
   } | null;
-  containerStatus?: {
-    status: BadgeStatus;
-  } | null;
+  containerStatus?: DevImageStatus | null;
+  dockerRunning?: boolean;
+  imageOutdated?: boolean;
   enforcerChecks?: {
     list: string[];
     selected: string;
@@ -64,8 +64,12 @@ export class Webview implements vscode.WebviewViewProvider {
   // Promise resolve for when the webview is ready
   private _webviewReadyResolve!: () => void;
   private _webviewReady: Promise<void>;
+  private readonly _extensionUri: vscode.Uri;
+  private readonly _context: vscode.ExtensionContext;
 
-  constructor(private readonly _extensionUri: vscode.Uri) {
+  constructor(context: vscode.ExtensionContext) {
+    this._extensionUri = context.extensionUri;
+    this._context = context;
     this._webviewReady = new Promise((resolve) => {
       this._webviewReadyResolve = resolve;
     });
@@ -136,19 +140,29 @@ export class Webview implements vscode.WebviewViewProvider {
       });
     }
 
-    if (options.containerStatus !== undefined) {
-      this._view.webview.postMessage({
-        command: "containerStatus",
-        status: options.containerStatus?.status ?? "stopped",
-      });
-    }
-
     if (options.enforcerChecks !== undefined) {
       this._view.webview.postMessage({
         command: "addEnforcerChecks",
         enforcerChecks: options.enforcerChecks?.list ?? [],
         selectedEnforcerCheck: options.enforcerChecks?.selected ?? "",
       });
+    }
+
+    // Send containerStatus last — the webview uses it as a "ready" signal
+    if (options.containerStatus !== undefined) {
+      this._view.webview.postMessage({
+        command: "containerStatus",
+        status: options.containerStatus ?? DevImageStatus.stopped,
+        imageOutdated: options.imageOutdated ?? false,
+        dockerRunning: options.dockerRunning ?? false,
+      });
+    }
+  }
+
+  public async sendReady(): Promise<void> {
+    await this._webviewReady;
+    if (this._view) {
+      this._view.webview.postMessage({ command: "ready" });
     }
   }
 
@@ -199,9 +213,15 @@ export class Webview implements vscode.WebviewViewProvider {
             console.log("Webview signaled ready");
             // Signal that the webview is ready - this resolves pending refresh calls
             this._webviewReadyResolve();
+            // Restore UI state from global state (only on activation)
+            this._view?.webview.postMessage({
+              command: "setState",
+              pinnedIds: this._context.globalState.get<string[]>("pinnedActions", []),
+              expandedIds: this._context.globalState.get<string[]>("expandedGroups", []),
+              showActions: this._context.globalState.get<boolean>("showActions", true),
+            });
             // Fire event for extension.ts to handle
             this.webviewReadyEmitter.fire();
-            // Note: promise is reset in resolveWebviewView, not here
           }
           break;
         case "executeTask":
@@ -283,6 +303,16 @@ export class Webview implements vscode.WebviewViewProvider {
             const deps: string = data.testDependencies;
             console.log("Updating test dependencies from webview : ", deps);
             this.testDepsUpdatedEmitter.fire(deps);
+          }
+          break;
+        case "saveUIState":
+          {
+            const pinnedIds: string[] = data.pinnedIds ?? [];
+            const expandedIds: string[] = data.expandedIds ?? [];
+            const showActions: boolean = data.showActions ?? true;
+            this._context.globalState.update("pinnedActions", pinnedIds);
+            this._context.globalState.update("expandedGroups", expandedIds);
+            this._context.globalState.update("showActions", showActions);
           }
           break;
       }

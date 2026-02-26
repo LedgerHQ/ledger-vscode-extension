@@ -5,17 +5,26 @@
   import Select, { type SelectItem } from "./components/Select.svelte";
   import StatusDot from "./components/StatusDot.svelte";
   import ActionGroup, { type ActionGroupData, type Action } from "./components/ActionGroup.svelte";
+  import Toolbar from "./components/Toolbar.svelte";
+  import { ChevronDown, ChevronRight } from "@jis3r/icons";
   import TestsList from "./components/TestsList.svelte";
   import type { TestCase } from "./components/TestsList.svelte";
-  import type { TaskSpec, BadgeStatus } from "../types";
+  import type { TaskSpec } from "../types";
+  import { DevImageStatus } from "../types";
 
   let { vscode } = $props();
   let selectedApp = $state("app-boilerplate");
   let selectedTarget = $state("Stax");
   let allDevices = $state(false);
+  let showActions = $state(true);
+  let pinnedIds: string[] = [];
+  let expandedIds: string[] = [];
   let apps = $state<SelectItem[]>([]);
   let targets = $state<SelectItem[]>([]);
-  let containerStatus: BadgeStatus = $state("stopped");
+  let ready = $state(false);
+  let containerStatus: DevImageStatus = $state(DevImageStatus.stopped);
+  let dockerRunning = $state(false);
+  let imageOutdated = $state(false);
 
   // Build use case
   let buildUseCase = $state("");
@@ -44,6 +53,11 @@
     }
   }
 
+  function toggleActions() {
+    showActions = !showActions;
+    saveUIState();
+  }
+
   let testCases = $state<TestCase[]>([]);
   let verboseTests = $state(false);
   let isRefreshing = $state(false);
@@ -69,18 +83,59 @@
   ]);
 
   function isGroupDisabled(group: ActionGroupData): boolean {
-    // Disabled if no mainAction (not populated) OR if allDevices mode and group is disabled on all devices
-    if (!group.mainAction) return true;
     if (group.id === "Tests" && testCases.length === 0 && !isRefreshing) return true;
-    return (allDevices && (group.disabledOnAllDevices ?? false)) || group.mainAction.disabled;
+    if (allDevices && (group.disabledOnAllDevices ?? false)) return true;
+    if (group.mainAction && group.mainAction.disabled) return true;
+    return false;
+  }
+
+  function togglePin(groupId: string, actionId: string) {
+    const group = actionGroups.find((g) => g.id === groupId);
+    if (!group) return;
+
+    if (group.mainAction?.id === actionId) {
+      group.mainAction.pinned = !group.mainAction.pinned;
+    } else {
+      const option = group.options.find((o) => o.id === actionId);
+      if (option) {
+        option.pinned = !option.pinned;
+      }
+    }
+    saveUIState();
+  }
+
+  function toggleExpand(groupId: string) {
+    const group = actionGroups.find((g) => g.id === groupId);
+    if (group) group.expanded = !group.expanded;
+    saveUIState();
+  }
+
+  function saveUIState() {
+    // Rebuild plain arrays from current state for postMessage (avoids Svelte proxies)
+    pinnedIds = [];
+    expandedIds = [];
+    for (const group of actionGroups) {
+      if (group.expanded) expandedIds.push(group.id);
+      if (group.mainAction?.pinned) pinnedIds.push(group.mainAction.id);
+      for (const option of group.options) {
+        if (option.pinned) pinnedIds.push(option.id);
+      }
+    }
+
+    vscode.postMessage({
+      command: "saveUIState",
+      pinnedIds,
+      expandedIds,
+      showActions,
+    });
   }
 
   function executeAction(groupId: string, actionId: string) {
     const group = actionGroups.find((g) => g.id === groupId);
-    if (!group || !group.mainAction) return;
+    if (!group) return;
 
     let action =
-      group.mainAction.id === actionId
+      group.mainAction?.id === actionId
         ? group.mainAction
         : group.options.find((o) => o.id === actionId);
 
@@ -175,11 +230,14 @@
     switch (message.command) {
       case "addTasks":
         console.log("Received addTasks message:", message);
+        let specs: TaskSpec[] = message.specs;
+
+        // Reset all groups before rebuilding from specs
         actionGroups.forEach((g) => {
           g.mainAction = undefined;
           g.options = [];
         });
-        let specs: TaskSpec[] = message.specs;
+
         specs.forEach((spec) => {
           const group = actionGroups.find((g) => g.id === spec.group);
           if (group && spec.state !== "unavailable") {
@@ -192,12 +250,11 @@
               disabledOnAllDevices: spec.allSelectedBehavior === "disable",
               disabled: spec.state === "disabled",
               status: "idle",
+              pinned: pinnedIds.includes(spec.name),
             };
             if (spec.mainCommand) {
-              console.log("Setting main action for group", group.id, "to", action);
               group.mainAction = action;
             } else {
-              console.log("Adding option action for group", group.id, ":", action);
               group.options.push(action);
             }
           }
@@ -205,6 +262,7 @@
         break;
       case "endTaskProcess":
         const { taskName, success } = message;
+        // Update action groups (toolbar derives from these)
         actionGroups.forEach((group) => {
           // Check main action
           if (group.mainAction && group.mainAction.taskName === taskName) {
@@ -251,6 +309,7 @@
           ...message.targets.map((target: string) => ({ value: target, label: target })),
         );
         selectedTarget = message.selectedTarget;
+        allDevices = selectedTarget === "All";
         break;
       case "addBuildUseCases":
         buildUseCases = message.buildUseCases;
@@ -262,6 +321,8 @@
         break;
       case "containerStatus":
         containerStatus = message.status;
+        dockerRunning = message.dockerRunning ?? false;
+        imageOutdated = message.imageOutdated ?? false;
         break;
       case "addEnforcerChecks":
         enforcerChecks = [];
@@ -273,6 +334,27 @@
         break;
       case "setTestDependencies":
         testDependencies = message.testDependencies ?? "";
+        break;
+      case "setState": {
+        /** Restore UI state */
+        pinnedIds = message.pinnedIds ?? [];
+        expandedIds = message.expandedIds ?? [];
+        actionGroups.forEach((group) => {
+          group.expanded = expandedIds.includes(group.id);
+          if (group.mainAction) {
+            group.mainAction.pinned = pinnedIds.includes(group.mainAction.id);
+          }
+          group.options.forEach((opt) => {
+            opt.pinned = pinnedIds.includes(opt.id);
+          });
+        });
+        if (message.showActions !== undefined) {
+          showActions = message.showActions;
+        }
+        break;
+      }
+      case "ready":
+        ready = true;
         break;
     }
     // Handle other commands as needed
@@ -286,8 +368,39 @@
 </script>
 
 <div class="container">
-  <!-- Welcome View when no apps found -->
-  {#if apps.length === 0}
+  <!-- Welcome View when docker is not running -->
+  {#if ready && !dockerRunning}
+    <div class="welcome-view">
+      <i class="codicon codicon-error welcome-icon error"></i>
+      <p class="welcome-title">Docker is not running</p>
+      <p class="welcome-description">
+        Please install and start Docker to use the extension. Once Docker is running, reload the
+        extension.
+      </p>
+      <div class="welcome-buttons">
+        <a
+          class="vscode-button"
+          href="https://docs.docker.com/get-docker/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Get Docker
+        </a>
+        <button
+          class="vscode-button secondary"
+          onclick={() =>
+            vscode.postMessage({
+              command: "executeCommand",
+              commandName: "workbench.action.reloadWindow",
+            })}
+        >
+          Reload Extension
+        </button>
+      </div>
+      <img class="wordmark" src={(window as any).resourceUris?.wordmark} alt="Ledger" />
+    </div>
+    <!-- Welcome View when no apps found -->
+  {:else if ready && apps.length === 0}
     <div class="welcome-view">
       <i class="codicon codicon-warning welcome-icon"></i>
       <p class="welcome-title">No Ledger app detected</p>
@@ -307,40 +420,19 @@
       </div>
       <img class="wordmark" src={(window as any).resourceUris?.wordmark} alt="Ledger" />
     </div>
-  {:else}
+  {:else if ready && apps.length > 0}
     <!-- Main Content -->
     <div class="main-content">
+      <!-- Quick Actions Toolbar (at top) -->
+      <Toolbar {actionGroups} {allDevices} onExecute={executeAction} {isGroupDisabled} />
       <!-- Header -->
       <div class="header-section">
-        <div class="header-row">
-          {#if buildUseCases.length > 1}
-            <Select
-              items={buildUseCaseItems}
-              bind:value={buildUseCase}
-              onchange={selectBuildUseCase}
-              variant="badge"
-              icon={getBuildUseCaseIcon(buildUseCase)}
-              tooltip="Select Build Use Case"
-            />
-          {/if}
-          {#if variants.length > 1}
-            <Select
-              items={variantItems}
-              bind:value={variant}
-              onchange={selectedVariant}
-              variant="badge"
-              icon="symbol-misc"
-              tooltip="Select Variant"
-            />
-          {/if}
-        </div>
-
         <!-- Configuration Card -->
         <div class="config-card">
           <div class="config-header">
             <i class="codicon codicon-settings-gear"></i>
             <h2 class="config-title">Configuration</h2>
-            <StatusDot status={containerStatus} />
+            <StatusDot {vscode} status={containerStatus} {imageOutdated} />
           </div>
           <div class="config-grid">
             <div class="form-group">
@@ -362,6 +454,28 @@
                 onchange={sendSelectedTarget}
               />
             </div>
+            {#if buildUseCases.length > 1}
+              <div class="form-group">
+                <Select
+                  icon={getBuildUseCaseIcon(buildUseCase)}
+                  groupLabel="Build Mode"
+                  items={buildUseCaseItems}
+                  bind:value={buildUseCase}
+                  onchange={selectBuildUseCase}
+                />
+              </div>
+            {/if}
+            {#if variants.length > 1}
+              <div class="form-group">
+                <Select
+                  icon="symbol-misc"
+                  groupLabel="Variant"
+                  items={variantItems}
+                  bind:value={variant}
+                  onchange={selectedVariant}
+                />
+              </div>
+            {/if}
           </div>
           <div class="hint-wrapper" use:autoAnimate>
             {#if allDevices}
@@ -379,106 +493,116 @@
         </div>
       </div>
 
-      <!-- Action Groups -->
-      <div class="actions-section">
-        {#each actionGroups as group}
-          {#if group.id === "Tests"}
-            <ActionGroup
-              {group}
-              disabled={isGroupDisabled(group)}
-              {allDevices}
-              onExecute={(actionId) => executeAction(group.id, actionId)}
-            >
-              <div class="option-row">
-                <Popover.Root bind:open={depsPopoverOpen}>
-                  <Popover.Trigger openOnHover openDelay={1000} class="option-button">
-                    <span class="option-icon">
-                      <i class="codicon codicon-type-hierarchy"></i>
-                    </span>
-                    <span class="option-label">Add Test Dependencies</span>
-                  </Popover.Trigger>
-                  <Popover.Portal>
-                    <Popover.Content class="deps-popover" side="top" sideOffset={4}>
-                      <div class="deps-popover-content">
-                        <label class="deps-label" for="deps-input"
-                          >Additional test dependencies</label
-                        >
-                        <div class="dep-warning-row">
-                          <i class="codicon codicon-warning"></i>
-                          <button
-                            class="dep-warning-link"
-                            onclick={() =>
-                              vscode.postMessage({
-                                command: "executeCommand",
-                                commandName: "workbench.action.openSettings",
-                                args: ["ledgerDevTools.openContainerAsRoot"],
-                              })}
-                          >
-                            Enable root on container
-                          </button>
-                        </div>
+      <!-- Actions Toggle -->
+      <button class="actions-toggle" onclick={toggleActions}>
+        {#if showActions}
+          <ChevronDown size={12} />
+        {:else}
+          <ChevronRight size={12} />
+        {/if}
+        <span>Actions</span>
+      </button>
 
-                        <input
-                          id="deps-input"
-                          type="text"
-                          class="deps-input"
-                          bind:value={depsInputValue}
-                          placeholder="e.g. apt install package_name"
-                        />
-                        <button class="deps-save-button" onclick={saveDependencies}>Save</button>
-                      </div>
-                    </Popover.Content>
-                  </Popover.Portal>
-                </Popover.Root>
-              </div>
-              <TestsList
-                bind:testCases
-                bind:verboseTests
-                {isRefreshing}
-                {refreshTests}
-                {sendSelectedTests}
-              />
-            </ActionGroup>
-          {:else if group.id === "Tools"}
-            <ActionGroup
-              {group}
-              disabled={isGroupDisabled(group)}
-              {allDevices}
-              onExecute={(actionId) => executeAction(group.id, actionId)}
-            >
-              {#snippet optionSuffix(option)}
-                {#if option.label === "Enforcer Checks"}
-                  <div class="check-select-wrapper">
-                    <Select
-                      items={enforcerChecks}
-                      bind:value={enforcerCheck}
-                      placeholder="All"
-                      onchange={selectCheck}
-                    />
+      <!-- Action Groups -->
+      <div class="actions-wrapper" use:autoAnimate>
+        {#if showActions}
+          <div class="actions-section">
+            {#each actionGroups as group}
+              {#if group.id === "Tests"}
+                <ActionGroup
+                  {group}
+                  disabled={isGroupDisabled(group)}
+                  {allDevices}
+                  onExecute={(actionId) => executeAction(group.id, actionId)}
+                  onTogglePin={(actionId) => togglePin(group.id, actionId)}
+                  onToggleExpand={() => toggleExpand(group.id)}
+                >
+                  <div class="option-row">
+                    <Popover.Root bind:open={depsPopoverOpen}>
+                      <Popover.Trigger openOnHover openDelay={1000} class="option-button">
+                        <span class="option-icon">
+                          <i class="codicon codicon-type-hierarchy"></i>
+                        </span>
+                        <span class="option-label">Add Test Dependencies</span>
+                      </Popover.Trigger>
+                      <Popover.Portal>
+                        <Popover.Content class="deps-popover" side="top" sideOffset={4}>
+                          <div class="deps-popover-content">
+                            <label class="deps-label" for="deps-input"
+                              >Additional test dependencies</label
+                            >
+                            <div class="dep-warning-row">
+                              <i class="codicon codicon-warning"></i>
+                              <button
+                                class="dep-warning-link"
+                                onclick={() =>
+                                  vscode.postMessage({
+                                    command: "executeCommand",
+                                    commandName: "workbench.action.openSettings",
+                                    args: ["ledgerDevTools.openContainerAsRoot"],
+                                  })}
+                              >
+                                Enable root on container
+                              </button>
+                            </div>
+
+                            <input
+                              id="deps-input"
+                              type="text"
+                              class="deps-input"
+                              bind:value={depsInputValue}
+                              placeholder="e.g. apt install package_name"
+                            />
+                            <button class="deps-save-button" onclick={saveDependencies}>Save</button
+                            >
+                          </div>
+                        </Popover.Content>
+                      </Popover.Portal>
+                    </Popover.Root>
                   </div>
-                {/if}
-              {/snippet}
-            </ActionGroup>
-          {:else}
-            <ActionGroup
-              {group}
-              disabled={isGroupDisabled(group)}
-              {allDevices}
-              onExecute={(actionId) => executeAction(group.id, actionId)}
-            />
-          {/if}
-        {/each}
-      </div>
-      <!-- Footer Info -->
-      <div class="footer-info">
-        <i class="codicon codicon-info"></i>
-        <span>
-          {#if allDevices}
-            Building {selectedApp} for <strong>all devices</strong>
-          {:else}
-            Building {selectedApp} for <strong>{selectedTarget}</strong>
-          {/if}
-        </span>
+                  <TestsList
+                    bind:testCases
+                    bind:verboseTests
+                    {isRefreshing}
+                    {refreshTests}
+                    {sendSelectedTests}
+                  />
+                </ActionGroup>
+              {:else if group.id === "Tools"}
+                <ActionGroup
+                  {group}
+                  disabled={isGroupDisabled(group)}
+                  {allDevices}
+                  onExecute={(actionId) => executeAction(group.id, actionId)}
+                  onTogglePin={(actionId) => togglePin(group.id, actionId)}
+                  onToggleExpand={() => toggleExpand(group.id)}
+                >
+                  {#snippet optionSuffix(option)}
+                    {#if option.label === "Enforcer Checks"}
+                      <div class="check-select-wrapper">
+                        <Select
+                          items={enforcerChecks}
+                          bind:value={enforcerCheck}
+                          placeholder="All"
+                          onchange={selectCheck}
+                        />
+                      </div>
+                    {/if}
+                  {/snippet}
+                </ActionGroup>
+              {:else}
+                <ActionGroup
+                  {group}
+                  disabled={isGroupDisabled(group)}
+                  {allDevices}
+                  onExecute={(actionId) => executeAction(group.id, actionId)}
+                  onTogglePin={(actionId) => togglePin(group.id, actionId)}
+                  onToggleExpand={() => toggleExpand(group.id)}
+                />
+              {/if}
+            {/each}
+          </div>
+        {/if}
       </div>
     </div>
   {/if}
@@ -509,6 +633,10 @@
     margin-bottom: 12px;
   }
 
+  .welcome-icon.error {
+    color: var(--vscode-editorError-foreground);
+  }
+
   .welcome-title {
     font-size: var(--vscode-font-size);
     font-weight: 600;
@@ -531,11 +659,13 @@
   }
 
   .vscode-button {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
     padding: 4px 14px;
+    box-sizing: border-box;
+    text-decoration: none;
     border: none;
     border-radius: 2px;
     font-size: var(--vscode-font-size);
@@ -585,21 +715,6 @@
     gap: 8px;
   }
 
-  .header-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  @media (max-width: 250px) {
-    .header-row {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-  }
-
   /* Configuration Card */
   .config-card {
     background-color: var(--vscode-sideBar-background);
@@ -623,25 +738,10 @@
     flex: 1;
   }
 
-  @media (min-width: 350px) {
-    .config-grid {
-      display: flex;
-      flex-direction: row;
-      gap: 8px;
-    }
-
-    .config-grid .form-group {
-      flex: 1;
-      min-width: 0;
-    }
-  }
-
-  @media (max-width: 349px) {
-    .config-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
+  .config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
   }
 
   .form-group {
@@ -693,22 +793,33 @@
     color: var(--vscode-editorWarning-foreground);
   }
 
+  /* Actions Toggle */
+  .actions-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 2px;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    opacity: 0.7;
+  }
+
+  .actions-toggle:hover {
+    color: var(--vscode-foreground);
+    opacity: 1;
+  }
+
   /* Actions Section */
   .actions-section {
     display: flex;
     flex-direction: column;
     gap: 6px;
-  }
-
-  /* Footer */
-  .footer-info {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    font-size: 11px;
-    color: var(--vscode-descriptionForeground);
-    padding: 4px;
   }
 
   /* Animations */

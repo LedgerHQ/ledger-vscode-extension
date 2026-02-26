@@ -1,10 +1,11 @@
 "use strict";
 import * as vscode from "vscode";
 import { platform } from "node:process";
-import { execSync, ExecSyncOptions } from "child_process";
+import { execSync, exec, ExecSyncOptions } from "child_process";
 import { getSelectedApp } from "./appSelector";
 import { TaskProvider } from "./taskProvider";
 import { ExecSyncOptionsWithStringEncoding } from "child_process";
+import { DevImageStatus } from "./types";
 
 // Helper to get Docker user option based on configuration
 export function getDockerUserOpt(): string {
@@ -43,16 +44,14 @@ export function getComposeServiceName(): string {
   return output.split("\n")[0];
 }
 
-export enum DevImageStatus {
-  running = "sync",
-  syncing = "sync~spin",
-  stopped = "notebook-stop",
-}
-
 export class ContainerManager {
   private taskProvider: TaskProvider;
   private nbUpdate: number = 0;
+  private dockerAvailable: boolean = true;
   private statusEmitter: vscode.EventEmitter<DevImageStatus> = new vscode.EventEmitter<DevImageStatus>();
+  private imageOutdatedEmitter: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
+  private dockerUnavailableEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+  private dockerAvailableEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
 
   constructor(taskProvider: TaskProvider) {
     this.taskProvider = taskProvider;
@@ -60,9 +59,20 @@ export class ContainerManager {
   }
 
   public readonly onStatusEvent: vscode.Event<DevImageStatus> = this.statusEmitter.event;
+  public readonly onImageOutdatedEvent: vscode.Event<boolean> = this.imageOutdatedEmitter.event;
+  public readonly onDockerUnavailableEvent: vscode.Event<void> = this.dockerUnavailableEmitter.event;
+  public readonly onDockerAvailableEvent: vscode.Event<void> = this.dockerAvailableEmitter.event;
 
   public triggerStatusEvent(data: DevImageStatus) {
     this.statusEmitter.fire(data);
+  }
+
+  public notifyDockerAvailable(): void {
+    if (!this.dockerAvailable) {
+      console.log(`Ledger: Docker is now available again.`);
+      this.dockerAvailable = true;
+      this.dockerAvailableEmitter.fire();
+    }
   }
 
   private checkContainerExists(containerName: string): boolean {
@@ -88,6 +98,52 @@ export class ContainerManager {
   private getDockerImage(): string {
     const conf = vscode.workspace.getConfiguration("ledgerDevTools");
     return conf.get<string>("dockerImage") || "";
+  }
+
+  private getLocalDigest(): string | null {
+    const localImage = this.getDockerImage();
+    try {
+      const command = `docker inspect --format="{{index .RepoDigests 0}}" ${localImage}`;
+      const execOptions: ExecSyncOptionsWithStringEncoding = { stdio: "pipe", encoding: "utf-8" };
+      const parts = execSync(command, execOptions).toString().trim().split("@");
+      if (parts.length < 2 || !parts[1]) {
+        // RepoDigest is missing or does not contain a digest part
+        return null;
+      }
+      return parts[1];
+    }
+    catch (error: any) {
+      console.log(`Ledger: Failed to get local image digest: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Runs the image outdated check in the background.
+   * Compares local and remote digests, then fires a status event to update the UI.
+   */
+  public checkImageOutdated(): void {
+    const localDigest = this.getLocalDigest();
+    if (!localDigest) {
+      return;
+    }
+
+    const imageName = this.getDockerImage();
+    const command = `docker buildx imagetools inspect ${imageName} --format "{{json .}}"`;
+
+    exec(command, (error, stdout) => {
+      if (error) {
+        console.log(`Ledger: Failed to get remote image digest: ${error.message}`);
+        return;
+      }
+      try {
+        const remoteDigest = JSON.parse(stdout.trim()).manifest.digest;
+        this.imageOutdatedEmitter.fire(localDigest !== remoteDigest);
+      }
+      catch (parseError: any) {
+        console.log(`Ledger: Failed to parse remote image digest: ${parseError.message}`);
+      }
+    });
   }
 
   public getContainerStatus(): DevImageStatus {
@@ -117,6 +173,16 @@ export class ContainerManager {
     }
   }
 
+  public static isDockerRunning(): boolean {
+    try {
+      execSync("docker info", { stdio: "ignore" });
+      return true;
+    }
+    catch (error) {
+      return false;
+    }
+  }
+
   public isContainerReady(): boolean {
     const status = this.getContainerStatus();
     this.triggerStatusEvent(status);
@@ -124,38 +190,62 @@ export class ContainerManager {
   }
 
   public async manageContainer(): Promise<void> {
+    if (!ContainerManager.isDockerRunning()) {
+      if (this.dockerAvailable) {
+        this.dockerAvailable = false;
+        console.log(`Ledger: Docker is not running, skipping container management.`);
+        this.triggerStatusEvent(DevImageStatus.stopped);
+        this.dockerUnavailableEmitter.fire();
+      }
+      return;
+    }
+
+    if (!this.dockerAvailable) {
+      this.notifyDockerAvailable();
+    }
+
     if (this.isContainerReady() === false) {
       const currentApp = getSelectedApp();
       if (currentApp) {
         const containerName = currentApp.containerName;
 
-        // Check if container exists but is just stopped
-        if (this.checkContainerExists(containerName)) {
-          console.log(`Ledger: Container ${containerName} exists but is stopped, restarting...`);
+        const conf = vscode.workspace.getConfiguration("ledgerDevTools");
+        const autoUpdate: boolean = conf.get<boolean>("dockerAutoUpdate") || false;
+
+        if (autoUpdate) {
+          console.log(`Ledger: Auto-update is enabled, checking for container updates...`);
           this.triggerStatusEvent(DevImageStatus.syncing);
-          try {
-            const execOptions: ExecSyncOptionsWithStringEncoding = { stdio: "pipe", encoding: "utf-8" };
-            execSync(`docker start ${containerName}`, execOptions);
-            console.log(`Ledger: Container ${containerName} restarted successfully`);
-            this.triggerStatusEvent(DevImageStatus.running);
-          }
-          catch (error: any) {
-            console.log(`Ledger: Failed to restart container: ${error.message}`);
-            this.triggerStatusEvent(DevImageStatus.stopped);
-          }
+          await this.taskProvider.executeTaskByName("Update Container");
         }
         else {
-          // Container doesn't exist, check if image exists to create it
-          const imageName = this.getDockerImage();
-          if (this.checkImageExists(imageName)) {
-            console.log(`Ledger: Container ${containerName} does not exist but image ${imageName} is present. Creating container...`);
+          // Check if container exists but is just stopped
+          if (this.checkContainerExists(containerName)) {
+            console.log(`Ledger: Container ${containerName} exists but is stopped, restarting...`);
             this.triggerStatusEvent(DevImageStatus.syncing);
-            await this.taskProvider.executeTaskByName("Create Container");
+            try {
+              const execOptions: ExecSyncOptionsWithStringEncoding = { stdio: "pipe", encoding: "utf-8" };
+              execSync(`docker start ${containerName}`, execOptions);
+              console.log(`Ledger: Container ${containerName} restarted successfully`);
+              this.triggerStatusEvent(DevImageStatus.running);
+            }
+            catch (error: any) {
+              console.log(`Ledger: Failed to restart container: ${error.message}`);
+              this.triggerStatusEvent(DevImageStatus.stopped);
+            }
           }
           else {
-            console.log(`Ledger: Container ${containerName} and image ${imageName} do not exist. Pulling image and creating container...`);
-            this.triggerStatusEvent(DevImageStatus.syncing);
-            await this.taskProvider.executeTaskByName("Update Container");
+            // Container doesn't exist, check if image exists to create it
+            const imageName = this.getDockerImage();
+            if (this.checkImageExists(imageName)) {
+              console.log(`Ledger: Container ${containerName} does not exist but image ${imageName} is present. Creating container...`);
+              this.triggerStatusEvent(DevImageStatus.syncing);
+              await this.taskProvider.executeTaskByName("Create Container");
+            }
+            else {
+              console.log(`Ledger: Container ${containerName} and image ${imageName} do not exist. Pulling image and creating container...`);
+              this.triggerStatusEvent(DevImageStatus.syncing);
+              await this.taskProvider.executeTaskByName("Update Container");
+            }
           }
         }
       }

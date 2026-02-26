@@ -127,12 +127,12 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 6px;
     width: 100%;
-    padding: 6px 10px;
+    padding: 4px 8px;
     background-color: var(--vscode-input-background);
     border: 1px solid var(--vscode-input-border);
-    border-radius: 6px;
+    border-radius: 4px;
     color: var(--vscode-input-foreground);
     font-size: 12px;
     font-family: var(--vscode-font-family);
@@ -141,7 +141,7 @@
       border-color 0.15s ease,
       box-shadow 0.15s ease;
     outline: none;
-    min-height: 28px;
+    min-height: 24px;
   }
 
   :global(.select-trigger:hover) {
@@ -221,7 +221,7 @@
   :global(.select-content) {
     background-color: var(--vscode-dropdown-background);
     border: 1px solid var(--vscode-dropdown-border);
-    border-radius: 8px;
+    border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     overflow: hidden;
     z-index: 1000;
@@ -232,13 +232,13 @@
   }
 
   :global(.select-viewport) {
-    padding: 4px;
+    padding: 3px;
     max-height: inherit;
     overflow-y: auto;
   }
 
   :global(.select-group-label) {
-    padding: 4px 8px 2px 8px;
+    padding: 3px 6px 2px 6px;
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -250,9 +250,9 @@
   :global(.select-item) {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 8px;
-    border-radius: 4px;
+    gap: 6px;
+    padding: 4px 6px;
+    border-radius: 3px;
     font-size: 12px;
     font-family: var(--vscode-font-family);
     color: var(--vscode-dropdown-foreground);

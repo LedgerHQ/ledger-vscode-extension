@@ -1,31 +1,35 @@
 <script lang="ts">
   import { Tooltip } from "bits-ui";
-  import type { BadgeStatus } from "../../types";
+  import { DevImageStatus } from "../../types";
 
   interface Props {
-    status: BadgeStatus;
+    vscode: any;
+    status: DevImageStatus;
+    imageOutdated?: boolean;
   }
 
-  let { status }: Props = $props();
+  let { vscode, status, imageOutdated = false }: Props = $props();
 
   const color = $derived.by(() => {
     switch (status) {
-      case "running":
-        return "var(--vscode-testing-iconPassed)";
-      case "stopped":
+      case DevImageStatus.running:
+        return imageOutdated
+          ? "var(--vscode-editorWarning-foreground)"
+          : "var(--vscode-testing-iconPassed)";
+      case DevImageStatus.stopped:
         return "var(--vscode-testing-iconFailed)";
-      case "syncing":
+      case DevImageStatus.syncing:
         return "var(--vscode-testing-iconQueued)";
     }
   });
 
   const label = $derived.by(() => {
     switch (status) {
-      case "running":
+      case DevImageStatus.running:
         return "Container running";
-      case "stopped":
+      case DevImageStatus.stopped:
         return "Container stopped";
-      case "syncing":
+      case DevImageStatus.syncing:
         return "Container syncing";
     }
   });
@@ -37,9 +41,26 @@
       <span class="status-dot" style="background-color: {color};"></span>
     </Tooltip.Trigger>
     <Tooltip.Portal>
-      <Tooltip.Content class="status-tooltip" sideOffset={6}>
-        <i class="codicon codicon-vm"></i>
-        {label}
+      <Tooltip.Content class="status-tooltip" sideOffset={6} collisionPadding={8}>
+        <div class="status-row">
+          <i class="codicon codicon-vm"></i>
+          {label}
+        </div>
+        {#if imageOutdated}
+          <div class="warning-label">
+            <i class="codicon codicon-warning"></i>
+            <button
+              class="warning-link"
+              onclick={() =>
+                vscode.postMessage({
+                  command: "executeTask",
+                  taskName: "Update Container",
+                })}
+            >
+              Image is outdated. Click to update.
+            </button>
+          </div>
+        {/if}
       </Tooltip.Content>
     </Tooltip.Portal>
   </Tooltip.Root>
@@ -64,8 +85,8 @@
 
   :global(.status-tooltip) {
     display: flex;
-    align-items: center;
-    gap: 6px;
+    flex-direction: column;
+    gap: 4px;
     padding: 6px 10px;
     background-color: var(--vscode-editorWidget-background);
     border: 1px solid var(--vscode-editorWidget-border);
@@ -74,5 +95,33 @@
     color: var(--vscode-foreground);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     z-index: 1000;
+  }
+
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .warning-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--vscode-editorWarning-foreground);
+    font-size: 11px;
+  }
+
+  .warning-link {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--vscode-editorWarning-foreground);
+    font-size: 11px;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+
+  .warning-link:hover {
+    opacity: 0.8;
   }
 </style>

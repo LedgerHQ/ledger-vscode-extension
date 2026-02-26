@@ -11,7 +11,8 @@ import {
 } from "./taskProvider";
 import { TargetSelector } from "./targetSelector";
 import { StatusBarManager } from "./statusBar";
-import { ContainerManager, DevImageStatus } from "./containerManager";
+import { ContainerManager } from "./containerManager";
+import { DevImageStatus } from "./types";
 import {
   showBuildUseCase,
   findAppsInWorkspace,
@@ -50,29 +51,36 @@ export function activate(context: vscode.ExtensionContext) {
 
   outputChannel = vscode.window.createOutputChannel("Ledger DevTools");
 
-  let webview = new Webview(context.extensionUri);
+  let webview = new Webview(context);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("appWebView", webview, {
       webviewOptions: { retainContextWhenHidden: true },
     }),
   );
 
-  const appList = findAppsInWorkspace();
-  const hasApps = appList && appList.length > 0;
+  let targetSelector = new TargetSelector();
 
-  if (hasApps) {
-    setSelectedApp(appList[0]);
-    // Initialize git submodules for the default selected app (event not fired on setSelectedApp)
-    initializeAppSubmodulesIfNeeded(appList[0].folderUri);
+  // Check Docker availability once at activation (execSync is slow, avoid repeated calls)
+  let dockerRunning = ContainerManager.isDockerRunning();
+
+  // Detect apps early so targetSelector and taskProvider have a selected app
+  // (findAppsInWorkspace runs docker commands for C app name detection, so guard with dockerRunning)
+  if (dockerRunning) {
+    const appList = findAppsInWorkspace();
+    const hasApps = appList && appList.length > 0;
+    if (hasApps) {
+      setSelectedApp(appList[0]);
+      // Initialize git submodules for the default selected app (event not fired on setSelectedApp)
+      initializeAppSubmodulesIfNeeded(appList[0].folderUri);
+    }
   }
 
-  let targetSelector = new TargetSelector();
   targetSelector.updateTargetsInfos();
 
   let taskProvider = new TaskProvider(targetSelector, webview);
   context.subscriptions.push(vscode.tasks.registerTaskProvider(taskType, taskProvider));
 
-  let statusBarManager = new StatusBarManager(targetSelector.getSelectedTarget(), getSelectedBuidUseCase());
+  let statusBarManager = new StatusBarManager();
 
   let containerManager = new ContainerManager(taskProvider);
 
@@ -108,41 +116,71 @@ export function activate(context: vscode.ExtensionContext) {
       };
     }
 
-    // Include container status (for re-resolution)
-    const containerStatus = containerManager.getContainerStatus();
-    options.containerStatus = {
-      status: containerStatus === DevImageStatus.running
-        ? "running"
-        : containerStatus === DevImageStatus.stopped
-          ? "stopped"
-          : "syncing",
-    };
-
+    // Use cached docker status and default values,
+    // Status events will update the webview.
+    options.containerStatus = DevImageStatus.stopped;
+    options.dockerRunning = dockerRunning;
+    options.imageOutdated = false;
     return options;
   };
 
   // Helper to refresh webview with full state
-  const refreshWebviewFullState = () => {
-    webview.refresh(buildFullRefreshOptions());
+  const refreshWebviewFullState = async () => {
+    await webview.refresh(buildFullRefreshOptions());
     if (getSelectedApp()) {
-      webview.sendTestDependencies(getAppTestsPrerequisites());
+      await webview.sendTestDependencies(getAppTestsPrerequisites());
+      try {
+        taskProvider.generateTasks();
+      }
+      catch (e) {
+        console.error("Ledger: Failed to generate tasks:", e);
+      }
     }
-    taskProvider.generateTasks();
+    await webview.sendReady();
   };
 
   // Event listener for container status.
   // This event is fired when the container status changes
   context.subscriptions.push(
     containerManager.onStatusEvent((data) => {
-      statusBarManager.updateDevImageItem(data);
+      statusBarManager.updateDevImageItem(data, false);
       webview.refresh({
-        containerStatus: {
-          status: data === DevImageStatus.running ? "running" : data === DevImageStatus.stopped ? "stopped" : "syncing",
-        },
+        containerStatus: data,
+        dockerRunning,
       });
       if (data === DevImageStatus.running) {
+        // Check image outdated in the background (hits Docker registry).
+        // Result arrives via onImageOutdatedEvent.
+        containerManager.checkImageOutdated();
         getAndBuildAppTestsDependencies(targetSelector);
         getAppTestsList(targetSelector, false, webview);
+      }
+    }),
+  );
+
+  // Event listener for Docker becoming unavailable (daemon stopped after activation)
+  context.subscriptions.push(
+    containerManager.onDockerUnavailableEvent(() => {
+      dockerRunning = false;
+      webview.refresh({ dockerRunning: false, containerStatus: DevImageStatus.stopped });
+    }),
+  );
+
+  // Event listener for Docker becoming available again (daemon restarted after being unavailable)
+  context.subscriptions.push(
+    containerManager.onDockerAvailableEvent(() => {
+      dockerRunning = true;
+      webview.refresh({ dockerRunning: true });
+    }),
+  );
+
+  // Event listener for image outdated check result (fires after background digest comparison)
+  context.subscriptions.push(
+    containerManager.onImageOutdatedEvent((imageOutdated) => {
+      const currentStatus = containerManager.getContainerStatus();
+      if (currentStatus === DevImageStatus.running) {
+        statusBarManager.updateDevImageItem(currentStatus, imageOutdated);
+        webview.refresh({ containerStatus: currentStatus, imageOutdated, dockerRunning });
       }
     }),
   );
@@ -391,6 +429,10 @@ export function activate(context: vscode.ExtensionContext) {
     const taskName = event.execution.task.name;
     if (taskName.startsWith("Update Container") || taskName.startsWith("Create Container")) {
       event.execution.task.isBackground = true;
+      // A container task starting proves Docker is running - notify if it was previously unavailable
+      if (ContainerManager.isDockerRunning()) {
+        containerManager.notifyDockerAvailable();
+      }
       containerManager.triggerStatusEvent(DevImageStatus.syncing);
     }
     if (taskName.startsWith("Quick initial device")) {
@@ -491,9 +533,23 @@ export function activate(context: vscode.ExtensionContext) {
   };
 
   // FileSystemWatcher catches external changes (terminal, other apps)
-  const conftestWatcher = vscode.workspace.createFileSystemWatcher("**/conftest.py", false, true, false);
-  conftestWatcher.onDidCreate(() => refreshTestsIfReady());
-  conftestWatcher.onDidDelete(() => webview.refresh({ testCases: null }));
+  const conftestWatcher = vscode.workspace.createFileSystemWatcher("{**/conftest.py,docker-compose.yml}", false, true, false);
+  conftestWatcher.onDidCreate((uri) => {
+    if (uri.fsPath.endsWith("conftest.py")) {
+      refreshTestsIfReady();
+    }
+    if (uri.fsPath.endsWith("docker-compose.yml")) {
+      taskProvider.generateTasks();
+    }
+  });
+  conftestWatcher.onDidDelete((uri) => {
+    if (uri.fsPath.endsWith("conftest.py")) {
+      webview.refresh({ testCases: null });
+    }
+    if (uri.fsPath.endsWith("docker-compose.yml")) {
+      taskProvider.generateTasks();
+    }
+  });
   context.subscriptions.push(conftestWatcher);
 
   // VS Code explorer operations are caught by workspace events
@@ -502,10 +558,16 @@ export function activate(context: vscode.ExtensionContext) {
       if (event.files.some(uri => isTestsRelatedPath(uri.fsPath))) {
         webview.refresh({ testCases: null });
       }
+      if (event.files.some(uri => uri.fsPath.endsWith("docker-compose.yml"))) {
+        taskProvider.generateTasks();
+      }
     }),
     vscode.workspace.onDidCreateFiles((event) => {
       if (event.files.some(uri => uri.fsPath.endsWith("conftest.py"))) {
         refreshTestsIfReady();
+      }
+      if (event.files.some(uri => uri.fsPath.endsWith("docker-compose.yml"))) {
+        taskProvider.generateTasks();
       }
     }),
   );
@@ -527,10 +589,12 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Listen for webview ready event (fires on initial load and re-resolution when moved to new sidebar)
   context.subscriptions.push(
-    webview.onWebviewReadyEvent(() => {
-      refreshWebviewFullState();
+    webview.onWebviewReadyEvent(async () => {
+      await refreshWebviewFullState();
       if (isInitialActivation) {
         isInitialActivation = false;
+        statusBarManager.updateTargetItem(targetSelector.getSelectedTarget());
+        statusBarManager.updateBuildUseCaseItem(getSelectedBuidUseCase());
         containerManager.manageContainer();
       }
       else {

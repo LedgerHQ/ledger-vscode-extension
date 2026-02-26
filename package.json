@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "Ledger Dev Tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",
@@ -178,6 +178,11 @@
           "type": "object",
           "scope": "resource",
           "description": "Application dedicated settings."
+        },
+        "ledgerDevTools.dockerAutoUpdate": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Automatically update the Ledger developer tools Docker image in the background whenever the development container is started or is not ready."
         }
       }
     },

@@ -83,23 +83,23 @@
 <div class="toolbar-wrapper" use:autoAnimate>
   {#if groups.length > 0}
     <Toolbar.Root class="toolbar-root" orientation="horizontal" loop>
-        {#each groups as group, i}
-          {#if i > 0}
-            <div class="toolbar-divider"></div>
-          {/if}
-          {#each group.actions as action}
-            <Toolbar.Button
-              class="toolbar-button {getStatusClass(action.status)}"
-              disabled={action.disabled || action.status === "running"}
-              title={action.tooltip ?? action.label}
-              onclick={() => onExecute(action.group, action.id)}
-            >
-              <span class="toolbar-icon">
-                <i class="codicon codicon-{action.icon}"></i>
-              </span>
-            </Toolbar.Button>
-          {/each}
+      {#each groups as group, i}
+        {#if i > 0}
+          <div class="toolbar-divider"></div>
+        {/if}
+        {#each group.actions as action}
+          <Toolbar.Button
+            class="toolbar-button {getStatusClass(action.status)}"
+            disabled={action.disabled || action.status === "running"}
+            title={action.tooltip ?? action.label}
+            onclick={() => onExecute(action.group, action.id)}
+          >
+            <span class="toolbar-icon">
+              <i class="codicon codicon-{action.icon}"></i>
+            </span>
+          </Toolbar.Button>
         {/each}
+      {/each}
     </Toolbar.Root>
   {/if}
 </div>

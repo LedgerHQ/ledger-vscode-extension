@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0]
+
+### Added
+
+* Add a toolbar that shows pinned actions and introduce pin controls for action groups.
+* Persist/restore webview UI state via globalState (pinnedActions, expandedGroups, showActions).
+* Add setting to enable/disable auto pull of docker image when managing container.
+
+### Changed
+
+* Expand container/Docker status handling (welcome view when docker not running, image-outdated check + UI/status bar updates).
+* Improve docker-compose.yml file detection.
+* Remove footer info (redundant with selectors showing app, target, variant).
+
 ## [2.0.0]
 
 ### Changed

@@ -1,7 +1,7 @@
 <script lang="ts" module>
   import type { ActionGroupData, Action } from "./ActionGroup.svelte";
 
-  export interface ToolbarAction {
+  interface ToolbarAction {
     id: string;
     label: string;
     icon: string;
@@ -19,7 +19,7 @@
 </script>
 
 <script lang="ts">
-  import { Toolbar, Tooltip } from "bits-ui";
+  import { Toolbar } from "bits-ui";
   import autoAnimate from "@formkit/auto-animate";
 
   interface Props {
@@ -82,41 +82,25 @@
 
 <div class="toolbar-wrapper" use:autoAnimate>
   {#if groups.length > 0}
-    <Tooltip.Provider>
-      <Toolbar.Root class="toolbar-root" orientation="horizontal" loop>
+    <Toolbar.Root class="toolbar-root" orientation="horizontal" loop>
         {#each groups as group, i}
           {#if i > 0}
             <div class="toolbar-divider"></div>
           {/if}
           {#each group.actions as action}
-            <Tooltip.Root delayDuration={500}>
-              <Tooltip.Trigger>
-                {#snippet child({ props })}
-                  <Toolbar.Button
-                    {...props}
-                    class="toolbar-button {getStatusClass(action.status)}"
-                    disabled={action.disabled || action.status === "running"}
-                    onclick={() => onExecute(action.group, action.id)}
-                  >
-                    <span class="toolbar-icon">
-                      <i class="codicon codicon-{action.icon}"></i>
-                    </span>
-                  </Toolbar.Button>
-                {/snippet}
-              </Tooltip.Trigger>
-              <Tooltip.Portal>
-                <Tooltip.Content class="toolbar-tooltip" sideOffset={8} collisionPadding={8}>
-                  <span class="tooltip-label">{action.label}</span>
-                  {#if action.tooltip}
-                    <span class="tooltip-desc">{action.tooltip}</span>
-                  {/if}
-                </Tooltip.Content>
-              </Tooltip.Portal>
-            </Tooltip.Root>
+            <Toolbar.Button
+              class="toolbar-button {getStatusClass(action.status)}"
+              disabled={action.disabled || action.status === "running"}
+              title={action.tooltip ?? action.label}
+              onclick={() => onExecute(action.group, action.id)}
+            >
+              <span class="toolbar-icon">
+                <i class="codicon codicon-{action.icon}"></i>
+              </span>
+            </Toolbar.Button>
           {/each}
         {/each}
-      </Toolbar.Root>
-    </Tooltip.Provider>
+    </Toolbar.Root>
   {/if}
 </div>
 
@@ -204,30 +188,5 @@
 
   .toolbar-icon .codicon {
     font-size: 16px;
-  }
-
-  :global(.toolbar-tooltip) {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 4px 8px;
-    background: var(--vscode-editorWidget-background);
-    border: 1px solid var(--vscode-editorWidget-border);
-    border-radius: 3px;
-    box-shadow: 0 2px 8px var(--vscode-widget-shadow);
-    z-index: 1000;
-    max-width: min(300px, calc(100vw - 16px));
-    word-wrap: break-word;
-  }
-
-  :global(.tooltip-label) {
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--vscode-foreground);
-  }
-
-  :global(.tooltip-desc) {
-    font-size: 10px;
-    color: var(--vscode-descriptionForeground);
   }
 </style>

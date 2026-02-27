@@ -405,6 +405,12 @@ export class TaskProvider implements vscode.TaskProvider {
     if (!this.currentApp) {
       return;
     }
+    // Re-gate the tasks-ready promise so executeTaskByName waits for this regeneration
+    if (!this.tasksReadyResolve) {
+      this.tasksReadyPromise = new Promise((resolve) => {
+        this.tasksReadyResolve = resolve;
+      });
+    }
     // Reset provider vars
     this.resetVars();
     // Keep track of existing tasks that aren't being regenerated
@@ -419,6 +425,12 @@ export class TaskProvider implements vscode.TaskProvider {
     this.pushTasks(specsToRegenerate);
     // Refresh webview with updated specs (apply dynamic labels)
     this.webviewProvider.refresh({ tasks: { list: this.getWebviewTaskSpecs() } });
+
+    // Resolve the tasks-ready promise so executeTaskByName doesn't hang
+    if (this.tasksReadyResolve) {
+      this.tasksReadyResolve();
+      this.tasksReadyResolve = null;
+    }
   }
 
   public async provideTasks(): Promise<vscode.Task[]> {

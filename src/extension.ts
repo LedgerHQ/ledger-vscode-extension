@@ -84,8 +84,6 @@ export function activate(context: vscode.ExtensionContext) {
 
   let containerManager = new ContainerManager(taskProvider);
 
-  let isInitialActivation = true;
-
   // Helper to build full webview refresh options from current state
   const buildFullRefreshOptions = (): WebviewRefreshOptions => {
     const appList = getAppList();
@@ -118,7 +116,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Use cached docker status and default values,
     // Status events will update the webview.
-    options.containerStatus = DevImageStatus.stopped;
+    options.containerStatus = containerManager.getContainerStatus();
     options.dockerRunning = dockerRunning;
     options.imageOutdated = false;
     return options;
@@ -394,12 +392,6 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("toggleAllTargets", () => {
-      targetSelector.toggleAllTargetSelection();
-    }),
-  );
-
-  context.subscriptions.push(
     vscode.commands.registerCommand("selectTestUseCase", () => {
       showTestUseCaseSelectorMenu(targetSelector);
     }),
@@ -591,20 +583,20 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     webview.onWebviewReadyEvent(async () => {
       await refreshWebviewFullState();
-      if (isInitialActivation) {
-        isInitialActivation = false;
-        statusBarManager.updateTargetItem(targetSelector.getSelectedTarget());
-        statusBarManager.updateBuildUseCaseItem(getSelectedBuidUseCase());
-        containerManager.manageContainer();
-      }
-      else {
-        // On re-resolution, fetch tests if container is already running (onStatusEvent won't fire)
-        if (containerManager.getContainerStatus() === DevImageStatus.running) {
-          getAppTestsList(targetSelector, false, webview);
-        }
+      if (containerManager.getContainerStatus() === DevImageStatus.running) {
+        getAppTestsList(targetSelector, false, webview);
       }
     }),
   );
+
+  if (getSelectedApp()) {
+    containerManager.manageContainer();
+    // Generate only Update Container to make sure the container status bar item command is functional.
+    taskProvider.regenerateSubset(["Update Container"]);
+    statusBarManager.updateTargetItem(targetSelector.getSelectedTarget());
+    statusBarManager.updateBuildUseCaseItem(getSelectedBuidUseCase());
+    statusBarManager.updateDevImageItem(containerManager.getContainerStatus());
+  }
 
   console.log(`Ledger: extension activated`);
   return 0;

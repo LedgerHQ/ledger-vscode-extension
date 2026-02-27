@@ -405,6 +405,12 @@ export class TaskProvider implements vscode.TaskProvider {
     if (!this.currentApp) {
       return;
     }
+    // Re-gate the tasks-ready promise so executeTaskByName waits for this regeneration
+    if (!this.tasksReadyResolve) {
+      this.tasksReadyPromise = new Promise((resolve) => {
+        this.tasksReadyResolve = resolve;
+      });
+    }
     // Reset provider vars
     this.resetVars();
     // Keep track of existing tasks that aren't being regenerated
@@ -419,6 +425,12 @@ export class TaskProvider implements vscode.TaskProvider {
     this.pushTasks(specsToRegenerate);
     // Refresh webview with updated specs (apply dynamic labels)
     this.webviewProvider.refresh({ tasks: { list: this.getWebviewTaskSpecs() } });
+
+    // Resolve the tasks-ready promise so executeTaskByName doesn't hang
+    if (this.tasksReadyResolve) {
+      this.tasksReadyResolve();
+      this.tasksReadyResolve = null;
+    }
   }
 
   public async provideTasks(): Promise<vscode.Task[]> {
@@ -940,10 +952,15 @@ export class TaskProvider implements vscode.TaskProvider {
         if (this.tgtSelector.getSelectedTarget() === specialAllDevice && item.allSelectedBehavior === "executeForEveryTarget") {
           exec = "";
           this.tgtSelector.getTargetsArray().forEach((target) => {
-            this.tgtSelector.setSelectedTarget(target);
+            // Use transient setter: builds per-device exec strings without persisting
+            // intermediate device selections to settings (avoids async conf.update races
+            // that could corrupt the stored "All" value).
+            this.tgtSelector.setSelectedTargetTransient(target);
             exec += defineExec(item)[0] + " ; ";
           });
-          this.tgtSelector.setSelectedTarget(specialAllDevice);
+          // Restore in-memory state to "All" — no settings write needed here since the
+          // caller already persisted "All" before generateTasks() was invoked.
+          this.tgtSelector.setSelectedTargetTransient(specialAllDevice);
           customFunction = undefined;
         }
 

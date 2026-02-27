@@ -22,7 +22,7 @@ export class StatusBarManager {
       arguments: ["Update Container"],
     };
     this.devImageItem.command = runDevImageCommand;
-    this.updateDevImageItem(DevImageStatus.stopped);
+    this.updateDevImageItem(DevImageStatus.syncing);
   }
 
   public updateTargetItem(target: string) {

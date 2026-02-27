@@ -705,7 +705,6 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
     selectedApp
     && selectedApp.functionalTestsDir
     && selectedApp.containerName
-    && targetSelector.getSelectedTarget() !== "All"
   ) {
     // Check if the functional tests directory actually exists
     const testsPath = path.join(selectedApp.folderUri.fsPath, selectedApp.functionalTestsDir);
@@ -724,7 +723,8 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
     let lastSelectedTests = getSetting("selectedTests", selectedApp.folderUri) as string[];
     selectedApp.functionalTestsList = [];
     selectedApp.selectedTests = [];
-    let device = targetSelector.getSelectedSpeculosModel();
+    let deviceArg = targetSelector.getEffectiveDeviceArg();
+    let fallbackDeviceArg = targetSelector.getFirstCompatibleSpeculosModel();
     let optionsExec: cp.ExecOptions = { cwd: selectedApp!.folderUri.fsPath, windowsHide: true, timeout: 60000 };
     // If platform is windows, set shell to powershell for cp exec.
     if (platform === "win32") {
@@ -740,9 +740,13 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
     const varPrefix = process.platform === "win32" ? "\`$" : "$";
     const quotesAroundBashCommand = process.platform === "win32" ? "\"" : "";
 
-    // Extract the shell script for clarity
-    // Note: pip install must run from the app root (not tests dir) to correctly resolve
-    // relative paths in requirements.txt (e.g. './client[tests]' in some apps).
+    // Note: pip install must run from the app root (not tests dir) to correctly
+    // resolve relative paths in requirements.txt (e.g. './client[tests]').
+    // When 'All' targets is selected:
+    //   - ragger's --device option accepts 'all' natively: one run, all devices,
+    //     tests parametrized as test_foo[nanos], test_foo[nanox], etc.
+    //   - The legacy --model option does not support 'all', so we fall back to
+    //     the first compatible device in that case.
     const getTestsListShellScript = `${quotesAroundBashCommand}source /opt/venv/bin/activate &&
       pip install -r ${selectedApp.functionalTestsDir}/requirements.txt > /dev/null 2>&1 &&
       cd ${selectedApp.functionalTestsDir} &&
@@ -755,7 +759,11 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
             head -n 1
         );
         if [ -n '${varPrefix}device_option' ]; then
-            pytest --collect-only -q ${varPrefix}device_option ${device}
+            if [ '${varPrefix}device_option' = '--device' ]; then
+                pytest --collect-only -q --device ${deviceArg}
+            else
+                pytest --collect-only -q ${varPrefix}device_option ${fallbackDeviceArg}
+            fi
         else
             pytest --collect-only -q
         fi;

@@ -78,7 +78,7 @@ export class TargetSelector {
   }
 
   // Type guard function to check if a string is a valid device
-  private isValidDevice(value: string): value is LedgerDevice {
+  private isValidDevice(value: string): value is LedgerDevice | SpecialAllDevice {
     return devices.includes(value as LedgerDevice) || value === specialAllDevice;
   }
 
@@ -110,6 +110,27 @@ export class TargetSelector {
     this.saveSelectedTarget();
   }
 
+  /**
+   * Sets the selected target for task generation only, WITHOUT persisting to settings.
+   * Use this when temporarily overriding the selection (e.g. building per-device exec
+   * strings in a loop) so that no async conf.update() races corrupt the stored value.
+   */
+  public setSelectedTargetTransient(target: string) {
+    if (!this.isValidDevice(target)) {
+      throw new Error(`Invalid device: ${target}`);
+    }
+
+    this.selectedTarget = target;
+
+    if (target !== specialAllDevice) {
+      this.selectedSDK = targetSDKs[target];
+      this.selectedSpeculosModel = speculosModels[target];
+      this.selectedSDKModel = this.sdkModelsArray[target];
+      this.selectedTargetId = targetIds[target];
+    }
+    // Intentionally no saveSelectedTarget() call — caller manages persistence.
+  }
+
   // Function that updates the targets infos based on the app language
   public updateTargetsInfos() {
     const currentApp = getSelectedApp();
@@ -131,28 +152,34 @@ export class TargetSelector {
       }
       // Get the previously selected target from workspace settings and set it if it's still valid
       const savedTarget = getSetting("selectedDevice", currentApp.folderUri, "defaultDevice") as string;
-      if (savedTarget && this.isValidDevice(savedTarget) && (this.targetsArray.includes(savedTarget))) {
-        this.setSelectedTarget(savedTarget);
+      if (savedTarget && this.isValidDevice(savedTarget)) {
+        if (savedTarget === specialAllDevice && this.targetsArray.length > 1) {
+          // Restore 'All' and the previous single-device selection used for toggle-back
+          const savedPrev = getSetting("prevSelectedDevice", currentApp.folderUri) as string;
+          if (savedPrev && this.isValidDevice(savedPrev) && this.targetsArray.includes(savedPrev as LedgerDevice)) {
+            this.prevSelectedApp = savedPrev;
+          }
+          else {
+            this.prevSelectedApp = this.targetsArray[0] as string;
+          }
+          this.setSelectedTarget(specialAllDevice);
+        }
+        else if (this.targetsArray.includes(savedTarget as LedgerDevice)) {
+          this.setSelectedTarget(savedTarget);
+        }
       }
     }
   }
 
-  // Persist the selected target to workspace settings (only for actual devices, not 'All')
+  // Persist the selected target to workspace settings
   public saveSelectedTarget() {
     const currentApp = getSelectedApp();
-    if (currentApp && this.selectedTarget && this.selectedTarget !== specialAllDevice) {
+    if (currentApp && this.selectedTarget) {
       updateSetting("selectedDevice", this.selectedTarget, currentApp.folderUri);
-    }
-  }
-
-  public toggleAllTargetSelection() {
-    if (this.selectedTarget === specialAllDevice) {
-      this.setSelectedTarget(this.prevSelectedApp);
-      this.prevSelectedApp = "";
-    }
-    else {
-      this.prevSelectedApp = this.selectedTarget;
-      this.setSelectedTarget(specialAllDevice);
+      if (this.selectedTarget === specialAllDevice && this.prevSelectedApp) {
+        // Also persist prevSelectedApp so toggle-back survives an app switch
+        updateSetting("prevSelectedDevice", this.prevSelectedApp, currentApp.folderUri);
+      }
     }
   }
 
@@ -177,6 +204,26 @@ export class TargetSelector {
 
   public getSelectedSpeculosModel() {
     return this.selectedSpeculosModel;
+  }
+
+  // Returns the device argument to pass to pytest --collect-only.
+  // When 'All' is selected, returns 'all' — ragger's --device option supports
+  // it natively and parametrizes each test for every device in one run.
+  // Note: the legacy --model option does not support 'all'; for those apps
+  // we fall back to the first compatible device.
+  public getEffectiveDeviceArg(): string {
+    if (this.selectedTarget !== specialAllDevice) {
+      return this.selectedSpeculosModel;
+    }
+    // 'all' is a valid value for ragger's --device option
+    return "all";
+  }
+
+  // Returns the first compatible device model, used as fallback for legacy
+  // --model option which does not support 'all'.
+  public getFirstCompatibleSpeculosModel(): string {
+    const firstDevice = this.targetsArray.find(t => t !== specialAllDevice) as LedgerDevice | undefined;
+    return firstDevice ? speculosModels[firstDevice] : (this.selectedSpeculosModel ?? "");
   }
 
   public getSelectedSDKModel() {

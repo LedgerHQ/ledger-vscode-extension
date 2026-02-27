@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Fixed debug mode for Rust apps (now uses `--features debug`)
 * Fix test detection for apps with relative paths in requirements.txt (e.g. app-misc)
+* Fix persistence of 'All' target selection (it is now saved and restored when going from one app to another.)
+* Fix container status bar item display and behavior
 
 ## [2.0.0]
 

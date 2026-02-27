@@ -952,10 +952,15 @@ export class TaskProvider implements vscode.TaskProvider {
         if (this.tgtSelector.getSelectedTarget() === specialAllDevice && item.allSelectedBehavior === "executeForEveryTarget") {
           exec = "";
           this.tgtSelector.getTargetsArray().forEach((target) => {
-            this.tgtSelector.setSelectedTarget(target);
+            // Use transient setter: builds per-device exec strings without persisting
+            // intermediate device selections to settings (avoids async conf.update races
+            // that could corrupt the stored "All" value).
+            this.tgtSelector.setSelectedTargetTransient(target);
             exec += defineExec(item)[0] + " ; ";
           });
-          this.tgtSelector.setSelectedTarget(specialAllDevice);
+          // Restore in-memory state to "All" — no settings write needed here since the
+          // caller already persisted "All" before generateTasks() was invoked.
+          this.tgtSelector.setSelectedTargetTransient(specialAllDevice);
           customFunction = undefined;
         }
 

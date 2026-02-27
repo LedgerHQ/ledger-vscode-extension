@@ -392,12 +392,6 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("toggleAllTargets", () => {
-      targetSelector.toggleAllTargetSelection();
-    }),
-  );
-
-  context.subscriptions.push(
     vscode.commands.registerCommand("selectTestUseCase", () => {
       showTestUseCaseSelectorMenu(targetSelector);
     }),

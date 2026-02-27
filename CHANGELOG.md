@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * Fixed debug mode for Rust apps (now uses `--features debug`)
+* Fix test detection for apps with relative paths in requirements.txt (e.g. app-misc)
 
 ## [2.0.0]
 

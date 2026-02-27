@@ -741,9 +741,11 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
     const quotesAroundBashCommand = process.platform === "win32" ? "\"" : "";
 
     // Extract the shell script for clarity
-    const getTestsListShellScript = `${quotesAroundBashCommand}source /opt/venv/bin/activate && cd ${selectedApp.functionalTestsDir} &&
-      owner=$(stat -c %u conftest.py);
-      pip install -r requirements.txt > /dev/null 2>&1 &&
+    // Note: pip install must run from the app root (not tests dir) to correctly resolve
+    // relative paths in requirements.txt (e.g. './client[tests]' in some apps).
+    const getTestsListShellScript = `${quotesAroundBashCommand}source /opt/venv/bin/activate &&
+      pip install -r ${selectedApp.functionalTestsDir}/requirements.txt > /dev/null 2>&1 &&
+      cd ${selectedApp.functionalTestsDir} &&
         device_option=${varPrefix}(pytest --help |
             awk '/[C|c]ustom options/,/^$/' |
             grep -E -- '--model|--device'   |

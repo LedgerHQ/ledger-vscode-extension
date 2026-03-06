@@ -17,8 +17,7 @@ repos:
     rev: v2.2.6
     hooks:
       - id: codespell
-        # args: ['--ignore-words-list', 'ontop,shft,hte', '--skip', 'makefile_conf/chain/*,tests/ragger/eip712_input_files/*']
-        args: ['--skip', 'package-lock.json']
+        args: ['--skip', 'package-lock.json', '--skip', 'resources/instructions/RUST.instructions.md']
 
   - repo: https://github.com/Mateusz-Grzelinski/actionlint-py
     rev: v1.6.27.13

@@ -22,4 +22,4 @@ jobs:
       with:
         builtin: clear,rare
         check_filenames: true
-        skip: package-lock.json
+        skip: package-lock.json, resources/instructions/RUST.instructions.md

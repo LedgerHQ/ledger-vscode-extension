@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "Ledger Dev Tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",
@@ -103,6 +103,13 @@
         "title": "Select Guideline Enforcer Check",
         "category": "Ledger",
         "tooltip": "Select the check you want to run, or All by default."
+      },
+      {
+        "command": "aiReview",
+        "title": "AI Review",
+        "category": "Ledger",
+        "tooltip": "Analyze modified files against Ledger embedded application rules using AI.",
+        "icon": "$(sparkle)"
       }
     ],
     "configuration": {

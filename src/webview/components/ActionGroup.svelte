@@ -1,11 +1,12 @@
 <script lang="ts" module>
-  type CommandStatus = "idle" | "running" | "success" | "error";
+  export type CommandStatus = "idle" | "running" | "success" | "error";
 
   export interface Action {
     id: string;
     label: string;
     icon?: string;
     taskName?: string;
+    commandName?: string;
     tooltip?: string;
     status: CommandStatus;
     disabledOnAllDevices?: boolean;
@@ -18,6 +19,7 @@
     icon: string;
     mainAction?: Action;
     options: Action[];
+    defaultOptions?: Action[];
     disabledOnAllDevices?: boolean;
     expanded?: boolean;
   }

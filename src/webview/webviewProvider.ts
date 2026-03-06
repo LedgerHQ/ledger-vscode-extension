@@ -3,6 +3,7 @@ import { TaskSpec } from "../taskProvider";
 import { setSelectedTests } from "../appSelector";
 import { LedgerDevice, SpecialAllDevice } from "../targetSelector";
 import { DevImageStatus } from "../types";
+import { setSelectedModel } from "../aiReviewer";
 /**
  * Options for refreshing the webview content.
  * - undefined: skip, don't update this section
@@ -176,6 +177,17 @@ export class Webview implements vscode.WebviewViewProvider {
     }
   }
 
+  public async sendAiModels(models: string[], selected: string): Promise<void> {
+    await this._webviewReady;
+    if (this._view) {
+      this._view.webview.postMessage({
+        command: "addAiModels",
+        models,
+        selectedModel: selected,
+      });
+    }
+  }
+
   public async onEndTaskProcess(taskName: string, success: boolean) {
     await this._webviewReady;
     if (this._view) {
@@ -303,6 +315,13 @@ export class Webview implements vscode.WebviewViewProvider {
             const deps: string = data.testDependencies;
             console.log("Updating test dependencies from webview : ", deps);
             this.testDepsUpdatedEmitter.fire(deps);
+          }
+          break;
+        case "aiModelSelected":
+          {
+            const selectedModel: string = data.selectedModel;
+            console.log("AI model selected in webview : ", selectedModel);
+            setSelectedModel(selectedModel);
           }
           break;
         case "saveUIState":

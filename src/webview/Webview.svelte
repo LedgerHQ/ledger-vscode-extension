@@ -6,7 +6,7 @@
   import StatusDot from "./components/StatusDot.svelte";
   import ActionGroup, { type ActionGroupData, type Action } from "./components/ActionGroup.svelte";
   import Toolbar from "./components/Toolbar.svelte";
-  import { ChevronDown, ChevronRight } from "@jis3r/icons";
+  import { ChevronDown, ChevronRight, Check, X } from "@jis3r/icons";
   import TestsList from "./components/TestsList.svelte";
   import type { TestCase } from "./components/TestsList.svelte";
   import type { TaskSpec } from "../types";
@@ -35,6 +35,9 @@
 
   let enforcerChecks = $state<SelectItem[]>([]);
   let enforcerCheck = $state("");
+
+  let aiModels = $state<SelectItem[]>([]);
+  let aiModel = $state("");
 
   // Capitalize first letter for display
   function formatBuildUseCase(useCase: string): string {
@@ -74,12 +77,24 @@
     depsPopoverOpen = false;
   }
 
+  const aiReviewAction: Action = {
+    id: "aiReview",
+    label: "AI Review",
+    icon: "sparkle",
+    commandName: "aiReview",
+    tooltip:
+      "Run AI-powered code review on current branch changes using Ledger's code analysis rules.",
+    status: "idle",
+    pinned: false,
+    disabled: true,
+  };
+
   let actionGroups = $state<ActionGroupData[]>([
     { id: "Build", icon: "tools", options: [] },
     { id: "Emulator", icon: "play", options: [], disabledOnAllDevices: true },
     { id: "Tests", icon: "beaker", options: [] },
     { id: "Device", icon: "device-mobile", options: [], disabledOnAllDevices: true },
-    { id: "Tools", icon: "terminal", options: [] },
+    { id: "Tools", icon: "terminal", options: [], defaultOptions: [aiReviewAction] },
   ]);
 
   function isGroupDisabled(group: ActionGroupData): boolean {
@@ -141,11 +156,14 @@
 
     if (!action) return;
 
-    // Post message to VSCode extension
-    vscode.postMessage({
-      command: "executeTask",
-      taskName: action.taskName,
-    });
+    if (action.commandName) {
+      executeCommand(action.commandName);
+    } else if (action.taskName) {
+      vscode.postMessage({
+        command: "executeTask",
+        taskName: action.taskName,
+      });
+    }
 
     action.status = "running";
   }
@@ -210,6 +228,14 @@
     });
   }
 
+  function selectAiModel(model: string) {
+    aiModel = model;
+    vscode.postMessage({
+      command: "aiModelSelected",
+      selectedModel: model,
+    });
+  }
+
   function updateTestDependencies(value: string) {
     testDependencies = value;
     vscode.postMessage({
@@ -259,13 +285,19 @@
             }
           }
         });
+
+        actionGroups.forEach((g) => {
+          g.options.push(...(g.defaultOptions ?? []));
+        });
+
         break;
       case "endTaskProcess":
         const { taskName, success } = message;
         // Update action groups (toolbar derives from these)
         actionGroups.forEach((group) => {
+          const mainActionName = group.mainAction?.taskName ?? group.mainAction?.commandName;
           // Check main action
-          if (group.mainAction && group.mainAction.taskName === taskName) {
+          if (group.mainAction && mainActionName === taskName) {
             group.mainAction.status = success ? "success" : "error";
             setTimeout(() => {
               group.mainAction!.status = "idle";
@@ -273,7 +305,8 @@
           } else {
             // Check options
             group.options.forEach((option) => {
-              if (option.taskName === taskName) {
+              const actionName = option.taskName ?? option.commandName;
+              if (actionName === taskName) {
                 option.status = success ? "success" : "error";
                 setTimeout(() => {
                   option.status = "idle";
@@ -335,6 +368,16 @@
       case "setTestDependencies":
         testDependencies = message.testDependencies ?? "";
         break;
+      case "addAiModels": {
+        aiModels = (message.models as string[]).map((m: string) => ({ value: m, label: m }));
+        if (message.selectedModel) aiModel = message.selectedModel;
+        const toolsGroup = actionGroups.find((g) => g.id === "Tools");
+        if (toolsGroup) {
+          const live = toolsGroup.options.find((o) => o.id === "aiReview");
+          if (live) live.disabled = aiModels.length === 0;
+        }
+        break;
+      }
       case "setState": {
         /** Restore UI state */
         pinnedIds = message.pinnedIds ?? [];
@@ -587,6 +630,15 @@
                           onchange={selectCheck}
                         />
                       </div>
+                    {:else if option.label === "AI Review" && aiModels.length > 1}
+                      <div class="check-select-wrapper">
+                        <Select
+                          items={aiModels}
+                          bind:value={aiModel}
+                          placeholder="Select AI Model"
+                          onchange={selectAiModel}
+                        />
+                      </div>
                     {/if}
                   {/snippet}
                 </ActionGroup>
@@ -833,8 +885,9 @@
   }
 
   .check-select-wrapper {
-    flex: 1 1 auto;
-    min-width: 80px;
+    flex: 50%;
+    max-width: 200px;
+    min-width: 0;
   }
 
   /* Shared option button styles (same as ActionGroup) */

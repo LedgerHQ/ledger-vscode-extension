@@ -40,6 +40,7 @@ import {
   showAppSelectorMenu,
 } from "./appSelector";
 import { Webview, WebviewRefreshOptions } from "./webview/webviewProvider";
+import { runAIReview } from "./aiReviewer";
 
 let outputChannel: vscode.OutputChannel;
 const appDetectionFiles = ["Cargo.toml", "ledger_app.toml", "Makefile"];
@@ -414,6 +415,34 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("showAppList", () => {
       showAppSelectorMenu(targetSelector);
+    }),
+  );
+
+  const diagnosticCollection = vscode.languages.createDiagnosticCollection("ledger-ai-review");
+  context.subscriptions.push(
+    vscode.commands.registerCommand("aiReview", async () => {
+      try {
+        const currentApp = getSelectedApp();
+        if (!currentApp) {
+          webview.onEndTaskProcess("aiReview", false);
+          return;
+        }
+        await runAIReview(context, diagnosticCollection, outputChannel, currentApp.folderUri);
+        webview.onEndTaskProcess("aiReview", true);
+      }
+      catch {
+        webview.onEndTaskProcess("aiReview", false);
+      }
+    }),
+  );
+
+  // Send available AI models to webview when it becomes ready
+  context.subscriptions.push(
+    webview.onWebviewReadyEvent(async () => {
+      const models = await vscode.lm.selectChatModels();
+      if (models.length) {
+        webview.sendAiModels(models.map(m => m.name), models[0].name);
+      }
     }),
   );
 

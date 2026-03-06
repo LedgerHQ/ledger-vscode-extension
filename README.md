@@ -15,6 +15,7 @@ to allow developers to setup a build and test environment in a few minutes.
 
 * Build your app for all Ledger devices.
 * Supports C and Rust apps.
+* Run AI powered code reviews using Ledger's own [rules](https://github.com/LedgerHQ/ledger-app-ai-instructions/)
 * Stay up to date with the latest SDK.
 * Run [tests](https://developers.ledger.com/docs/device-app/integration/requirements/development#tests)
   on the device emulator ([Speculos](https://github.com/LedgerHQ/speculos)) or on a real device.
@@ -25,6 +26,15 @@ to allow developers to setup a build and test environment in a few minutes.
 
 ## Features
 
+### AI Review
+
+Run AI powered code reviews using Ledger's own [agent instructions](https://github.com/LedgerHQ/ledger-app-ai-instructions/).
+Choose the model you want, depending on your copilot subscription and review needs.
+
+<p align="center">
+<img src="https://github.com/LedgerHQ/ledger-vscode-extension/blob/main/resources/aireview.gif?raw=true" width="70%" height="70%"/>
+</p>
+
 ### Tasks
 
 Automatically add tasks to help you build, test and load your app on a physical device.
@@ -33,9 +43,10 @@ These tasks are accessible through the build task menu keyboard shortcut to avoi
 <img src="https://github.com/LedgerHQ/ledger-vscode-extension/blob/main/resources/tasks.gif?raw=true" width="70%" height="70%"/>
 </p>
 
-### Sidebar
+### Webview
 
-The tasks are all accessible through an easy to use sidebar menu.
+Extension features are all accessible through an easy to use webview. Use the toolbar to pin the actions you use most.
+
 <p align="center">
 <img src="https://github.com/LedgerHQ/ledger-vscode-extension/blob/main/resources/sidebar.gif?raw=true" width="70%" height="70%"/>
 </p>

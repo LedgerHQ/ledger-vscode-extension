@@ -85,6 +85,29 @@ export function activate(context: vscode.ExtensionContext) {
 
   let containerManager = new ContainerManager(taskProvider);
 
+// Function to check for apps and open walkthrough if none found
+  const checkAndOpenWalkthrough = () => {
+    const appList = findAppsInWorkspace();
+    if (!appList || appList.length === 0) {
+      vscode.commands.executeCommand("workbench.action.openWalkthrough", "LedgerHQ.ledger-dev-tools#ledgerOnboarding", false);
+    }
+  };
+
+  // On activation, check if we need to open the walkthrough, if mainView is visible
+  if (mainView.visible) {
+    checkAndOpenWalkthrough();
+  }
+
+  // On mainView visibility change, check if we need to open the walkthrough
+  context.subscriptions.push(
+    mainView.onDidChangeVisibility((e) => {
+      if (e.visible) {
+        checkAndOpenWalkthrough();
+      }
+    }),
+  );
+
+
   // Helper to build full webview refresh options from current state
   const buildFullRefreshOptions = (): WebviewRefreshOptions => {
     const appList = getAppList();

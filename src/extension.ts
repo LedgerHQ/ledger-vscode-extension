@@ -41,6 +41,7 @@ import {
 } from "./appSelector";
 import { Webview, WebviewRefreshOptions } from "./webview/webviewProvider";
 import { runAIReview } from "./aiReviewer";
+import { Wizard } from "./wizard";
 
 let outputChannel: vscode.OutputChannel;
 const appDetectionFiles = ["Cargo.toml", "ledger_app.toml", "Makefile"];
@@ -84,6 +85,8 @@ export function activate(context: vscode.ExtensionContext) {
   let statusBarManager = new StatusBarManager();
 
   let containerManager = new ContainerManager(taskProvider);
+
+  let wizard = new Wizard(context, webview);
 
   // Helper to build full webview refresh options from current state
   const buildFullRefreshOptions = (): WebviewRefreshOptions => {
@@ -441,7 +444,8 @@ export function activate(context: vscode.ExtensionContext) {
     webview.onWebviewReadyEvent(async () => {
       const models = await vscode.lm.selectChatModels();
       if (models.length) {
-        webview.sendAiModels(models.map(m => m.name), models[0].name);
+        const uniqueModels = models.filter((model, index, self) => index === self.findIndex(m => m.name === model.name));
+        webview.sendAiModels(uniqueModels.map(m => m.name), uniqueModels[0].name);
       }
     }),
   );

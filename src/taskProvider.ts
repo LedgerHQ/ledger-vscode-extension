@@ -567,7 +567,8 @@ export class TaskProvider implements vscode.TaskProvider {
     // Full build: clean target then build (equivalent to clean + incremental build)
     const cleanExec = this.cCleanTargetExec();
     const buildExec = this.cBuildExec();
-    const exec = `${cleanExec} && ${buildExec}`;
+    const separator = platform === "win32" ? ";" : "&&";
+    const exec = `${cleanExec} ${separator} ${buildExec}`;
     return exec;
   }
 

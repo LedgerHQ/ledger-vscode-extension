@@ -593,18 +593,20 @@ If there are no violations, your entire response must be: []`;
     const msg = `Ledger AI Review: ${result.count} violation(s) found`
       + (result.blocking > 0 ? ` — ${result.blocking} blocking (critical/high)` : "")
       + ` — ~${result.tokens.toLocaleString()} tokens used.`;
-    const clicked = await vscode.window.showWarningMessage(msg, "Open Problems");
-    if (clicked === "Open Problems") {
-      await vscode.commands.executeCommand("workbench.actions.view.problems");
-    }
+    vscode.window.showWarningMessage(msg, "Open Problems").then((clicked) => {
+      if (clicked === "Open Problems") {
+        vscode.commands.executeCommand("workbench.actions.view.problems");
+      }
+    });
   }
   else if (result !== null && result.type === "parseError") {
-    const clicked = await vscode.window.showErrorMessage(
+    vscode.window.showErrorMessage(
       `Ledger AI Review: Could not parse model response — ~${result.tokens.toLocaleString()} tokens used.`,
       "Show Output",
-    );
-    if (clicked === "Show Output") {
-      outputChannel.show(true);
-    }
+    ).then((clicked) => {
+      if (clicked === "Show Output") {
+        outputChannel.show(true);
+      }
+    });
   }
 }

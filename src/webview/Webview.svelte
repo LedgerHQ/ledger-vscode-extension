@@ -39,11 +39,6 @@
   let aiModels = $state<SelectItem[]>([]);
   let aiModel = $state("");
 
-  // Capitalize first letter for display
-  function formatBuildUseCase(useCase: string): string {
-    return useCase.charAt(0).toUpperCase() + useCase.slice(1);
-  }
-
   // Get icon for build use case
   function getBuildUseCaseIcon(useCase: string): string {
     switch (useCase.toLowerCase()) {
@@ -246,7 +241,7 @@
 
   // Convert buildUseCases to SelectItem format
   const buildUseCaseItems = $derived<SelectItem[]>(
-    buildUseCases.map((uc) => ({ value: uc, label: formatBuildUseCase(uc) })),
+    buildUseCases.map((uc) => ({ value: uc, label: uc })),
   );
 
   const variantItems = $derived<SelectItem[]>(variants.map((v) => ({ value: v, label: v })));

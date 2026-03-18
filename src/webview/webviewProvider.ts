@@ -62,6 +62,8 @@ export class Webview implements vscode.WebviewViewProvider {
   public onTestDepsUpdatedEvent: vscode.Event<string> = this.testDepsUpdatedEmitter.event;
   private webviewReadyEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
   public onWebviewReadyEvent: vscode.Event<void> = this.webviewReadyEmitter.event;
+  private visibilityChangedEmitter: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
+  public onVisibilityChangedEvent: vscode.Event<boolean> = this.visibilityChangedEmitter.event;
   // Promise resolve for when the webview is ready
   private _webviewReadyResolve!: () => void;
   private _webviewReady: Promise<void>;
@@ -79,6 +81,16 @@ export class Webview implements vscode.WebviewViewProvider {
   // Wait until the webview is fully loaded and ready
   public async waitUntilReady(): Promise<void> {
     return this._webviewReady;
+  }
+
+  public isVisible(): boolean {
+    if (!this._view) {
+      return false;
+    }
+    if (!this._webviewReady) {
+      return false;
+    }
+    return this._view.visible;
   }
 
   /**
@@ -206,6 +218,14 @@ export class Webview implements vscode.WebviewViewProvider {
     // Reset the ready promise for this (re-)resolution
     this._webviewReady = new Promise((resolve) => {
       this._webviewReadyResolve = resolve;
+    });
+
+    // Fire visibility event on initial resolve (view just became visible)
+    this.visibilityChangedEmitter.fire(webviewView.visible);
+
+    // Forward subsequent visibility changes
+    webviewView.onDidChangeVisibility(() => {
+      this.visibilityChangedEmitter.fire(webviewView.visible);
     });
 
     // Enable scripts in the webview

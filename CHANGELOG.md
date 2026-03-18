@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Add walkthroughs : onboarding and C / Rust apps customization.
 
+### Fixed
+
+* Keep original build use case format (do not capitalize first letter).
+* Fix clean & build task on Windows.
+* Fix AI review status : don't wait for user click to show success.
+
 ## [2.2.0]
 
 ### Added

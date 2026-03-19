@@ -37,18 +37,30 @@ const LOG_MESSAGES = false; // Set to true to save model messages to ./logs for 
 // Instruction file loader (hybrid: workspace submodule -> bundled fallback)
 // ---------------------------------------------------------------------------
 
+const INSTRUCTIONS_URL = "https://raw.githubusercontent.com/LedgerHQ/ledger-app-ai-instructions/refs/heads/master/";
+const INSTRUCTIONS_FETCH_TIMEOUT_MS = 5000;
+type InstructionSource = "workspace" | "remote" | "none";
+
+async function fetchInstructionFileWithTimeout(filename: string): Promise<string> {
+  const fetched = await fetch(INSTRUCTIONS_URL + filename, {
+    signal: AbortSignal.timeout(INSTRUCTIONS_FETCH_TIMEOUT_MS),
+  });
+  if (!fetched.ok) {
+    throw new Error(`Failed to fetch instruction file: ${fetched.status} ${fetched.statusText}`);
+  }
+  return fetched.text();
+}
+
 async function loadInstructionFile(
-  context: vscode.ExtensionContext,
   workspaceRoot: string,
   filename: string,
-): Promise<string> {
+): Promise<[string, source: Exclude<InstructionSource, "none">]> {
   const local = vscode.Uri.file(path.join(workspaceRoot, ".github", "instructions", filename));
   try {
-    return Buffer.from(await vscode.workspace.fs.readFile(local)).toString("utf8");
+    return [Buffer.from(await vscode.workspace.fs.readFile(local)).toString("utf8"), "workspace"];
   }
   catch {
-    const bundled = vscode.Uri.joinPath(context.extensionUri, "resources", "instructions", filename);
-    return Buffer.from(await vscode.workspace.fs.readFile(bundled)).toString("utf8");
+    return [await fetchInstructionFileWithTimeout(filename), "remote"];
   }
 }
 
@@ -310,7 +322,6 @@ async function logMessages(messages: vscode.LanguageModelChatMessage[], round: n
 }
 
 export async function runAIReview(
-  context: vscode.ExtensionContext,
   diagnosticCollection: vscode.DiagnosticCollection,
   outputChannel: vscode.OutputChannel,
   appFolderUri: vscode.Uri,
@@ -358,11 +369,13 @@ export async function runAIReview(
   }
 
   const instructionParts: string[] = [];
+  let source: InstructionSource = "none";
   await Promise.all(
     Array.from(instructionFilenames).map(async (filename) => {
       try {
-        const content = await loadInstructionFile(context, workspaceRoot, filename);
+        const [content, loadedSource] = await loadInstructionFile(workspaceRoot, filename);
         instructionParts.push(`\n\n--- ${filename} ---\n${content}`);
+        source = loadedSource;
       }
       catch { /* skip missing files */ }
     }),
@@ -389,7 +402,13 @@ export async function runAIReview(
       outputChannel.show(true);
       outputChannel.appendLine("=== Ledger AI Review ===");
       outputChannel.appendLine(`Model: ${model.name}  |  Workspace: ${workspaceRoot}`);
-      outputChannel.appendLine(`Branch: ${gitContext.branch}  |  Scope: ${diffDescription}\n`);
+      outputChannel.appendLine(`Branch: ${gitContext.branch}  |  Scope: ${diffDescription}`);
+      if (source === "none") {
+        outputChannel.appendLine("No instruction files could be fetched. Check network connection.\n");
+      }
+      else {
+        outputChannel.appendLine(`Instructions files loaded from ${source === "workspace" ? "workspace" : "instructions repo"}.\n`);
+      }
 
       // Small diffs: one-shot, no tools. Larger diffs: one tool round + one verdict round.
       const MAX_ROUNDS = gitDiff.length < 3000 ? 1 : 2;

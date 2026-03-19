@@ -430,7 +430,7 @@ export function activate(context: vscode.ExtensionContext) {
           webview.onEndTaskProcess("aiReview", false);
           return;
         }
-        await runAIReview(context, diagnosticCollection, outputChannel, currentApp.folderUri);
+        await runAIReview(diagnosticCollection, outputChannel, currentApp.folderUri);
         webview.onEndTaskProcess("aiReview", true);
       }
       catch {

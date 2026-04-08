@@ -115,24 +115,16 @@ export class Wizard {
       await simpleGit(fullPath).add("./*");
       await simpleGit(fullPath).commit("Initial commit");
 
-      const openFolder = "Open Folder";
-      const choice = await vscode.window.showInformationMessage(
-        "App created successfully!",
-        openFolder,
-      );
-
-      if (choice === openFolder) {
-        if (sdk === "rust") {
-          await this.context.globalState.update("openWalkthroughOnStartup", { id: "LedgerHQ.ledger-dev-tools#rustDeviceAppCustomization" });
-        }
-        else {
-          await this.context.globalState.update("openWalkthroughOnStartup", { id: "LedgerHQ.ledger-dev-tools#cDeviceAppCustomization" });
-        }
-        // Close all open editors so VS Code doesn't restore them (e.g. the onboarding walkthrough)
-        // when it reopens with the new folder.
-        await vscode.commands.executeCommand("workbench.action.closeAllEditors");
-        vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(fullPath), { forceNewWindow: false });
+      if (sdk === "rust") {
+        await this.context.globalState.update("openWalkthroughOnStartup", { id: "LedgerHQ.ledger-dev-tools#rustDeviceAppCustomization" });
       }
+      else {
+        await this.context.globalState.update("openWalkthroughOnStartup", { id: "LedgerHQ.ledger-dev-tools#cDeviceAppCustomization" });
+      }
+      // Close all open editors so VS Code doesn't restore them (e.g. the onboarding walkthrough)
+      // when it reopens with the new folder.
+      await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+      vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(fullPath), { forceNewWindow: false });
     }
     catch (error) {
       vscode.window.showErrorMessage("Failed to create app: " + error);

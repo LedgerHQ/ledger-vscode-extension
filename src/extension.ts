@@ -86,7 +86,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   let containerManager = new ContainerManager(taskProvider);
 
-  let wizard = new Wizard(context, webview);
+  new Wizard(context, webview);
 
   // Helper to build full webview refresh options from current state
   const buildFullRefreshOptions = (): WebviewRefreshOptions => {

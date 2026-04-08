@@ -15,6 +15,9 @@ export class Wizard {
     this.context = context;
 
     // Register commands for creating C and Rust apps, used for onboarding walkthrough buttons
+    context.subscriptions.push(vscode.commands.registerCommand("ledgerDevTools.newApp", async () => {
+      this.generateApp(undefined);
+    }));
     context.subscriptions.push(vscode.commands.registerCommand("ledgerDevTools.newCApp", async () => {
       this.generateApp("c");
     }));
@@ -49,7 +52,17 @@ export class Wizard {
   /**
    * Logic to clone and customize the app
    */
-  private async generateApp(sdk: string) {
+  private async generateApp(sdk: string | undefined) {
+    if (!sdk) {
+      sdk = await vscode.window.showQuickPick(["C", "Rust"], {
+        placeHolder: "Select the SDK for your app",
+      });
+      if (!sdk) {
+        return;
+      }
+      sdk = sdk.toLowerCase();
+    }
+
     const appName = await vscode.window.showInputBox({
       prompt: "Enter the name of your app repo folder",
       value: `app-boilerplate${sdk === "rust" ? "-rust" : ""}`,

@@ -446,7 +446,13 @@
         Open a Ledger app's folder or open a workspace containing Ledger apps to get started.
       </p>
       <div class="welcome-buttons">
-        <button class="vscode-button" onclick={() => vscode.postMessage({ command: "openApp" })}>
+        <button class="vscode-button" onclick={() => vscode.postMessage({ command: "newApp" })}>
+          Create New App
+        </button>
+        <button
+          class="vscode-button secondary"
+          onclick={() => vscode.postMessage({ command: "openApp" })}
+        >
           Open App Folder
         </button>
         <button

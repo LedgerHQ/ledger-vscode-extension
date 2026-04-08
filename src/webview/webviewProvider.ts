@@ -297,6 +297,12 @@ export class Webview implements vscode.WebviewViewProvider {
             this.targetSelectedEmitter.fire(selectedTarget);
           }
           break;
+        case "newApp":
+          {
+            console.log("Create new app requested from webview");
+            await vscode.commands.executeCommand("ledgerDevTools.newApp");
+          }
+          break;
         case "openApp":
           {
             console.log("Open app folder requested from webview");

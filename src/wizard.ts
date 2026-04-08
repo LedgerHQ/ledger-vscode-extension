@@ -66,11 +66,14 @@ export class Wizard {
     }
 
     const appName = await vscode.window.showInputBox({
-      prompt: "Enter the name of your app repo folder",
+      prompt: "Enter the full name of your app repo folder (must start with 'app-')",
       value: `app-boilerplate${sdk === "rust" ? "-rust" : ""}`,
       validateInput: (value) => {
         if (!value || value.trim().length === 0) {
-          return "App name cannot be empty.";
+          return "Name cannot be empty.";
+        }
+        if (!value.startsWith("app-") || value === "app-") {
+          return "Folder name must start with 'app-' followed by at least one character.";
         }
         return null;
       },

@@ -25,21 +25,23 @@ export class Wizard {
       this.generateApp("rust");
     }));
 
-    // When the webview is ready, open any scheduled walkthrough (post app-creation),
-    // or the onboarding walkthrough if no apps are found in the workspace.
+    // Check for a post-creation walkthrough immediately at activation, independently of the
+    // webview, since the extension panel may not be opened in the new window.
+    const pending = context.globalState.get<{ id: string }>("openWalkthroughOnStartup");
+    if (pending) {
+      this._startupCheckDone = true;
+      context.globalState.update("openWalkthroughOnStartup", undefined);
+      vscode.commands.executeCommand("workbench.action.openWalkthrough", pending.id, false);
+      this.suppressStartupEditor(false);
+    }
+
+    // When the webview is ready, open the onboarding walkthrough if no apps are found.
     context.subscriptions.push(
       mainView.onWebviewReadyEvent(async () => {
         if (this._startupCheckDone) {
           return;
         }
         this._startupCheckDone = true;
-
-        const pending = context.globalState.get<{ id: string }>("openWalkthroughOnStartup");
-        if (pending) {
-          await context.globalState.update("openWalkthroughOnStartup", undefined);
-          vscode.commands.executeCommand("workbench.action.openWalkthrough", pending.id, false);
-          return;
-        }
 
         const appList = findAppsInWorkspace();
         if (!appList || appList.length === 0) {

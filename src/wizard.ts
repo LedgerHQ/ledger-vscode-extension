@@ -124,10 +124,42 @@ export class Wizard {
       // Close all open editors so VS Code doesn't restore them (e.g. the onboarding walkthrough)
       // when it reopens with the new folder.
       await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+      // Suppress VS Code's default Getting Started page so our custom walkthrough
+      // can open uncontested. Removed on the next startup by the webview ready handler.
+      this.suppressStartupEditor(true, fullPath);
       vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(fullPath), { forceNewWindow: false });
     }
     catch (error) {
       vscode.window.showErrorMessage("Failed to create app: " + error);
     }
+  }
+
+  private suppressStartupEditor(suppress: boolean, folderPath?: string) {
+    const resolvedPath = folderPath ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!resolvedPath) {
+      return;
+    }
+    const settingsFilePath = path.join(resolvedPath, ".vscode", "settings.json");
+    try {
+      fs.mkdirSync(path.join(resolvedPath, ".vscode"), { recursive: true });
+      let settings: Record<string, unknown> = {};
+      if (fs.existsSync(settingsFilePath)) {
+        settings = JSON.parse(fs.readFileSync(settingsFilePath, "utf-8"));
+      }
+      if (suppress) {
+        settings["workbench.startupEditor"] = "none";
+        fs.writeFileSync(settingsFilePath, JSON.stringify(settings, null, 2));
+      }
+      else {
+        delete settings["workbench.startupEditor"];
+        if (Object.keys(settings).length === 0) {
+          fs.unlinkSync(settingsFilePath);
+        }
+        else {
+          fs.writeFileSync(settingsFilePath, JSON.stringify(settings, null, 2));
+        }
+      }
+    }
+    catch { /* ignore */ }
   }
 }

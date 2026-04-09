@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.2]
+
+### Added
+
+* Add "create app" button to the welcome view.
+* Add device picture to "create app" walkthrough step.
+* Add onboarding walkthrough steps for ERC-7730, Bitcoin clones, and custom networks.
+
+### Changed
+
+* Enforce `app-` prefix in app name during creation by wizard.
+* Auto open new app folder after creation by wizard.
+* Switch order between "create app" and "learn more" onboarding walkthrough steps.
+* Refactor onboarding walkthrough markdown content.
+
+### Fixed
+
+* Suppress VS Code "welcome" editor page when opening new app folder from wizard.
+* Open C or Rust app customization walkthrough regardless of webview display state.
+
+### Removed
+
+* Remove unused instructions files (they are now fetched from the repository).
+
 ## [2.3.1]
 
 ### Fixed

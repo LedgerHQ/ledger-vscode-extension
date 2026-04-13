@@ -2,30 +2,23 @@
 
 Before you start, make sure the following tools are installed and running.
 
-## <img src="./docker.svg" height="20" style="vertical-align:middle"/> Docker
+## Docker
 
-The extension builds and tests your app inside Ledger's official
-[developer tools container](https://github.com/LedgerHQ/ledger-app-builder/).
-Docker must be running when you use the extension.
+Runs Ledger's official [SDK container](https://github.com/LedgerHQ/ledger-app-builder/) for builds and tests. Must be running.
 
 [Get Docker](https://www.docker.com/)
 
-## <img src="./git.svg" height="20" style="vertical-align:middle"/> Git
+## Git
 
-Git is required to clone Ledger app templates from GitHub when generating a new
-app.
+The extension uses Git for various features : cloning boilerplates from Github, performing AI code reviews, managing submodules etc.
 
 [Get Git](https://git-scm.com/)
 
-## <img src="./x11.svg" height="20" style="vertical-align:middle"/> X11 Server
+## X11 Server
 
-An X11 display server is required to run the
-[Speculos](https://github.com/LedgerHQ/speculos) device emulator.
+Required for the [Speculos](https://github.com/LedgerHQ/speculos) emulator. Make sure your X11 is configured to **allow connections from clients**.
 
-| OS | Solution |
-|----|----------|
-| Linux | Xorg or Wayland (via XWayland) — usually pre-installed |
-| macOS | [XQuartz](https://www.xquartz.org/) |
-| Windows | [VcXsrv](https://sourceforge.net/projects/vcxsrv/) |
+If you are on Linux, it's usually pre-installed.
 
-Make sure your X11 server is configured to **allow connections from clients**.
+* [Get X11 for macOS (XQuartz)](https://www.xquartz.org/)
+* [Get X11 for Windows (VcXsrv)](https://sourceforge.net/projects/vcxsrv/)

@@ -137,6 +137,7 @@
       pinnedIds,
       expandedIds,
       showActions,
+      verboseTests,
     });
   }
 
@@ -177,6 +178,14 @@
       selectedTests: testsCases.filter((t) => t.selected).map((t) => t.id),
     });
   }
+
+  $effect(() => {
+    // Persist verboseTests alongside the rest of the UI state whenever it changes.
+    // Guard on 'ready' to avoid overwriting persisted state before setState is received.
+    if (!ready) return;
+    void verboseTests;
+    saveUIState();
+  });
 
   function sendSelectedApp(app: string) {
     vscode.postMessage({
@@ -389,6 +398,9 @@
         if (message.showActions !== undefined) {
           showActions = message.showActions;
         }
+        if (message.verboseTests !== undefined) {
+          verboseTests = message.verboseTests;
+        }
         break;
       }
       case "ready":
@@ -446,7 +458,13 @@
         Open a Ledger app's folder or open a workspace containing Ledger apps to get started.
       </p>
       <div class="welcome-buttons">
-        <button class="vscode-button" onclick={() => vscode.postMessage({ command: "openApp" })}>
+        <button class="vscode-button" onclick={() => vscode.postMessage({ command: "newApp" })}>
+          Create New App
+        </button>
+        <button
+          class="vscode-button secondary"
+          onclick={() => vscode.postMessage({ command: "openApp" })}
+        >
           Open App Folder
         </button>
         <button

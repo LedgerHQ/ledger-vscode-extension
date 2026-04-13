@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "Ledger Dev Tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "2.3.1",
+  "version": "2.4.0",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",
@@ -208,14 +208,6 @@
             }
           },
           {
-            "id": "learnMore",
-            "title": "Learn more",
-            "description": "Explore the Ledger Developer Portal to learn about app development, requirements, and the submission process.",
-            "media": {
-              "markdown": "resources/walkthrough/onboarding/onboarding-learn-more.md"
-            }
-          },
-          {
             "id": "createApp",
             "title": "Create your Ledger app",
             "description": "Ledger devices support applications written in C or Rust.\nGenerate your app from a template and start customizing it.",
@@ -226,6 +218,38 @@
               "onCommand:ledgerDevTools.newCApp",
               "onCommand:ledgerDevTools.newRustApp"
             ]
+          },
+          {
+            "id": "evmChain",
+            "title": "Add a custom EVM chain",
+            "description": "Register a custom EVM network so the Ethereum signer app can display it on device when signing transactions.",
+            "media": {
+              "markdown": "resources/walkthrough/onboarding/onboarding-evm-chain.md"
+            }
+          },
+          {
+            "id": "erc7730",
+            "title": "Add clear signing with ERC-7730",
+            "description": "Make your smart contract transactions human-readable on Ledger devices using the ERC-7730 standard.",
+            "media": {
+              "markdown": "resources/walkthrough/onboarding/onboarding-erc7730.md"
+            }
+          },
+          {
+            "id": "bitcoinClone",
+            "title": "Create a Bitcoin clone app",
+            "description": "Fork the Bitcoin extension boilerplate to support a Bitcoin-derived chain on Ledger devices.",
+            "media": {
+              "markdown": "resources/walkthrough/onboarding/onboarding-bitcoin-clone.md"
+            }
+          },
+          {
+            "id": "learnMore",
+            "title": "Learn more",
+            "description": "Explore the Ledger Developer Portal to learn about app development, requirements, and the submission process.",
+            "media": {
+              "markdown": "resources/walkthrough/onboarding/onboarding-learn-more.md"
+            }
           }
         ]
       },

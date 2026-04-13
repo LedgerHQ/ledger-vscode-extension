@@ -15,6 +15,9 @@ export class Wizard {
     this.context = context;
 
     // Register commands for creating C and Rust apps, used for onboarding walkthrough buttons
+    context.subscriptions.push(vscode.commands.registerCommand("ledgerDevTools.newApp", async () => {
+      this.generateApp(undefined);
+    }));
     context.subscriptions.push(vscode.commands.registerCommand("ledgerDevTools.newCApp", async () => {
       this.generateApp("c");
     }));
@@ -22,21 +25,23 @@ export class Wizard {
       this.generateApp("rust");
     }));
 
-    // When the webview is ready, open any scheduled walkthrough (post app-creation),
-    // or the onboarding walkthrough if no apps are found in the workspace.
+    // Check for a post-creation walkthrough immediately at activation, independently of the
+    // webview, since the extension panel may not be opened in the new window.
+    const pending = context.globalState.get<{ id: string }>("openWalkthroughOnStartup");
+    if (pending) {
+      this._startupCheckDone = true;
+      context.globalState.update("openWalkthroughOnStartup", undefined);
+      vscode.commands.executeCommand("workbench.action.openWalkthrough", pending.id, false);
+      this.suppressStartupEditor(false);
+    }
+
+    // When the webview is ready, open the onboarding walkthrough if no apps are found.
     context.subscriptions.push(
       mainView.onWebviewReadyEvent(async () => {
         if (this._startupCheckDone) {
           return;
         }
         this._startupCheckDone = true;
-
-        const pending = context.globalState.get<{ id: string }>("openWalkthroughOnStartup");
-        if (pending) {
-          await context.globalState.update("openWalkthroughOnStartup", undefined);
-          vscode.commands.executeCommand("workbench.action.openWalkthrough", pending.id, false);
-          return;
-        }
 
         const appList = findAppsInWorkspace();
         if (!appList || appList.length === 0) {
@@ -49,13 +54,26 @@ export class Wizard {
   /**
    * Logic to clone and customize the app
    */
-  private async generateApp(sdk: string) {
+  private async generateApp(sdk: string | undefined) {
+    if (!sdk) {
+      sdk = await vscode.window.showQuickPick(["C", "Rust"], {
+        placeHolder: "Select the SDK for your app",
+      });
+      if (!sdk) {
+        return;
+      }
+      sdk = sdk.toLowerCase();
+    }
+
     const appName = await vscode.window.showInputBox({
-      prompt: "Enter the name of your app repo folder",
+      prompt: "Enter the full name of your app repo folder (must start with 'app-')",
       value: `app-boilerplate${sdk === "rust" ? "-rust" : ""}`,
       validateInput: (value) => {
         if (!value || value.trim().length === 0) {
-          return "App name cannot be empty.";
+          return "Name cannot be empty.";
+        }
+        if (!value.startsWith("app-") || value === "app-") {
+          return "Folder name must start with 'app-' followed by at least one character.";
         }
         return null;
       },
@@ -97,27 +115,51 @@ export class Wizard {
       await simpleGit(fullPath).add("./*");
       await simpleGit(fullPath).commit("Initial commit");
 
-      const openFolder = "Open Folder";
-      const choice = await vscode.window.showInformationMessage(
-        "App created successfully!",
-        openFolder,
-      );
-
-      if (choice === openFolder) {
-        if (sdk === "rust") {
-          await this.context.globalState.update("openWalkthroughOnStartup", { id: "LedgerHQ.ledger-dev-tools#rustDeviceAppCustomization" });
-        }
-        else {
-          await this.context.globalState.update("openWalkthroughOnStartup", { id: "LedgerHQ.ledger-dev-tools#cDeviceAppCustomization" });
-        }
-        // Close all open editors so VS Code doesn't restore them (e.g. the onboarding walkthrough)
-        // when it reopens with the new folder.
-        await vscode.commands.executeCommand("workbench.action.closeAllEditors");
-        vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(fullPath), { forceNewWindow: false });
+      if (sdk === "rust") {
+        await this.context.globalState.update("openWalkthroughOnStartup", { id: "LedgerHQ.ledger-dev-tools#rustDeviceAppCustomization" });
       }
+      else {
+        await this.context.globalState.update("openWalkthroughOnStartup", { id: "LedgerHQ.ledger-dev-tools#cDeviceAppCustomization" });
+      }
+      // Close all open editors so VS Code doesn't restore them (e.g. the onboarding walkthrough)
+      // when it reopens with the new folder.
+      await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+      // Suppress VS Code's default Getting Started page so our custom walkthrough
+      // can open uncontested. Removed on the next startup by the webview ready handler.
+      this.suppressStartupEditor(true, fullPath);
+      vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(fullPath), { forceNewWindow: false });
     }
     catch (error) {
       vscode.window.showErrorMessage("Failed to create app: " + error);
     }
+  }
+
+  private suppressStartupEditor(suppress: boolean, folderPath?: string) {
+    const resolvedPath = folderPath ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!resolvedPath) {
+      return;
+    }
+    const settingsFilePath = path.join(resolvedPath, ".vscode", "settings.json");
+    try {
+      fs.mkdirSync(path.join(resolvedPath, ".vscode"), { recursive: true });
+      let settings: Record<string, unknown> = {};
+      if (fs.existsSync(settingsFilePath)) {
+        settings = JSON.parse(fs.readFileSync(settingsFilePath, "utf-8"));
+      }
+      if (suppress) {
+        settings["workbench.startupEditor"] = "none";
+        fs.writeFileSync(settingsFilePath, JSON.stringify(settings, null, 2));
+      }
+      else {
+        delete settings["workbench.startupEditor"];
+        if (Object.keys(settings).length === 0) {
+          fs.unlinkSync(settingsFilePath);
+        }
+        else {
+          fs.writeFileSync(settingsFilePath, JSON.stringify(settings, null, 2));
+        }
+      }
+    }
+    catch { /* ignore */ }
   }
 }

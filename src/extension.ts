@@ -86,7 +86,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   let containerManager = new ContainerManager(taskProvider);
 
-  let wizard = new Wizard(context, webview);
+  new Wizard(context, webview);
 
   // Helper to build full webview refresh options from current state
   const buildFullRefreshOptions = (): WebviewRefreshOptions => {
@@ -238,6 +238,18 @@ export function activate(context: vscode.ExtensionContext) {
   // This event is fired when the user selects tests to run
   context.subscriptions.push(
     onTestsSelectedEvent(() => {
+      taskProvider.regenerateSubset([
+        "Run Tests",
+        "Tests with Display",
+        "Tests on Device",
+        "Generate Snapshots",
+      ]);
+    }),
+  );
+
+  // This event is fired when the user toggles verbose test output
+  context.subscriptions.push(
+    webview.onVerboseTestsChangedEvent(() => {
       taskProvider.regenerateSubset([
         "Run Tests",
         "Tests with Display",

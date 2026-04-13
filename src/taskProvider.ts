@@ -8,7 +8,7 @@ import * as fg from "fast-glob";
 import { platform } from "node:process";
 import { getDockerUserOpt, getComposeServiceName } from "./containerManager";
 import { TargetSelector, specialAllDevice } from "./targetSelector";
-import { getSelectedApp, App, AppLanguage } from "./appSelector";
+import { getSelectedApp, getVerboseTests, App, AppLanguage } from "./appSelector";
 import type { TaskSpec } from "./types";
 import { Webview } from "./webview/webviewProvider";
 import { debug } from "vscode";
@@ -830,37 +830,41 @@ export class TaskProvider implements vscode.TaskProvider {
 
   private functionalTestsExec(): string {
     let [testsSelection, execQuotes] = this.getSelectedTests();
+    const verboseOpt = getVerboseTests() ? "-s " : "";
     // Runs functional tests inside the docker container (with Qt display disabled).
     const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate &&pytest ${
       this.functionalTestsDir
-    } --tb=short -v --device ${this.tgtSelector.getSelectedSpeculosModel()} ${testsSelection}${execQuotes}`;
+    } --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()} ${testsSelection}${execQuotes}`;
     return exec;
   }
 
   private functionalTestsDisplayExec(): string {
     let [testsSelection, execQuotes] = this.getSelectedTests();
+    const verboseOpt = getVerboseTests() ? "-s " : "";
     // Runs functional tests inside the docker container (with Qt display enabled).
     const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate && pytest ${
       this.functionalTestsDir
-    } --tb=short -v --device ${this.tgtSelector.getSelectedSpeculosModel()} --display ${testsSelection}${execQuotes}`;
+    } --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()} --display ${testsSelection}${execQuotes}`;
     return exec;
   }
 
   private functionalTestsGoldenRunExec(): string {
     let [testsSelection, execQuotes] = this.getSelectedTests();
+    const verboseOpt = getVerboseTests() ? "-s " : "";
     // Runs functional tests inside the docker container (with Qt display disabled and '--golden_run' option).
     const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate && pytest ${
       this.functionalTestsDir
-    } --tb=short -v --device ${this.tgtSelector.getSelectedSpeculosModel()} --golden_run ${testsSelection}${execQuotes}`;
+    } --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()} --golden_run ${testsSelection}${execQuotes}`;
     return exec;
   }
 
   private functionalTestsDisplayOnDeviceExec(): string {
     let [testsSelection, execQuotes] = this.getSelectedTests();
+    const verboseOpt = getVerboseTests() ? "-s " : "";
     // Runs functional tests inside the docker container (with Qt display enabled) on real device.
     const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate && pytest ${
       this.functionalTestsDir
-    } --tb=short -v --device ${this.tgtSelector.getSelectedSpeculosModel()} --display --backend ledgerwallet ${testsSelection}${execQuotes}`;
+    } --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()} --display --backend ledgerwallet ${testsSelection}${execQuotes}`;
     return exec;
   }
 

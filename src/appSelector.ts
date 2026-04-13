@@ -496,6 +496,16 @@ export function setSelectedTests(tests: string[] | undefined) {
   }
 }
 
+let verboseTests: boolean = false;
+
+export function getVerboseTests(): boolean {
+  return verboseTests;
+}
+
+export function setVerboseTests(value: boolean) {
+  verboseTests = value;
+}
+
 export function getAppList() {
   return appList;
 }

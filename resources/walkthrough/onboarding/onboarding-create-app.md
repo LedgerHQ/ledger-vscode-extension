@@ -1,3 +1,7 @@
+<p align="center">
+<img src="./device-dashboard-glow.png" width="60%"/>
+</p>
+
 # Create Your Ledger App
 
 Ledger devices support apps written in **C** or **Rust**. Both start from an

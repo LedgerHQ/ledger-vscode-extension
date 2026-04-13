@@ -137,6 +137,7 @@
       pinnedIds,
       expandedIds,
       showActions,
+      verboseTests,
     });
   }
 
@@ -177,6 +178,14 @@
       selectedTests: testsCases.filter((t) => t.selected).map((t) => t.id),
     });
   }
+
+  $effect(() => {
+    // Persist verboseTests alongside the rest of the UI state whenever it changes.
+    // Guard on 'ready' to avoid overwriting persisted state before setState is received.
+    if (!ready) return;
+    void verboseTests;
+    saveUIState();
+  });
 
   function sendSelectedApp(app: string) {
     vscode.postMessage({
@@ -388,6 +397,9 @@
         });
         if (message.showActions !== undefined) {
           showActions = message.showActions;
+        }
+        if (message.verboseTests !== undefined) {
+          verboseTests = message.verboseTests;
         }
         break;
       }

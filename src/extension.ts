@@ -247,6 +247,18 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
+  // This event is fired when the user toggles verbose test output
+  context.subscriptions.push(
+    webview.onVerboseTestsChangedEvent(() => {
+      taskProvider.regenerateSubset([
+        "Run Tests",
+        "Tests with Display",
+        "Tests on Device",
+        "Generate Snapshots",
+      ]);
+    }),
+  );
+
   // Event listener for Guideline Enforcer check selection.
   // This event is fired when the user selects a Guideline Enforcer check
   context.subscriptions.push(

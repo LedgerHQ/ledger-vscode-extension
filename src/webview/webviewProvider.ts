@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { TaskSpec } from "../taskProvider";
-import { setSelectedTests } from "../appSelector";
+import { setSelectedTests, setVerboseTests } from "../appSelector";
 import { LedgerDevice, SpecialAllDevice } from "../targetSelector";
 import { DevImageStatus } from "../types";
 import { setSelectedModel } from "../aiReviewer";
@@ -60,6 +60,8 @@ export class Webview implements vscode.WebviewViewProvider {
   public onCheckSelectedEvent: vscode.Event<string> = this.checkSelectedEmitter.event;
   private testDepsUpdatedEmitter: vscode.EventEmitter<string> = new vscode.EventEmitter<string>();
   public onTestDepsUpdatedEvent: vscode.Event<string> = this.testDepsUpdatedEmitter.event;
+  private verboseTestsChangedEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+  public onVerboseTestsChangedEvent: vscode.Event<void> = this.verboseTestsChangedEmitter.event;
   private webviewReadyEmitter: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
   public onWebviewReadyEvent: vscode.Event<void> = this.webviewReadyEmitter.event;
   private visibilityChangedEmitter: vscode.EventEmitter<boolean> = new vscode.EventEmitter<boolean>();
@@ -246,11 +248,14 @@ export class Webview implements vscode.WebviewViewProvider {
             // Signal that the webview is ready - this resolves pending refresh calls
             this._webviewReadyResolve();
             // Restore UI state from global state (only on activation)
+            const persistedVerboseTests = this._context.globalState.get<boolean>("verboseTests", false);
+            setVerboseTests(persistedVerboseTests);
             this._view?.webview.postMessage({
               command: "setState",
               pinnedIds: this._context.globalState.get<string[]>("pinnedActions", []),
               expandedIds: this._context.globalState.get<string[]>("expandedGroups", []),
               showActions: this._context.globalState.get<boolean>("showActions", true),
+              verboseTests: persistedVerboseTests,
             });
             // Fire event for extension.ts to handle
             this.webviewReadyEmitter.fire();
@@ -355,9 +360,16 @@ export class Webview implements vscode.WebviewViewProvider {
             const pinnedIds: string[] = data.pinnedIds ?? [];
             const expandedIds: string[] = data.expandedIds ?? [];
             const showActions: boolean = data.showActions ?? true;
+            const verboseTests: boolean = data.verboseTests ?? false;
+            const verboseTestsChanged = verboseTests !== this._context.globalState.get<boolean>("verboseTests", false);
             this._context.globalState.update("pinnedActions", pinnedIds);
             this._context.globalState.update("expandedGroups", expandedIds);
             this._context.globalState.update("showActions", showActions);
+            this._context.globalState.update("verboseTests", verboseTests);
+            if (verboseTestsChanged) {
+              setVerboseTests(verboseTests);
+              this.verboseTestsChangedEmitter.fire();
+            }
           }
           break;
       }

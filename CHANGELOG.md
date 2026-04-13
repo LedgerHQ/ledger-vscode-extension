@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Add "create app" button to the welcome view.
 * Add device picture to "create app" walkthrough step.
 * Add onboarding walkthrough steps for ERC-7730, Bitcoin clones, and custom networks.
+* Implement verbose tests toggle button.
 
 ### Changed
 

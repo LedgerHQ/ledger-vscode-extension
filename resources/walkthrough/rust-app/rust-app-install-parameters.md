@@ -22,7 +22,6 @@ Flags grant elevated OS permissions. Enable only what you need.
 In `Cargo.toml`, `flags` is a bitmask built from `APPLICATION_FLAG_*` values
 from `appflags.h`.
 
-- `APPLICATION_FLAG_DERIVE_MASTER` (`0x10`): derive directly from master seed
 - `APPLICATION_FLAG_GLOBAL_PIN` (`0x40`): ask user to re-enter PIN at runtime
 - `APPLICATION_FLAG_BOLOS_SETTINGS` (`0x200`): modify device-level settings
 - `APPLICATION_FLAG_LIBRARY` (`0x800`): expose app as callable library (`os_lib_call`)

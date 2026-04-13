@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "Ledger Dev Tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",
@@ -197,7 +197,7 @@
       {
         "id": "ledgerOnboarding",
         "title": "Welcome to Ledger Developer Tools",
-        "description": "Get started with building Ledger device apps.",
+        "description": "Get started with building Ledger device apps. Check the prerequisites, then follow the path that matches your use case.",
         "steps": [
           {
             "id": "prerequisites",
@@ -210,7 +210,7 @@
           {
             "id": "createApp",
             "title": "Create your Ledger app",
-            "description": "Ledger devices support applications written in C or Rust.\nGenerate your app from a template and start customizing it.",
+            "description": "Choose this path to build a new device app in C or Rust.\nGenerate your app from a template and start customizing it.",
             "media": {
               "markdown": "resources/walkthrough/onboarding/onboarding-create-app.md"
             },
@@ -220,27 +220,27 @@
             ]
           },
           {
+            "id": "bitcoinClone",
+            "title": "Create a Bitcoin clone app",
+            "description": "Choose this path to fork the Bitcoin extension boilerplate and support a Bitcoin-derived chain on Ledger devices.",
+            "media": {
+              "markdown": "resources/walkthrough/onboarding/onboarding-bitcoin-clone.md"
+            }
+          },
+          {
             "id": "evmChain",
             "title": "Add a custom EVM chain",
-            "description": "Register a custom EVM network so the Ethereum signer app can display it on device when signing transactions.",
+            "description": "Choose this path to register a custom EVM network so the Ethereum signer app can display it on device when signing transactions.",
             "media": {
               "markdown": "resources/walkthrough/onboarding/onboarding-evm-chain.md"
             }
           },
           {
             "id": "erc7730",
-            "title": "Add clear signing with ERC-7730",
-            "description": "Make your smart contract transactions human-readable on Ledger devices using the ERC-7730 standard.",
+            "title": "Clear sign your EVM smart contract transactions",
+            "description": "Choose this path to make your smart contract transactions human-readable on Ledger devices using the ERC-7730 standard.",
             "media": {
               "markdown": "resources/walkthrough/onboarding/onboarding-erc7730.md"
-            }
-          },
-          {
-            "id": "bitcoinClone",
-            "title": "Create a Bitcoin clone app",
-            "description": "Fork the Bitcoin extension boilerplate to support a Bitcoin-derived chain on Ledger devices.",
-            "media": {
-              "markdown": "resources/walkthrough/onboarding/onboarding-bitcoin-clone.md"
             }
           },
           {

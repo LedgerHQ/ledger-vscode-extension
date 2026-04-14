@@ -213,11 +213,7 @@
             "description": "Choose this path to build a new device app in C or Rust.\nGenerate your app from a template and start customizing it.",
             "media": {
               "markdown": "resources/walkthrough/onboarding/onboarding-create-app.md"
-            },
-            "completionEvents": [
-              "onCommand:ledgerDevTools.newCApp",
-              "onCommand:ledgerDevTools.newRustApp"
-            ]
+            }
           },
           {
             "id": "bitcoinClone",

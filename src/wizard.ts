@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import { simpleGit } from "simple-git";
-import { findAppsInWorkspace } from "./appSelector";
+import { findAppsInWorkspace, getAppList } from "./appSelector";
 import { Webview } from "./webview/webviewProvider";
 
 /**
@@ -43,7 +43,7 @@ export class Wizard {
         }
         this._startupCheckDone = true;
 
-        const appList = findAppsInWorkspace();
+        const appList = getAppList();
         if (!appList || appList.length === 0) {
           vscode.commands.executeCommand("workbench.action.openWalkthrough", "LedgerHQ.ledger-dev-tools#ledgerOnboarding", false);
         }

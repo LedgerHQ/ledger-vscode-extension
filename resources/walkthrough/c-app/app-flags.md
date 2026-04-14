@@ -9,7 +9,6 @@ be scrutinised during the security audit.
 Uncomment the relevant lines in the `Makefile` section labelled
 `Application custom permissions`
 
-- `HAVE_APPLICATION_FLAG_DERIVE_MASTER`: derive keys directly from master seed (no hardened prefix).
 - `HAVE_APPLICATION_FLAG_GLOBAL_PIN`: ask user to re-enter PIN at runtime.
 - `HAVE_APPLICATION_FLAG_BOLOS_SETTINGS`: allow device-level settings changes.
 - `HAVE_APPLICATION_FLAG_LIBRARY`: allow app library calls via `os_lib_call`.

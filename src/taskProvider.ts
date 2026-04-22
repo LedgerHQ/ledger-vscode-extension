@@ -820,7 +820,7 @@ export class TaskProvider implements vscode.TaskProvider {
     if (this.selectedTests) {
       testsSelection = "-k \'";
       // Extract function name from full ID (file.py::test_name) for pytest -k expression
-      const testNames = this.selectedTests.map((t) => t.split("::").pop() ?? t);
+      const testNames = this.selectedTests.map(t => t.split("::").pop() ?? t);
       for (let i = 0; i < testNames.length - 1; i++) {
         testsSelection += testNames[i] + " or ";
       }

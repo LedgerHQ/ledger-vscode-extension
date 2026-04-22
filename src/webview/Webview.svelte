@@ -327,7 +327,7 @@
         testCases = [];
         testCases = receivedTestCases.map((testId) => ({
           id: testId,
-          name: testId,
+          name: testId.split("::").pop() ?? testId,
           selected: selectedTestCases.includes(testId),
         }));
         isRefreshing = false;

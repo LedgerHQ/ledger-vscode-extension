@@ -819,11 +819,12 @@ export class TaskProvider implements vscode.TaskProvider {
     let testsSelection = "";
     if (this.selectedTests) {
       testsSelection = "-k \'";
-      // Create list with "or" separator for pytest selection (the last 'or' is not needed)
-      for (let i = 0; i < this.selectedTests.length - 1; i++) {
-        testsSelection += this.selectedTests[i] + " or ";
+      // Extract function name from full ID (file.py::test_name) for pytest -k expression
+      const testNames = this.selectedTests.map((t) => t.split("::").pop() ?? t);
+      for (let i = 0; i < testNames.length - 1; i++) {
+        testsSelection += testNames[i] + " or ";
       }
-      testsSelection += this.selectedTests[this.selectedTests.length - 1] + "\'";
+      testsSelection += testNames[testNames.length - 1] + "\'";
     }
     return [testsSelection, execQuotes];
   }

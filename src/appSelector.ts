@@ -803,8 +803,10 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
             let parts = line.split("::");
             if (parts.length > 0) {
               let testName = parts[parts.length - 1].split("[")[0];
-              if (testName !== undefined && testName !== "" && !testsList.includes(testName)) {
-                testsList.push(testName);
+              let filePath = parts.slice(0, parts.length - 1).join("::").trim();
+              let fullId = filePath ? `${filePath}::${testName}` : testName;
+              if (testName !== undefined && testName !== "" && !testsList.includes(fullId)) {
+                testsList.push(fullId);
               }
             }
           }

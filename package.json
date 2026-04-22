@@ -2,7 +2,7 @@
   "name": "ledger-dev-tools",
   "displayName": "Ledger Dev Tools",
   "description": "Tools to accelerate development of apps for Ledger devices.",
-  "version": "2.5.4",
+  "version": "2.6.0",
   "publisher": "LedgerHQ",
   "license": "Apache",
   "icon": "resources/ledger-square.png",
@@ -210,7 +210,7 @@
           {
             "id": "createApp",
             "title": "Create your Ledger app",
-            "description": "Choose this path to build a new device app in Rust.\nGenerate your app from a template and start customizing it.",
+            "description": "Choose this path to build a new device app in C or Rust.\nGenerate your app from a template and start customizing it.",
             "media": {
               "markdown": "resources/walkthrough/onboarding/onboarding-create-app.md"
             }
@@ -245,6 +245,61 @@
             "description": "Explore the Ledger Developer Portal to learn about app development, requirements, and the submission process.",
             "media": {
               "markdown": "resources/walkthrough/onboarding/onboarding-learn-more.md"
+            }
+          }
+        ]
+      },
+      {
+        "id": "cDeviceAppCustomization",
+        "title": "Customize your C Device App",
+        "description": "Learn how to customize your C device app created with the Ledger Developer Tools extension.",
+        "steps": [
+          {
+            "id": "cDeviceAppName",
+            "title": "Set your app name",
+            "description": "Choose a name for your Ledger device app.",
+            "media": {
+              "markdown": "resources/walkthrough/c-app/app-name.md"
+            }
+          },
+          {
+            "id": "cDeviceAppIcon",
+            "title": "Design your app icon",
+            "description": "Provide device-specific icons for your Ledger app.",
+            "media": {
+              "markdown": "resources/walkthrough/c-app/app-icon.md"
+            }
+          },
+          {
+            "id": "cDeviceAppFlags",
+            "title": "Configure app flags",
+            "description": "Define specific flags for your app to enable or disable certain features during the build process.",
+            "media": {
+              "markdown": "resources/walkthrough/c-app/app-flags.md"
+            }
+          },
+          {
+            "id": "cDeviceAppDerivationPath",
+            "title": "Set derivation path & curves",
+            "description": "Specify the derivation path and cryptographic curves your app will support.",
+            "media": {
+              "markdown": "resources/walkthrough/c-app/app-derivation-path.md"
+            }
+          },
+          {
+            "id": "cDeviceAppVariants",
+            "title": "Choose app variants",
+            "description": "Select different variants of your app to cater to various use cases.",
+            "media": {
+              "markdown": "resources/walkthrough/c-app/app-variants.md"
+            }
+          },
+          {
+            "id": "cDeviceAppDatabase",
+            "title": "Register your app in the database",
+            "description": "Add your app to the Ledger app database to pass the mandatory compliance check.",
+            "media": {
+              "markdown": "resources/walkthrough/c-app/app-database.md"
             }
           }
         ]
@@ -324,13 +379,8 @@
     "lint": "eslint . --format stylish",
     "lint:fix": "eslint . --format stylish --fix",
     "test": "node ./out/test/runTest.js",
-    "vsix:package": "vsce package --out extension.vsix",
     "deploy": "vsce publish",
-    "deploy-prerelease": "vsce publish --pre-release",
-    "deploy-vsix": "vsce publish -i extension.vsix",
-    "deploy-vsix-prerelease": "vsce publish --pre-release -i extension.vsix",
-    "deploy-ovsx": "ovsx publish",
-    "deploy-ovsx-vsix": "ovsx publish extension.vsix"
+    "deploy-prerelease": "vsce publish --pre-release"
   },
   "dependencies": {
     "@formkit/auto-animate": "^0.9.0",
@@ -349,12 +399,10 @@
     "@typescript-eslint/eslint-plugin": "^8.54.0",
     "@typescript-eslint/parser": "^8.54.0",
     "@vscode/test-electron": "^2.5.2",
-    "@vscode/vsce": "^3.9.1",
     "copy-webpack-plugin": "^13.0.1",
     "eslint": "^9.39.2",
     "glob": "^13.0.1",
     "mocha": "^11.7.5",
-    "ovsx": "^0.10.11",
     "prettier": "^3.8.1",
     "prettier-plugin-svelte": "^3.4.1",
     "svelte": "^5.49.2",

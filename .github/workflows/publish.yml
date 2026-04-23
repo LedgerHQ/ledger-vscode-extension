@@ -57,14 +57,25 @@ jobs:
         node-version: node
 
     - name: Packages installation
-      run: npm install @vscode/vsce --save-dev
+      run: npm install @vscode/vsce ovsx --save-dev
+
+    - name: Package extension
+      run: npm run vsix:package
 
     - name: Publish to Visual Studio Marketplace
       run: |
         if [[ "${{ github.ref_name }}" == *"-"* ]]; then
-          npm run deploy-prerelease
+          npm run deploy-vsix-prerelease
         else
-          npm run deploy
+          npm run deploy-vsix
         fi
       env:
         VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+    - name: Publish to Open VSX Registry (release only)
+      run: |
+        if [[ "${{ github.ref_name }}" != *"-"* ]]; then
+          npm run deploy-ovsx-vsix
+        fi
+      env:
+        OVSX_PAT: ${{ secrets.OPEN_VSX_PUBLISH }}

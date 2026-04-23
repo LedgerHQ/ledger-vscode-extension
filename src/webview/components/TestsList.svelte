@@ -92,10 +92,6 @@
     collapsedFiles = next;
   }
 
-  function isFileCollapsed(file: string): boolean {
-    return collapsedFiles.has(file);
-  }
-
   function fileLabel(file: string): string {
     return file || '(root)';
   }
@@ -150,17 +146,16 @@
       </button>
     {/if}
   </div>
-  <div class="test-quick-actions" use:autoAnimate></div>
   <div class="test-list-compact">
     {#each filteredGroups as group (group.file)}
       {#if group.file}
         <button class="file-header" onclick={() => toggleFile(group.file)} title={group.file}>
-          <i class="codicon {isFileCollapsed(group.file) ? 'codicon-chevron-right' : 'codicon-chevron-down'} collapse-icon"></i>
+          <i class="codicon {group.collapsed ? 'codicon-chevron-right' : 'codicon-chevron-down'} collapse-icon"></i>
           <i class="codicon codicon-file file-icon"></i>
           <span class="file-name">{fileLabel(group.file)}</span>
         </button>
       {/if}
-      {#if !isFileCollapsed(group.file)}
+      {#if !group.collapsed}
         <div class="file-tests" use:autoAnimate>
           {#each group.tests as test (test.id)}
             <label class="test-item-compact {group.file ? 'indented' : ''}" title={test.id}>
@@ -290,12 +285,6 @@
 
   .clear-button {
     flex-shrink: 0;
-  }
-
-  .test-quick-actions {
-    display: flex;
-    gap: 8px;
-    padding: 2px 10px 6px;
   }
 
   .test-list-compact {

@@ -816,56 +816,37 @@ export class TaskProvider implements vscode.TaskProvider {
     if (platform === "win32") {
       execQuotes = `\\\"`;
     }
-    let testsSelection = "";
-    if (this.selectedTests) {
-      testsSelection = "-k \'";
-      // Extract function name from full ID (file.py::test_name) for pytest -k expression
-      const testNames = this.selectedTests.map(t => t.split("::").pop() ?? t);
-      for (let i = 0; i < testNames.length - 1; i++) {
-        testsSelection += testNames[i] + " or ";
-      }
-      testsSelection += testNames[testNames.length - 1] + "\'";
-    }
-    return [testsSelection, execQuotes];
+    const testTarget = this.selectedTests
+      ? this.selectedTests.join(" ")
+      : (this.functionalTestsDir ?? "");
+    return [testTarget, execQuotes];
   }
 
   private functionalTestsExec(): string {
-    let [testsSelection, execQuotes] = this.getSelectedTests();
+    let [testTarget, execQuotes] = this.getSelectedTests();
     const verboseOpt = getVerboseTests() ? "-s " : "";
-    // Runs functional tests inside the docker container (with Qt display disabled).
-    const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate &&pytest ${
-      this.functionalTestsDir
-    } --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()} ${testsSelection}${execQuotes}`;
+    const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate &&pytest ${testTarget} --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()}${execQuotes}`;
     return exec;
   }
 
   private functionalTestsDisplayExec(): string {
-    let [testsSelection, execQuotes] = this.getSelectedTests();
+    let [testTarget, execQuotes] = this.getSelectedTests();
     const verboseOpt = getVerboseTests() ? "-s " : "";
-    // Runs functional tests inside the docker container (with Qt display enabled).
-    const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate && pytest ${
-      this.functionalTestsDir
-    } --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()} --display ${testsSelection}${execQuotes}`;
+    const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate && pytest ${testTarget} --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()} --display${execQuotes}`;
     return exec;
   }
 
   private functionalTestsGoldenRunExec(): string {
-    let [testsSelection, execQuotes] = this.getSelectedTests();
+    let [testTarget, execQuotes] = this.getSelectedTests();
     const verboseOpt = getVerboseTests() ? "-s " : "";
-    // Runs functional tests inside the docker container (with Qt display disabled and '--golden_run' option).
-    const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate && pytest ${
-      this.functionalTestsDir
-    } --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()} --golden_run ${testsSelection}${execQuotes}`;
+    const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate && pytest ${testTarget} --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()} --golden_run${execQuotes}`;
     return exec;
   }
 
   private functionalTestsDisplayOnDeviceExec(): string {
-    let [testsSelection, execQuotes] = this.getSelectedTests();
+    let [testTarget, execQuotes] = this.getSelectedTests();
     const verboseOpt = getVerboseTests() ? "-s " : "";
-    // Runs functional tests inside the docker container (with Qt display enabled) on real device.
-    const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate && pytest ${
-      this.functionalTestsDir
-    } --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()} --display --backend ledgerwallet ${testsSelection}${execQuotes}`;
+    const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate && pytest ${testTarget} --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()} --display --backend ledgerwallet${execQuotes}`;
     return exec;
   }
 

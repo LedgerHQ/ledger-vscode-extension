@@ -57,7 +57,7 @@ jobs:
         node-version: node
 
     - name: Packages installation
-      run: npm install @vscode/vsce ovsx --save-dev
+      run: npm install
 
     - name: Package extension
       run: npm run vsix:package

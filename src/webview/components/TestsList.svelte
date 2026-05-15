@@ -311,6 +311,14 @@
     border-radius: 8px;
   }
 
+  .test-count-no-tests-error {
+    font-size: 10px;
+    background-color: var(--vscode-errorForeground);
+    color: var(--vscode-editor-background);
+    padding: 1px 5px;
+    border-radius: 8px;
+  }
+
   .test-search {
     padding: 4px 10px;
   }

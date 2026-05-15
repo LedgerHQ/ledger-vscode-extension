@@ -830,9 +830,28 @@ export class TaskProvider implements vscode.TaskProvider {
     if (platform === "win32") {
       execQuotes = `\\\"`;
     }
-    const testTarget = this.selectedTests
-      ? this.selectedTests.join(" ")
-      : (this.functionalTestsDir ?? "");
+    let testTarget: string;
+    if (this.selectedTests && this.functionalTestsDir) {
+      const normDir = this.functionalTestsDir.replace(/^\.\//, "").replace(/\/$/, "");
+      const dirComponents = normDir.split("/");
+      testTarget = this.selectedTests.map((t) => {
+        const colonIdx = t.indexOf("::");
+        const filePart = colonIdx >= 0 ? t.substring(0, colonIdx) : t;
+        if (filePart.startsWith(normDir + "/")) {
+          return t;
+        }
+        for (let i = 1; i < dirComponents.length; i++) {
+          const suffix = dirComponents.slice(i).join("/");
+          if (filePart.startsWith(suffix + "/")) {
+            return `${dirComponents.slice(0, i).join("/")}/${t}`;
+          }
+        }
+        return `${normDir}/${t}`;
+      }).join(" ");
+    }
+    else {
+      testTarget = this.functionalTestsDir ?? "";
+    }
     return [testTarget, execQuotes];
   }
 

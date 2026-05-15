@@ -210,7 +210,7 @@
           {
             "id": "createApp",
             "title": "Create your Ledger app",
-            "description": "Choose this path to build a new device app in C or Rust.\nGenerate your app from a template and start customizing it.",
+            "description": "Choose this path to build a new device app in Rust.\nGenerate your app from a template and start customizing it.",
             "media": {
               "markdown": "resources/walkthrough/onboarding/onboarding-create-app.md"
             }
@@ -245,61 +245,6 @@
             "description": "Explore the Ledger Developer Portal to learn about app development, requirements, and the submission process.",
             "media": {
               "markdown": "resources/walkthrough/onboarding/onboarding-learn-more.md"
-            }
-          }
-        ]
-      },
-      {
-        "id": "cDeviceAppCustomization",
-        "title": "Customize your C Device App",
-        "description": "Learn how to customize your C device app created with the Ledger Developer Tools extension.",
-        "steps": [
-          {
-            "id": "cDeviceAppName",
-            "title": "Set your app name",
-            "description": "Choose a name for your Ledger device app.",
-            "media": {
-              "markdown": "resources/walkthrough/c-app/app-name.md"
-            }
-          },
-          {
-            "id": "cDeviceAppIcon",
-            "title": "Design your app icon",
-            "description": "Provide device-specific icons for your Ledger app.",
-            "media": {
-              "markdown": "resources/walkthrough/c-app/app-icon.md"
-            }
-          },
-          {
-            "id": "cDeviceAppFlags",
-            "title": "Configure app flags",
-            "description": "Define specific flags for your app to enable or disable certain features during the build process.",
-            "media": {
-              "markdown": "resources/walkthrough/c-app/app-flags.md"
-            }
-          },
-          {
-            "id": "cDeviceAppDerivationPath",
-            "title": "Set derivation path & curves",
-            "description": "Specify the derivation path and cryptographic curves your app will support.",
-            "media": {
-              "markdown": "resources/walkthrough/c-app/app-derivation-path.md"
-            }
-          },
-          {
-            "id": "cDeviceAppVariants",
-            "title": "Choose app variants",
-            "description": "Select different variants of your app to cater to various use cases.",
-            "media": {
-              "markdown": "resources/walkthrough/c-app/app-variants.md"
-            }
-          },
-          {
-            "id": "cDeviceAppDatabase",
-            "title": "Register your app in the database",
-            "description": "Add your app to the Ledger app database to pass the mandatory compliance check.",
-            "media": {
-              "markdown": "resources/walkthrough/c-app/app-database.md"
             }
           }
         ]
@@ -379,38 +324,45 @@
     "lint": "eslint . --format stylish",
     "lint:fix": "eslint . --format stylish --fix",
     "test": "node ./out/test/runTest.js",
+    "vsix:package": "vsce package --out extension.vsix",
     "deploy": "vsce publish",
-    "deploy-prerelease": "vsce publish --pre-release"
+    "deploy-prerelease": "vsce publish --pre-release",
+    "deploy-vsix": "vsce publish -i extension.vsix",
+    "deploy-vsix-prerelease": "vsce publish --pre-release -i extension.vsix",
+    "deploy-ovsx": "ovsx publish",
+    "deploy-ovsx-vsix": "ovsx publish extension.vsix"
   },
   "dependencies": {
     "@formkit/auto-animate": "^0.9.0",
-    "@jis3r/icons": "^2.3.0",
+    "@jis3r/icons": "^2.7.0",
     "@ltd/j-toml": "^1.38.0",
-    "@vscode-elements/elements": "^2.4.0",
-    "bits-ui": "^2.15.5",
+    "@vscode-elements/elements": "^2.5.1",
+    "bits-ui": "^2.18.1",
     "fast-glob": "^3.3.3",
-    "simple-git": "^3.30.0"
+    "simple-git": "^3.36.0"
   },
   "devDependencies": {
-    "@stylistic/eslint-plugin": "^5.7.1",
+    "@stylistic/eslint-plugin": "^5.10.0",
     "@types/mocha": "^10.0.10",
-    "@types/node": "^25.2.0",
-    "@types/vscode": "^1.103.0",
-    "@typescript-eslint/eslint-plugin": "^8.54.0",
-    "@typescript-eslint/parser": "^8.54.0",
+    "@types/node": "^25.9.3",
+    "@types/vscode": "^1.125.0",
+    "@typescript-eslint/eslint-plugin": "^8.61.1",
+    "@typescript-eslint/parser": "^8.61.1",
     "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.9.2",
     "copy-webpack-plugin": "^13.0.1",
-    "eslint": "^9.39.2",
-    "glob": "^13.0.1",
-    "mocha": "^11.7.5",
-    "prettier": "^3.8.1",
-    "prettier-plugin-svelte": "^3.4.1",
-    "svelte": "^5.49.2",
+    "eslint": "^9.39.4",
+    "glob": "^13.0.6",
+    "mocha": "^11.7.6",
+    "ovsx": "^0.10.12",
+    "prettier": "^3.8.4",
+    "prettier-plugin-svelte": "^3.5.2",
+    "svelte": "^5.56.3",
     "svelte-loader": "^3.2.4",
-    "ts-loader": "^9.5.4",
+    "ts-loader": "^9.6.1",
     "typescript": "^5.9.3",
-    "webpack": "^5.105.0",
+    "webpack": "^5.107.2",
     "webpack-cli": "^6.0.1",
-    "webpack-dev-server": "^5.2.3"
+    "webpack-dev-server": "^5.2.5"
   }
 }

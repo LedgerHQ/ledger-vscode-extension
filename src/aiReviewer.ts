@@ -128,14 +128,18 @@ async function executeTool(
         return Buffer.from(bytes).toString("utf8");
       }
       case "ledger_grepCode": {
-        const dir = input.directory ? path.join(workspaceRoot, input.directory) : workspaceRoot;
-        const rgResult = spawnSync("rg", ["--line-number", input.pattern, dir], {
+        const dir = input.directory ? path.resolve(workspaceRoot, input.directory) : workspaceRoot;
+        if (!dir.startsWith(workspaceRoot + path.sep) && dir !== workspaceRoot) {
+          outputChannel.appendLine(`[security] ledger_grepCode blocked path traversal attempt: ${input.directory}`);
+          return "Error: directory outside workspace";
+        }
+        const rgResult = spawnSync("rg", ["--line-number", "--", input.pattern, dir], {
           encoding: "utf8",
           cwd: workspaceRoot,
         });
         let out: string;
         if ((rgResult.error as NodeJS.ErrnoException)?.code === "ENOENT") {
-          const grepResult = spawnSync("grep", ["-rn", input.pattern, dir], {
+          const grepResult = spawnSync("grep", ["-rn", "--", input.pattern, dir], {
             encoding: "utf8",
             cwd: workspaceRoot,
           });

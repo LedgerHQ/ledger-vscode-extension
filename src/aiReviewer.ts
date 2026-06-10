@@ -37,7 +37,7 @@ const LOG_MESSAGES = false; // Set to true to save model messages to ./logs for 
 // Instruction file loader (hybrid: workspace submodule -> bundled fallback)
 // ---------------------------------------------------------------------------
 
-const INSTRUCTIONS_URL = "https://raw.githubusercontent.com/LedgerHQ/ledger-app-ai-instructions/refs/heads/master/";
+const INSTRUCTIONS_URL = "https://raw.githubusercontent.com/LedgerHQ/ledger-app-ai-instructions/refs/heads/master/instructions/";
 const INSTRUCTIONS_FETCH_TIMEOUT_MS = 5000;
 type InstructionSource = "workspace" | "remote" | "none";
 

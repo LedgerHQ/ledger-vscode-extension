@@ -348,6 +348,11 @@ export async function runAIReview(
     ".vscode/settings.json",
     ".vscode/launch.json",
     ".vscode/tasks.json",
+    ".github/instructions",
+    ".github/CODEOWNERS",
+    ".github/PULL_REQUEST_TEMPLATE.md",
+    "README.md",
+    "CHANGELOG.md",
   ];
 
   const gitContext = getGitContext(workspaceRoot);

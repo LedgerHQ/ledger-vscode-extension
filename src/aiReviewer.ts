@@ -34,7 +34,7 @@ export function setSelectedModel(name: string) {
 const LOG_MESSAGES = false; // Set to true to save model messages to ./logs for debugging
 
 // ---------------------------------------------------------------------------
-// Instruction file loader (hybrid: workspace submodule -> bundled fallback)
+// Instruction file loader (from trusted remote repo)
 // ---------------------------------------------------------------------------
 
 const INSTRUCTIONS_URL = "https://raw.githubusercontent.com/LedgerHQ/ledger-app-ai-instructions/refs/heads/master/instructions/";

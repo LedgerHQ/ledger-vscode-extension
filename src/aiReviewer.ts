@@ -369,7 +369,7 @@ export async function runAIReview(
   }
 
   const languageFiles = new Set(
-    changedFiles.map(f => instructionFileForExt(path.extname(f))).filter(f => f !== null),
+    changedFiles.map(f => instructionFileForExt(path.extname(f))).filter((f): f is string => f !== null),
   );
   const instructionFilenames = ["EMBEDDED.instructions.md", "REVIEW.instructions.md", ...languageFiles];
 

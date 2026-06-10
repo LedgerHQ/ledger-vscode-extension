@@ -2,7 +2,7 @@
 
 import * as vscode from "vscode";
 import * as path from "path";
-import { execSync } from "child_process";
+import { execSync, spawnSync } from "child_process";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -41,7 +41,9 @@ const INSTRUCTIONS_URL = "https://raw.githubusercontent.com/LedgerHQ/ledger-app-
 const INSTRUCTIONS_FETCH_TIMEOUT_MS = 5000;
 type InstructionSource = "workspace" | "remote" | "none";
 
-async function fetchInstructionFileWithTimeout(filename: string): Promise<string> {
+async function loadInstructionFile(
+  filename: string,
+): Promise<[string, source: Exclude<InstructionSource, "none">]> {
   const fetched = await fetch(INSTRUCTIONS_URL + filename, {
     signal: AbortSignal.timeout(INSTRUCTIONS_FETCH_TIMEOUT_MS),
   });
@@ -51,31 +53,17 @@ async function fetchInstructionFileWithTimeout(filename: string): Promise<string
   return fetched.text();
 }
 
-async function loadInstructionFile(
-  workspaceRoot: string,
-  filename: string,
-): Promise<[string, source: Exclude<InstructionSource, "none">]> {
-  const local = vscode.Uri.file(path.join(workspaceRoot, ".github", "instructions", filename));
-  try {
-    return [Buffer.from(await vscode.workspace.fs.readFile(local)).toString("utf8"), "workspace"];
-  }
-  catch {
-    return [await fetchInstructionFileWithTimeout(filename), "remote"];
-  }
-}
-
-function instructionFilesForExt(ext: string): string[] {
-  const base = ["EMBEDDED.instructions.md", "REVIEW.instructions.md"];
+function instructionFileForExt(ext: string): string | null {
   if ([".c", ".h"].includes(ext)) {
-    base.push("C.instructions.md");
+    return "C.instructions.md";
   }
-  else if (ext === ".rs") {
-    base.push("RUST.instructions.md");
+  if (ext === ".rs") {
+    return "RUST.instructions.md";
   }
-  else if (ext === ".py") {
-    base.push("PYTHON.instructions.md");
+  if (ext === ".py") {
+    return "PYTHON.instructions.md";
   }
-  return base;
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -135,9 +123,21 @@ async function executeTool(
       }
       case "ledger_grepCode": {
         const dir = input.directory ? path.join(workspaceRoot, input.directory) : workspaceRoot;
-        const cmd = `rg --line-number "${input.pattern}" "${dir}" 2>/dev/null`
-          + ` || grep -rn "${input.pattern}" "${dir}" 2>/dev/null | head -100`;
-        const out = execSync(cmd, { encoding: "utf8", cwd: workspaceRoot });
+        const rgResult = spawnSync("rg", ["--line-number", input.pattern, dir], {
+          encoding: "utf8",
+          cwd: workspaceRoot,
+        });
+        let out: string;
+        if ((rgResult.error as NodeJS.ErrnoException)?.code === "ENOENT") {
+          const grepResult = spawnSync("grep", ["-rn", input.pattern, dir], {
+            encoding: "utf8",
+            cwd: workspaceRoot,
+          });
+          out = (grepResult.stdout ?? "").split("\n").slice(0, 100).join("\n");
+        }
+        else {
+          out = rgResult.stdout ?? "";
+        }
         return out.slice(0, 8000) || "(no matches)";
       }
       default:
@@ -357,23 +357,17 @@ export async function runAIReview(
     return;
   }
 
-  const instructionFilenames = new Set<string>([
-    "EMBEDDED.instructions.md",
-    "REVIEW.instructions.md",
-  ]);
-
-  for (const f of changedFiles) {
-    for (const i of instructionFilesForExt(path.extname(f))) {
-      instructionFilenames.add(i);
-    }
-  }
+  const languageFiles = new Set(
+    changedFiles.map(f => instructionFileForExt(path.extname(f))).filter(f => f !== null),
+  );
+  const instructionFilenames = ["EMBEDDED.instructions.md", "REVIEW.instructions.md", ...languageFiles];
 
   const instructionParts: string[] = [];
   let source: InstructionSource = "none";
   await Promise.all(
-    Array.from(instructionFilenames).map(async (filename) => {
+    instructionFilenames.map(async (filename) => {
       try {
-        const [content, loadedSource] = await loadInstructionFile(workspaceRoot, filename);
+        const [content, loadedSource] = await loadInstructionFile(filename);
         instructionParts.push(`\n\n--- ${filename} ---\n${content}`);
         source = loadedSource;
       }
@@ -523,6 +517,7 @@ If there are no violations, your entire response must be: []`;
             call.name,
             call.input as Record<string, string>,
             workspaceRoot,
+            outputChannel,
           );
           outputChannel.appendLine(
             `[tool] ${call.name}(${JSON.stringify(call.input)}) -> ${result.length} chars`,

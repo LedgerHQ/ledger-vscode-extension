@@ -113,11 +113,17 @@ async function executeTool(
   name: string,
   input: Record<string, string>,
   workspaceRoot: string,
+  outputChannel: vscode.OutputChannel,
 ): Promise<string> {
   try {
     switch (name) {
       case "ledger_readFile": {
-        const uri = vscode.Uri.file(path.join(workspaceRoot, input.path));
+        const resolved = path.resolve(workspaceRoot, input.path);
+        if (!resolved.startsWith(workspaceRoot + path.sep)) {
+          outputChannel.appendLine(`[security] ledger_readFile blocked path traversal attempt: ${input.path}`);
+          return "Error: path outside workspace";
+        }
+        const uri = vscode.Uri.file(resolved);
         const bytes = await vscode.workspace.fs.readFile(uri);
         return Buffer.from(bytes).toString("utf8");
       }

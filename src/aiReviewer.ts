@@ -50,7 +50,7 @@ async function loadInstructionFile(
   if (!fetched.ok) {
     throw new Error(`Failed to fetch instruction file: ${fetched.status} ${fetched.statusText}`);
   }
-  return fetched.text();
+  return [await fetched.text(), "remote"];
 }
 
 function instructionFileForExt(ext: string): string | null {

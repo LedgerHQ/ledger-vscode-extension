@@ -119,7 +119,8 @@ async function executeTool(
     switch (name) {
       case "ledger_readFile": {
         const resolved = path.resolve(workspaceRoot, input.path);
-        if (!resolved.startsWith(workspaceRoot + path.sep)) {
+        const rel = path.relative(workspaceRoot, resolved);
+        if (rel === "" || rel.startsWith("..") || path.isAbsolute(rel)) {
           outputChannel.appendLine(`[security] ledger_readFile blocked path traversal attempt: ${input.path}`);
           return "Error: path outside workspace";
         }
@@ -129,9 +130,13 @@ async function executeTool(
       }
       case "ledger_grepCode": {
         const dir = input.directory ? path.resolve(workspaceRoot, input.directory) : workspaceRoot;
-        if (!dir.startsWith(workspaceRoot + path.sep) && dir !== workspaceRoot) {
-          outputChannel.appendLine(`[security] ledger_grepCode blocked path traversal attempt: ${input.directory}`);
-          return "Error: directory outside workspace";
+        // Only validate when a directory was supplied — omitting it defaults to workspaceRoot, which is always safe.
+        if (input.directory) {
+          const rel = path.relative(workspaceRoot, dir);
+          if (rel.startsWith("..") || path.isAbsolute(rel)) {
+            outputChannel.appendLine(`[security] ledger_grepCode blocked path traversal attempt: ${input.directory}`);
+            return "Error: directory outside workspace";
+          }
         }
         const rgResult = spawnSync("rg", ["--line-number", "--", input.pattern, dir], {
           encoding: "utf8",

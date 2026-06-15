@@ -304,7 +304,7 @@ export class Webview implements vscode.WebviewViewProvider {
           break;
         case "newApp":
           {
-            console.log("Create new app requested from webview");
+            console.log("Create new Rust app requested from webview");
             await vscode.commands.executeCommand("ledgerDevTools.newApp");
           }
           break;

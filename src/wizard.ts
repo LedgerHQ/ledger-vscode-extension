@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import { simpleGit } from "simple-git";
-import { findAppsInWorkspace, getAppList } from "./appSelector";
+import { getAppList } from "./appSelector";
 import { Webview } from "./webview/webviewProvider";
 
 /**
@@ -14,15 +14,9 @@ export class Wizard {
   constructor(context: vscode.ExtensionContext, mainView: Webview) {
     this.context = context;
 
-    // Register commands for creating C and Rust apps, used for onboarding walkthrough buttons
+    // Register commands for creating Rust apps, used for onboarding walkthrough buttons
     context.subscriptions.push(vscode.commands.registerCommand("ledgerDevTools.newApp", async () => {
-      this.generateApp(undefined);
-    }));
-    context.subscriptions.push(vscode.commands.registerCommand("ledgerDevTools.newCApp", async () => {
-      this.generateApp("c");
-    }));
-    context.subscriptions.push(vscode.commands.registerCommand("ledgerDevTools.newRustApp", async () => {
-      this.generateApp("rust");
+      this.generateApp();
     }));
 
     // Check for a post-creation walkthrough immediately at activation, independently of the
@@ -54,17 +48,8 @@ export class Wizard {
   /**
    * Logic to clone and customize the app
    */
-  private async generateApp(sdk: string | undefined) {
-    if (!sdk) {
-      sdk = await vscode.window.showQuickPick(["C", "Rust"], {
-        placeHolder: "Select the SDK for your app",
-      });
-      if (!sdk) {
-        return;
-      }
-      sdk = sdk.toLowerCase();
-    }
-
+  private async generateApp() {
+    let sdk = "rust";
     const appName = await vscode.window.showInputBox({
       prompt: "Enter the full name of your app repo folder (must start with 'app-')",
       value: `app-boilerplate${sdk === "rust" ? "-rust" : ""}`,
@@ -97,11 +82,7 @@ export class Wizard {
 
     const projectPath = folderUri[0].fsPath;
     const fullPath = path.join(projectPath, appName);
-
-    // 2. Determine Repo URL based on selection
-    const repoUrl = sdk === "rust"
-      ? "https://github.com/LedgerHQ/app-boilerplate-rust"
-      : "https://github.com/LedgerHQ/app-boilerplate";
+    const repoUrl = "https://github.com/LedgerHQ/app-boilerplate-rust";
 
     try {
       vscode.window.showInformationMessage(`Generating ${sdk.toUpperCase()} app in ${fullPath}...`);
@@ -115,12 +96,8 @@ export class Wizard {
       await simpleGit(fullPath).add("./*");
       await simpleGit(fullPath).commit("Initial commit");
 
-      if (sdk === "rust") {
-        await this.context.globalState.update("openWalkthroughOnStartup", { id: "LedgerHQ.ledger-dev-tools#rustDeviceAppCustomization" });
-      }
-      else {
-        await this.context.globalState.update("openWalkthroughOnStartup", { id: "LedgerHQ.ledger-dev-tools#cDeviceAppCustomization" });
-      }
+      await this.context.globalState.update("openWalkthroughOnStartup", { id: "LedgerHQ.ledger-dev-tools#rustDeviceAppCustomization" });
+
       // Close all open editors so VS Code doesn't restore them (e.g. the onboarding walkthrough)
       // when it reopens with the new folder.
       await vscode.commands.executeCommand("workbench.action.closeAllEditors");

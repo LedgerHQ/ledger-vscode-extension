@@ -750,6 +750,11 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
     const varPrefix = process.platform === "win32" ? "\`$" : "$";
     const quotesAroundBashCommand = process.platform === "win32" ? "\"" : "";
 
+    console.log(`[getTestsList] platform: ${process.platform}`);
+    console.log(`[getTestsList] varPrefix: "${varPrefix}", quotesAroundBashCommand: "${quotesAroundBashCommand}"`);
+    console.log(`[getTestsList] shell: ${(optionsExec as any).shell ?? "default"}`);
+    console.log(`[getTestsList] deviceArg: "${deviceArg}", fallbackDeviceArg: "${fallbackDeviceArg}"`);
+
     // Note: pip install must run from the app root (not tests dir) to correctly
     // resolve relative paths in requirements.txt (e.g. './client[tests]').
     // When 'All' targets is selected:
@@ -757,27 +762,46 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
     //     tests parametrized as test_foo[nanos], test_foo[nanox], etc.
     //   - The legacy --model option does not support 'all', so we fall back to
     //     the first compatible device in that case.
-    const getTestsListShellScript = `${quotesAroundBashCommand}source /opt/venv/bin/activate &&
-      pip install -r ${selectedApp.functionalTestsDir}/requirements.txt > /dev/null 2>&1 &&
+    const getTestsListShellScript = `${quotesAroundBashCommand}set -x;
+      echo '[script] activating venv' >&2 &&
+      source /opt/venv/bin/activate &&
+      echo '[script] venv activated, python: '${varPrefix}(which python) >&2 &&
+      echo '[script] pip install from ${selectedApp.functionalTestsDir}/requirements.txt' >&2 &&
+      pip install -r ${selectedApp.functionalTestsDir}/requirements.txt > /dev/null &&
+      echo '[script] pip install done' >&2 &&
       cd ${selectedApp.functionalTestsDir} &&
-        device_option=${varPrefix}(pytest --help |
-            awk '/[C|c]ustom options/,/^$/' |
-            grep -E -- '--model|--device'   |
-            head -n 1    |
-            tr ' =' '\n' |
-            grep -v '^$' |
-            head -n 1
-        );
+      echo '[script] cwd: '${varPrefix}(pwd) >&2 &&
+      echo '[script] detecting device option from pytest --help' >&2 &&
+        _help=${varPrefix}(pytest --help 2>&1);
+        echo '[script] pytest --help lines: '${varPrefix}(echo "${varPrefix}_help" | wc -l) >&2;
+        _awk=${varPrefix}(echo "${varPrefix}_help" | awk '/[C|c]ustom options/,/^$/');
+        echo '[script] after awk: "'${varPrefix}_awk'"' >&2;
+        _grep=${varPrefix}(echo "${varPrefix}_awk" | grep -E -- '--model|--device');
+        echo '[script] after grep: "'${varPrefix}_grep'"' >&2;
+        _head1=${varPrefix}(echo "${varPrefix}_grep" | head -n 1);
+        echo '[script] after head1: "'${varPrefix}_head1'"' >&2;
+        _tr=${varPrefix}(echo "${varPrefix}_head1" | tr ' =' '\n');
+        echo '[script] after tr: "'${varPrefix}_tr'"' >&2;
+        _grepv=${varPrefix}(echo "${varPrefix}_tr" | grep -v '^$');
+        echo '[script] after grep -v: "'${varPrefix}_grepv'"' >&2;
+        device_option=${varPrefix}(echo "${varPrefix}_grepv" | head -n 1);
+        echo '[script] device_option="'${varPrefix}device_option'"' >&2;
         if [ -n '${varPrefix}device_option' ]; then
             if [ '${varPrefix}device_option' = '--device' ]; then
+                echo '[script] running: pytest --collect-only -q --device ${deviceArg}' >&2;
                 pytest --collect-only -q --device ${deviceArg}
             else
+                echo '[script] running: pytest --collect-only -q '${varPrefix}device_option' ${fallbackDeviceArg}' >&2;
                 pytest --collect-only -q ${varPrefix}device_option ${fallbackDeviceArg}
             fi
         else
+            echo '[script] running: pytest --collect-only -q (no device option)' >&2;
             pytest --collect-only -q
         fi;
-        if [ $? -eq 5 ]; then
+        _pytest_exit=${varPrefix}?;
+        echo '[script] pytest exit code: '${varPrefix}_pytest_exit >&2;
+        if [ ${varPrefix}_pytest_exit -eq 5 ]; then
+            echo '[script] exit code 5 = no tests collected, exiting 0' >&2;
             exit 0
         fi${quotesAroundBashCommand}`;
 
@@ -787,8 +811,16 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
       getTestsListShellScript,
     ];
 
+    console.log(`[getTestsList] functionalTestsDir: ${selectedApp.functionalTestsDir}`);
+    console.log(`[getTestsList] container: ${selectedApp!.containerName}`);
+    console.log(`[getTestsList] cmd: ${getTestsListCmd} ${getTestsListArgs.join(" ")}`);
+    console.log(`[getTestsList] script:\n${getTestsListShellScript}`);
+
     // Executing the command with a callback
     cp.execFile(getTestsListCmd, getTestsListArgs, optionsExec, (error, stdout, stderr) => {
+      console.log(`[getTestsList] callback fired — error: ${error?.message ?? "none"}`);
+      console.log(`[getTestsList] stdout: ${stdout.toString()}`);
+      console.log(`[getTestsList] stderr: ${stderr.toString()}`);
       if (error) {
         pushError(`Error while getting tests list: ${error.message}`);
         // Notify webview even on error to stop the refresh spinner
@@ -803,12 +835,20 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
             let parts = line.split("::");
             if (parts.length > 0) {
               let testName = parts[parts.length - 1].split("[")[0];
+              console.log(`[getTestsList] matched line: "${line}" → testName: "${testName}"`);
               if (testName !== undefined && testName !== "" && !testsList.includes(testName)) {
                 testsList.push(testName);
               }
+              else {
+                console.log(`[getTestsList] skipped testName: "${testName}" (undefined, empty, or duplicate)`);
+              }
             }
           }
+          else if (line.trim() !== "") {
+            console.log(`[getTestsList] unmatched stdout line: "${line}"`);
+          }
         });
+        console.log(`[getTestsList] parsed testsList (${testsList.length}): ${JSON.stringify(testsList)}`);
         if (testsList.length > 1) {
           selectedApp!.functionalTestsList = testsList;
           if ((lastTests && lastTests.length > 0 && JSON.stringify(testsList) !== JSON.stringify(lastTests)) || !lastTests) {
@@ -830,6 +870,7 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
         }
         else {
           // No tests found or only one test - still notify webview
+          console.log(`[getTestsList] no tests found (testsList.length=${testsList.length}), notifying webview`);
           if (webView) {
             webView.refresh({
               testCases: {

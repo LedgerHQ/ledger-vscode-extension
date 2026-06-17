@@ -8,6 +8,7 @@
 
 <script lang="ts">
   import autoAnimate from "@formkit/auto-animate";
+  import { fade } from "svelte/transition";
   import Switch from "./Switch.svelte";
 
   interface Props {
@@ -55,7 +56,7 @@
       Tests to run
     </span>
     <div class="test-header-actions">
-      {#if !isRefreshing}
+      {#if !isRefreshing && testCases.length > 0}
         <button class="icon-button" onclick={() => toggleAllTests(true)} title="Select all">
           <i class="codicon codicon-check-all"></i>
         </button>
@@ -66,8 +67,13 @@
       <button class="icon-button" onclick={refreshTests} title="Refresh test list">
         <i class="codicon codicon-refresh {isRefreshing ? 'spinning' : ''}"></i>
       </button>
-
-      <span class="test-count">{getSelectedTestCount()}/{testCases.length}</span>
+      {#if !isRefreshing}
+        <span
+          transition:fade={{ duration: 150 }}
+          class={testCases.length === 0 ? "test-count-no-tests-error" : "test-count"}
+          >{getSelectedTestCount()}/{testCases.length}</span
+        >
+      {/if}
     </div>
   </div>
   <div class="test-quick-actions" use:autoAnimate></div>
@@ -158,6 +164,14 @@
     font-size: 10px;
     background-color: var(--vscode-badge-background);
     color: var(--vscode-badge-foreground);
+    padding: 1px 5px;
+    border-radius: 8px;
+  }
+
+  .test-count-no-tests-error {
+    font-size: 10px;
+    background-color: var(--vscode-errorForeground);
+    color: var(--vscode-editor-background);
     padding: 1px 5px;
     border-radius: 8px;
   }

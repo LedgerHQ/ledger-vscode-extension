@@ -93,7 +93,6 @@
   ]);
 
   function isGroupDisabled(group: ActionGroupData): boolean {
-    if (group.id === "Tests" && testCases.length === 0 && !isRefreshing) return true;
     if (allDevices && (group.disabledOnAllDevices ?? false)) return true;
     if (group.mainAction && group.mainAction.disabled) return true;
     return false;

@@ -772,20 +772,15 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
       cd ${selectedApp.functionalTestsDir} &&
       echo '[script] cwd: '${varPrefix}(pwd) >&2 &&
       echo '[script] detecting device option from pytest --help' >&2 &&
-        _help=${varPrefix}(pytest --help 2>&1);
-        echo '[script] pytest --help lines: '${varPrefix}(echo "${varPrefix}_help" | wc -l) >&2;
-        _awk=${varPrefix}(echo "${varPrefix}_help" | awk '/[C|c]ustom options/,/^$/');
-        echo '[script] after awk: "'${varPrefix}_awk'"' >&2;
-        _grep=${varPrefix}(echo "${varPrefix}_awk" | grep -E -- '--model|--device');
-        echo '[script] after grep: "'${varPrefix}_grep'"' >&2;
-        _head1=${varPrefix}(echo "${varPrefix}_grep" | head -n 1);
-        echo '[script] after head1: "'${varPrefix}_head1'"' >&2;
-        _tr=${varPrefix}(echo "${varPrefix}_head1" | tr ' =' '\n');
-        echo '[script] after tr: "'${varPrefix}_tr'"' >&2;
-        _grepv=${varPrefix}(echo "${varPrefix}_tr" | grep -v '^$');
-        echo '[script] after grep -v: "'${varPrefix}_grepv'"' >&2;
-        device_option=${varPrefix}(echo "${varPrefix}_grepv" | head -n 1);
-        echo '[script] device_option="'${varPrefix}device_option'"' >&2;
+        device_option=${varPrefix}(pytest --help |
+            awk '/[C|c]ustom options/,/^$/' |
+            grep -E -- '--model|--device'   |
+            head -n 1    |
+            tr ' =' '\n' |
+            grep -v '^$' |
+            head -n 1
+        );
+        echo '[script] device_option='${varPrefix}device_option >&2;
         if [ -n '${varPrefix}device_option' ]; then
             if [ '${varPrefix}device_option' = '--device' ]; then
                 echo '[script] running: pytest --collect-only -q --device ${deviceArg}' >&2;
@@ -835,17 +830,10 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
             let parts = line.split("::");
             if (parts.length > 0) {
               let testName = parts[parts.length - 1].split("[")[0];
-              console.log(`[getTestsList] matched line: "${line}" → testName: "${testName}"`);
               if (testName !== undefined && testName !== "" && !testsList.includes(testName)) {
                 testsList.push(testName);
               }
-              else {
-                console.log(`[getTestsList] skipped testName: "${testName}" (undefined, empty, or duplicate)`);
-              }
             }
-          }
-          else if (line.trim() !== "") {
-            console.log(`[getTestsList] unmatched stdout line: "${line}"`);
           }
         });
         console.log(`[getTestsList] parsed testsList (${testsList.length}): ${JSON.stringify(testsList)}`);

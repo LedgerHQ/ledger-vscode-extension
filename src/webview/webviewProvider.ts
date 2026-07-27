@@ -320,6 +320,8 @@ export class Webview implements vscode.WebviewViewProvider {
               if (fs.existsSync(cachePath)) {
                 try {
                   const raw = JSON.parse(fs.readFileSync(cachePath, "utf-8")) as Record<string, boolean>;
+                  // Strip parametrize suffixes (e.g. test_foo[param]) so all
+                  // variants of a test are selected when any variant failed.
                   failedIds = [...new Set(
                     Object.keys(raw).map(id => {
                       const parts = id.split("::");

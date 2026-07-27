@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.0]
+
+### Added
+
+* Per-target container management: each device model (flex, stax, nanos+, …) now gets its own container named `<app>-<model>`, enabling parallel multi-device workflows.
+* Container panel in the Tools section showing per-container status with stop, clean, and recreate actions.
+* "Select failed tests" button that reads pytest's `lastfailed` cache to re-select previously failing tests.
+* pip cache volume (`ledger-pip-cache`) mounted in all containers to speed up repeated installs.
+
+### Changed
+
+* `Update Container` and `Create Container` tasks now run sequentially across all targets when "All" is selected (avoids concurrent `docker pull` races).
+* pytest commands now pass `--color=yes` for coloured output in the terminal panel.
+
+### Breaking
+
+* The VS Code task type identifier has changed from `"L"` to `"ledger"`. If you have custom `.vscode/tasks.json` entries that reference `"type": "L"`, update them to `"type": "ledger"`.
+
 ## [2.6.0]
 
 ### Added

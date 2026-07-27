@@ -151,15 +151,20 @@ export class ContainerManager {
       const containerNames = this.taskProvider.getTargetContainerNames();
       if (containerNames.length === 0) return DevImageStatus.stopped;
 
+      let hasSyncing = false;
       for (const containerName of containerNames) {
         if (!this.checkContainerExists(containerName)) return DevImageStatus.stopped;
         const command = `docker inspect -f "{{ .State.Status }}" ${containerName}`;
         const containerStatus = execSync(command).toString().trim();
         console.log(`Ledger: Container ${containerName} status is ${containerStatus}`);
-        if (containerStatus === "starting" || containerStatus === "restarting") return DevImageStatus.syncing;
-        if (containerStatus !== "running") return DevImageStatus.stopped;
+        if (containerStatus === "starting" || containerStatus === "restarting") {
+          hasSyncing = true;
+        }
+        else if (containerStatus !== "running") {
+          return DevImageStatus.stopped;
+        }
       }
-      return DevImageStatus.running;
+      return hasSyncing ? DevImageStatus.syncing : DevImageStatus.running;
     }
     catch (error: any) {
       console.log(`Docker error : ${error.message}`);

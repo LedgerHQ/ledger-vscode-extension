@@ -26,6 +26,7 @@
   let dockerRunning = $state(false);
   let imageOutdated = $state(false);
 
+  // Mirror of ContainerTargetInfo in webviewProvider.ts — keep in sync.
   type ContainerTargetStatus = "running" | "stopped" | "missing";
   interface ContainerTargetInfo { model: string; containerName: string; status: ContainerTargetStatus; }
   let containerStatuses = $state<ContainerTargetInfo[]>([]);
@@ -965,8 +966,8 @@
     flex-shrink: 0;
   }
 
-  .ct-dot--running { color: #4caf50; }
-  .ct-dot--stopped { color: #ff9800; }
+  .ct-dot--running { color: var(--vscode-testing-iconPassed); }
+  .ct-dot--stopped { color: var(--vscode-editorWarning-foreground); }
   .ct-dot--missing { color: var(--vscode-disabledForeground, #666); }
 
   .ct-btn {

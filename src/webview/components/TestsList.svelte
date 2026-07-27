@@ -23,6 +23,7 @@
     isRefreshing: boolean;
     refreshTests: () => void;
     sendSelectedTests: (testCases: TestCase[]) => void;
+    selectFailedTests: () => void;
   }
 
   let {
@@ -31,6 +32,7 @@
     isRefreshing,
     refreshTests,
     sendSelectedTests,
+    selectFailedTests,
   }: Props = $props();
 
   let searchQuery = $state("");
@@ -154,6 +156,15 @@
           title="Filter tests"
         >
           <i class="codicon codicon-search"></i>
+        </button>
+      {/if}
+      {#if !isRefreshing && testCases.length > 0}
+        <button
+          class="icon-button"
+          onclick={selectFailedTests}
+          title="Select failed tests from last run"
+        >
+          <i class="codicon codicon-error"></i>
         </button>
       {/if}
       <button class="icon-button" onclick={refreshTests} title="Refresh test list">

@@ -226,6 +226,11 @@ export class TargetSelector {
     return firstDevice ? speculosModels[firstDevice] : (this.selectedSpeculosModel ?? "");
   }
 
+  // Pure lookup — returns the speculos model for any target without changing state.
+  public getSpeculosModelForTarget(target: string): string {
+    return speculosModels[target] ?? "";
+  }
+
   public getSelectedSDKModel() {
     return this.selectedSDKModel;
   }

@@ -38,6 +38,7 @@
     onTogglePin: (actionId: string) => void;
     onToggleExpand?: () => void;
     optionSuffix?: Snippet<[Action]>; // content to render inline after an option
+    headerSuffix?: Snippet; // content rendered below main action, always visible
     children?: Snippet;
   }
 
@@ -49,6 +50,7 @@
     onTogglePin,
     onToggleExpand,
     optionSuffix,
+    headerSuffix,
     children,
   }: Props = $props();
 
@@ -134,6 +136,10 @@
       </span>
     </button>
   </div>
+
+  {#if headerSuffix}
+    {@render headerSuffix()}
+  {/if}
 
   {#if group.expanded && !disabled}
     <div class="options-panel">

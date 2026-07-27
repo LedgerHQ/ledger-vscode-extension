@@ -128,7 +128,7 @@ export class TaskProvider implements vscode.TaskProvider {
     if (this.tgtSelector.getSelectedTarget() === specialAllDevice) {
       return this.tgtSelector.getTargetsArray()
         .filter(t => t !== specialAllDevice)
-        .map(t => {
+        .map((t) => {
           const model = this.tgtSelector.getSpeculosModelForTarget(t);
           return model ? `${this.baseContainerName}-${model}` : this.baseContainerName;
         });
@@ -492,7 +492,7 @@ export class TaskProvider implements vscode.TaskProvider {
     if (!this.baseContainerName) return [];
     return this.tgtSelector.getTargetsArray()
       .filter(t => t !== specialAllDevice)
-      .map(t => {
+      .map((t) => {
         const model = this.tgtSelector.getSpeculosModelForTarget(t);
         return {
           containerName: model ? `${this.baseContainerName}-${model}` : this.baseContainerName,

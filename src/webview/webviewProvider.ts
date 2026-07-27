@@ -323,7 +323,7 @@ export class Webview implements vscode.WebviewViewProvider {
                   // Strip parametrize suffixes (e.g. test_foo[param]) so all
                   // variants of a test are selected when any variant failed.
                   failedIds = [...new Set(
-                    Object.keys(raw).map(id => {
+                    Object.keys(raw).map((id) => {
                       const parts = id.split("::");
                       const testName = parts[parts.length - 1].split("[")[0];
                       const filePart = parts.slice(0, parts.length - 1).join("::");

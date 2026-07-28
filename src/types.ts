@@ -27,6 +27,9 @@ export interface TaskSpec {
   state: TaskState;
   allSelectedBehavior: BehaviorWhenAllTargetsSelected;
   mainCommand?: boolean;
+  // When false, "executeForEveryTarget" runs targets sequentially (;) instead of in parallel (&).
+  // Defaults to true. Set false for tasks like container creation where concurrent docker pull races.
+  parallelWhenAll?: boolean;
 }
 
 // Container types

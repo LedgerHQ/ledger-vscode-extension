@@ -39,7 +39,7 @@ import {
   getAppUseCaseNames,
   showAppSelectorMenu,
 } from "./appSelector";
-import { Webview, WebviewRefreshOptions } from "./webview/webviewProvider";
+import { Webview, WebviewRefreshOptions, ContainerTargetInfo } from "./webview/webviewProvider";
 import { runAIReview } from "./aiReviewer";
 import { Wizard } from "./wizard";
 
@@ -88,6 +88,16 @@ export function activate(context: vscode.ExtensionContext) {
 
   new Wizard(context, webview);
 
+  const sendContainerStatuses = () => {
+    const details = taskProvider.getTargetContainerDetails();
+    const statuses: ContainerTargetInfo[] = details.map(({ containerName, model }) => ({
+      containerName,
+      model,
+      status: containerManager.getContainerStatusFor(containerName),
+    }));
+    webview.refresh({ containerStatuses: statuses });
+  };
+
   // Helper to build full webview refresh options from current state
   const buildFullRefreshOptions = (): WebviewRefreshOptions => {
     const appList = getAppList();
@@ -121,6 +131,11 @@ export function activate(context: vscode.ExtensionContext) {
     // Use cached docker status and default values,
     // Status events will update the webview.
     options.containerStatus = containerManager.getContainerStatus();
+    options.containerStatuses = taskProvider.getTargetContainerDetails().map(({ containerName, model }) => ({
+      containerName,
+      model,
+      status: containerManager.getContainerStatusFor(containerName),
+    }));
     options.dockerRunning = dockerRunning;
     options.imageOutdated = false;
     return options;
@@ -150,6 +165,7 @@ export function activate(context: vscode.ExtensionContext) {
         containerStatus: data,
         dockerRunning,
       });
+      sendContainerStatuses();
       if (data === DevImageStatus.running) {
         // Check image outdated in the background (hits Docker registry).
         // Result arrives via onImageOutdatedEvent.
@@ -341,9 +357,12 @@ export function activate(context: vscode.ExtensionContext) {
         statusBarManager.updateTargetItem(target);
       }
 
+      // updateTargetsInfos() must run first: it populates targetsArray from the app's
+      // compatible devices, which containerManager and taskProvider both need to compute
+      // per-target container names (e.g. app-foo-container-flex).
+      targetSelector.updateTargetsInfos();
       containerManager.manageContainer();
       taskProvider.generateTasks();
-      targetSelector.updateTargetsInfos();
       const appList = getAppList();
       webview.refresh({
         apps: {
@@ -404,6 +423,19 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("executeTask", (taskName: string) => {
       taskProvider.executeTaskByName(taskName);
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("ledgerDevTools.stopContainer", (containerName: string) => {
+      containerManager.stopContainer(containerName, sendContainerStatuses);
+    }),
+    vscode.commands.registerCommand("ledgerDevTools.cleanContainer", (containerName: string) => {
+      containerManager.cleanContainer(containerName);
+      sendContainerStatuses();
+    }),
+    vscode.commands.registerCommand("ledgerDevTools.executeTaskForTarget", (taskName: string, model: string) => {
+      taskProvider.executeTaskForTarget(taskName, model);
     }),
   );
 

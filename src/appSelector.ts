@@ -7,7 +7,7 @@ import { platform } from "node:process";
 import * as cp from "child_process";
 import { getDockerUserOpt } from "./containerManager";
 import { TaskProvider } from "./taskProvider";
-import { LedgerDevice, TargetSelector } from "./targetSelector";
+import { LedgerDevice, TargetSelector, specialAllDevice } from "./targetSelector";
 import { pushError, updateSetting, getSetting } from "./extension";
 import { Webview } from "./webview/webviewProvider";
 const APP_DETECTION_FILES: string[] = ["Makefile", "ledger_app.toml"];
@@ -781,9 +781,18 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
             exit 0
         fi${quotesAroundBashCommand}`;
 
+    // Resolve effective container name: append per-target suffix, falling back
+    // to the first compatible device when 'All' is selected.
+    const baseContainerName = selectedApp!.containerName;
+    const selectedTarget = targetSelector.getSelectedTarget();
+    const containerSuffix = selectedTarget === specialAllDevice
+      ? targetSelector.getFirstCompatibleSpeculosModel()
+      : targetSelector.getSelectedSpeculosModel();
+    const effectiveContainerName = containerSuffix ? `${baseContainerName}-${containerSuffix}` : baseContainerName;
+
     let getTestsListArgs = [
       // Resolve UID and GID on the host
-      "exec", ...getDockerUserOpt().split(" "), selectedApp!.containerName, "bash", "-c",
+      "exec", ...getDockerUserOpt().split(" "), effectiveContainerName, "bash", "-c",
       getTestsListShellScript,
     ];
 

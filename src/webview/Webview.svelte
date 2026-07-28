@@ -26,6 +26,12 @@
   let dockerRunning = $state(false);
   let imageOutdated = $state(false);
 
+  // Mirror of ContainerTargetInfo in webviewProvider.ts — keep in sync.
+  type ContainerTargetStatus = "running" | "stopped" | "missing";
+  interface ContainerTargetInfo { model: string; containerName: string; status: ContainerTargetStatus; }
+  let containerStatuses = $state<ContainerTargetInfo[]>([]);
+  let containersExpanded = $state(false);
+
   // Build use case
   let buildUseCase = $state("");
   let buildUseCases = $state<string[]>([]);
@@ -207,6 +213,10 @@
     vscode.postMessage({ command: "refreshTests" });
   }
 
+  function selectFailedTests() {
+    vscode.postMessage({ command: "selectFailedTests" });
+  }
+
   function selectBuildUseCase(useCase: string) {
     buildUseCase = useCase;
     vscode.postMessage({
@@ -359,6 +369,9 @@
         containerStatus = message.status;
         dockerRunning = message.dockerRunning ?? false;
         imageOutdated = message.imageOutdated ?? false;
+        break;
+      case "containerStatuses":
+        containerStatuses = message.statuses ?? [];
         break;
       case "addEnforcerChecks":
         enforcerChecks = [];
@@ -621,6 +634,7 @@
                     {isRefreshing}
                     {refreshTests}
                     {sendSelectedTests}
+                    {selectFailedTests}
                   />
                 </ActionGroup>
               {:else if group.id === "Tools"}
@@ -632,6 +646,46 @@
                   onTogglePin={(actionId) => togglePin(group.id, actionId)}
                   onToggleExpand={() => toggleExpand(group.id)}
                 >
+                  {#snippet headerSuffix()}
+                    {#if containerStatuses.length > 0}
+                      <div class="containers-section">
+                        <button
+                          class="containers-toggle"
+                          onclick={() => (containersExpanded = !containersExpanded)}
+                        >
+                          {#if containersExpanded}
+                            <ChevronDown size={11} />
+                          {:else}
+                            <ChevronRight size={11} />
+                          {/if}
+                          <span>Containers</span>
+                        </button>
+                        {#if containersExpanded}
+                          <div class="containers-rows" use:autoAnimate>
+                            {#each containerStatuses as ct}
+                              <div class="container-row">
+                                <span class="ct-model">{ct.model}</span>
+                                <span class="ct-dot ct-dot--{ct.status}">●</span>
+                                <button
+                                  class="ct-btn ct-btn--primary"
+                                  onclick={() => executeCommand("ledgerDevTools.executeTaskForTarget", ["Create Container", ct.model])}
+                                >
+                                  {ct.status === "missing" ? "CREATE" : "RECREATE"}
+                                </button>
+                                <button
+                                  class="ct-btn ct-btn--secondary"
+                                  disabled={ct.status === "missing"}
+                                  onclick={() => executeCommand(ct.status === "running" ? "ledgerDevTools.stopContainer" : "ledgerDevTools.cleanContainer", [ct.containerName])}
+                                >
+                                  {ct.status === "running" ? "STOP" : "CLEAN"}
+                                </button>
+                              </div>
+                            {/each}
+                          </div>
+                        {/if}
+                      </div>
+                    {/if}
+                  {/snippet}
                   {#snippet optionSuffix(option)}
                     {#if option.label === "Enforcer Checks"}
                       <div class="check-select-wrapper">
@@ -855,6 +909,99 @@
 
   .toggle-hint.warning {
     color: var(--vscode-editorWarning-foreground);
+  }
+
+  /* Containers Section (inside Tools group) */
+  .containers-section {
+    border-top: 1px solid var(--vscode-panel-border);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .containers-toggle {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    opacity: 0.7;
+    text-align: left;
+  }
+
+  .containers-toggle:hover {
+    color: var(--vscode-foreground);
+    opacity: 1;
+  }
+
+  .containers-rows {
+    display: flex;
+    flex-direction: column;
+    padding: 2px 8px 4px 8px;
+    gap: 2px;
+  }
+
+  .container-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 1px 0;
+  }
+
+  .ct-model {
+    font-size: 11px;
+    font-family: var(--vscode-editor-font-family, monospace);
+    color: var(--vscode-foreground);
+    width: 52px;
+    flex-shrink: 0;
+  }
+
+  .ct-dot {
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+
+  .ct-dot--running { color: var(--vscode-testing-iconPassed); }
+  .ct-dot--stopped { color: var(--vscode-editorWarning-foreground); }
+  .ct-dot--missing { color: var(--vscode-disabledForeground, #666); }
+
+  .ct-btn {
+    font-size: 10px;
+    font-family: var(--vscode-font-family);
+    padding: 2px 7px;
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+  }
+
+  .ct-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .ct-btn--primary {
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+  }
+
+  .ct-btn--primary:hover:not(:disabled) {
+    background-color: var(--vscode-button-hoverBackground);
+  }
+
+  .ct-btn--secondary {
+    background-color: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+  }
+
+  .ct-btn--secondary:hover:not(:disabled) {
+    background-color: var(--vscode-button-secondaryHoverBackground);
   }
 
   /* Actions Toggle */

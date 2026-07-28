@@ -1,6 +1,8 @@
 import * as vscode from "vscode";
+import * as fs from "fs";
+import * as path from "path";
 import { TaskSpec } from "../taskProvider";
-import { setSelectedTests, setVerboseTests } from "../appSelector";
+import { setSelectedTests, setVerboseTests, getSelectedApp } from "../appSelector";
 import { LedgerDevice, SpecialAllDevice } from "../targetSelector";
 import { DevImageStatus } from "../types";
 import { setSelectedModel } from "../aiReviewer";
@@ -10,6 +12,13 @@ import { setSelectedModel } from "../aiReviewer";
  * - null: clear the content for this section
  * - object: update with provided data
  */
+export type ContainerTargetStatus = "running" | "stopped" | "missing";
+export interface ContainerTargetInfo {
+  model: string;
+  containerName: string;
+  status: ContainerTargetStatus;
+}
+
 export interface WebviewRefreshOptions {
   apps?: {
     list: string[];
@@ -35,6 +44,7 @@ export interface WebviewRefreshOptions {
     selected: string;
   } | null;
   containerStatus?: DevImageStatus | null;
+  containerStatuses?: ContainerTargetInfo[] | null;
   dockerRunning?: boolean;
   imageOutdated?: boolean;
   enforcerChecks?: {
@@ -163,6 +173,13 @@ export class Webview implements vscode.WebviewViewProvider {
       });
     }
 
+    if (options.containerStatuses !== undefined) {
+      this._view.webview.postMessage({
+        command: "containerStatuses",
+        statuses: options.containerStatuses ?? [],
+      });
+    }
+
     // Send containerStatus last — the webview uses it as a "ready" signal
     if (options.containerStatus !== undefined) {
       this._view.webview.postMessage({
@@ -274,12 +291,72 @@ export class Webview implements vscode.WebviewViewProvider {
           const args: any[] = data.args || [];
           console.log("Executing command from webview : ", command, args);
           await vscode.commands.executeCommand(command, ...args);
+          break;
         }
         case "updateSelectedTests":
           {
             const selectedTests: string[] = data.selectedTests;
             console.log("Updating selected tests from webview : ", selectedTests);
             setSelectedTests(selectedTests);
+          }
+          break;
+        case "selectFailedTests":
+          {
+            const app = getSelectedApp();
+            if (!app || !app.functionalTestsList || app.functionalTestsList.length === 0) {
+              vscode.window.showWarningMessage("No tests loaded. Please refresh the test list first.");
+              break;
+            }
+
+            const cachePaths = [
+              path.join(app.folderUri.fsPath, ".pytest_cache", "v", "cache", "lastfailed"),
+              ...(app.functionalTestsDir
+                ? [path.join(app.folderUri.fsPath, app.functionalTestsDir, ".pytest_cache", "v", "cache", "lastfailed")]
+                : []),
+            ];
+
+            let failedIds: string[] = [];
+            for (const cachePath of cachePaths) {
+              if (fs.existsSync(cachePath)) {
+                try {
+                  const raw = JSON.parse(fs.readFileSync(cachePath, "utf-8")) as Record<string, boolean>;
+                  // Strip parametrize suffixes (e.g. test_foo[param]) so all
+                  // variants of a test are selected when any variant failed.
+                  failedIds = [...new Set(
+                    Object.keys(raw).map((id) => {
+                      const parts = id.split("::");
+                      const testName = parts[parts.length - 1].split("[")[0];
+                      const filePart = parts.slice(0, parts.length - 1).join("::");
+                      return filePart ? `${filePart}::${testName}` : testName;
+                    }),
+                  )];
+                }
+                catch {
+                  vscode.window.showErrorMessage("Failed to read pytest cache file.");
+                }
+                break;
+              }
+            }
+
+            if (failedIds.length === 0) {
+              vscode.window.showInformationMessage("No failed tests found in pytest cache.");
+              break;
+            }
+
+            const matched = failedIds.filter(id => app.functionalTestsList!.includes(id));
+
+            if (matched.length === 0) {
+              vscode.window.showWarningMessage("Failed tests from cache don't match the current test list. Try refreshing the test list.");
+              break;
+            }
+
+            setSelectedTests(matched);
+            await this.refresh({
+              testCases: {
+                list: app.functionalTestsList,
+                selected: matched,
+              },
+            });
           }
           break;
         case "appSelected":

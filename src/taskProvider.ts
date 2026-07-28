@@ -15,7 +15,7 @@ import { debug } from "vscode";
 
 export type { TaskSpec };
 
-export const taskType = "L";
+export const taskType = "ledger";
 
 // Udev rules (for Linux app loading requirements)
 const udevRulesFilePath = "/etc/udev/rules.d/";
@@ -104,7 +104,38 @@ export class TaskProvider implements vscode.TaskProvider {
   private additionalReqs?: string;
   private buildDir: string;
   private workspacePath: string;
-  private containerName: string;
+  private baseContainerName: string = "";
+
+  // Computed from baseContainerName + currently selected target's speculos model.
+  // All exec builders use ${this.containerName} and automatically get the per-target name.
+  // When "All" is selected outside a per-target loop, falls back to the first target.
+  private get containerName(): string {
+    if (!this.baseContainerName) { return ""; }
+    const target = this.tgtSelector.getSelectedTarget();
+    if (target === specialAllDevice) {
+      const firstTarget = this.tgtSelector.getTargetsArray().find(t => t !== specialAllDevice);
+      const model = firstTarget ? this.tgtSelector.getSpeculosModelForTarget(firstTarget) : "";
+      return model ? `${this.baseContainerName}-${model}` : this.baseContainerName;
+    }
+    const model = this.tgtSelector.getSelectedSpeculosModel();
+    return model ? `${this.baseContainerName}-${model}` : this.baseContainerName;
+  }
+
+  // Returns all relevant per-target container names for the current selection.
+  // Used by ContainerManager for status checks and container lifecycle management.
+  public getTargetContainerNames(): string[] {
+    if (!this.baseContainerName) { return []; }
+    if (this.tgtSelector.getSelectedTarget() === specialAllDevice) {
+      return this.tgtSelector.getTargetsArray()
+        .filter(t => t !== specialAllDevice)
+        .map((t) => {
+          const model = this.tgtSelector.getSpeculosModelForTarget(t);
+          return model ? `${this.baseContainerName}-${model}` : this.baseContainerName;
+        });
+    }
+    return [this.containerName];
+  }
+
   private appFolderUri?: vscode.Uri;
   private appName: string;
   private appLanguage: AppLanguage;
@@ -124,7 +155,8 @@ export class TaskProvider implements vscode.TaskProvider {
       builders: { ["Both"]: this.runDevToolsImageExec },
       toolTip: "Update docker container (pull image and restart container)",
       state: "enabled",
-      allSelectedBehavior: "enable",
+      allSelectedBehavior: "executeForEveryTarget",
+      parallelWhenAll: false,
     },
     {
       group: "Tools",
@@ -133,7 +165,8 @@ export class TaskProvider implements vscode.TaskProvider {
       builders: { ["Both"]: this.createContainerExec },
       toolTip: "Create docker container from existing local image (without pulling)",
       state: "enabled",
-      allSelectedBehavior: "enable",
+      allSelectedBehavior: "executeForEveryTarget",
+      parallelWhenAll: false,
     },
     {
       group: "Tools",
@@ -309,7 +342,7 @@ export class TaskProvider implements vscode.TaskProvider {
     this.tgtSelector = targetSelector;
     this.appLanguage = "c";
     this.appName = "";
-    this.containerName = "";
+    this.baseContainerName = "";
     this.workspacePath = "";
     this.buildDir = "";
     this.currentApp = getSelectedApp();
@@ -330,7 +363,7 @@ export class TaskProvider implements vscode.TaskProvider {
   }
 
   private resetVars() {
-    this.containerName = "";
+    this.baseContainerName = "";
     this.workspacePath = "";
     this.buildDir = "";
     this.functionalTestsDir = undefined;
@@ -361,7 +394,7 @@ export class TaskProvider implements vscode.TaskProvider {
 
       this.appName = this.currentApp.name;
       this.appLanguage = this.currentApp.language;
-      this.containerName = this.currentApp.containerName;
+      this.baseContainerName = this.currentApp.containerName;
       this.appFolderUri = this.currentApp.folderUri;
       this.buildDir = this.currentApp.buildDirPath;
       this.workspacePath = this.currentApp.folderUri.path;
@@ -455,6 +488,50 @@ export class TaskProvider implements vscode.TaskProvider {
     return this.tasks.find(task => task.name === taskName);
   }
 
+  public getTargetContainerDetails(): { containerName: string; model: string }[] {
+    if (!this.baseContainerName) { return []; }
+    return this.tgtSelector.getTargetsArray()
+      .filter(t => t !== specialAllDevice)
+      .map((t) => {
+        const model = this.tgtSelector.getSpeculosModelForTarget(t);
+        return {
+          containerName: model ? `${this.baseContainerName}-${model}` : this.baseContainerName,
+          model,
+        };
+      });
+  }
+
+  public executeTaskForTarget(taskName: string, targetModel: string): void {
+    const target = this.tgtSelector.getTargetsArray().find(
+      t => t !== specialAllDevice && this.tgtSelector.getSpeculosModelForTarget(t) === targetModel,
+    );
+    if (!target || !this.currentApp) { return; }
+
+    const spec = this.taskSpecs.find(s => s.name === taskName);
+    if (!spec) { return; }
+
+    const savedTarget = this.tgtSelector.getSelectedTarget();
+    this.tgtSelector.setSelectedTargetTransient(target);
+
+    const builderResult = spec.builders[this.appLanguage]?.call(this) || spec.builders["Both"]?.call(this) || "";
+    const exec = typeof builderResult === "string" ? builderResult : builderResult[0];
+
+    this.tgtSelector.setSelectedTargetTransient(savedTarget);
+
+    if (exec) {
+      const task = new MyTask(
+        { type: taskType, task: taskName },
+        vscode.TaskScope.Workspace,
+        taskName,
+        taskType,
+        new vscode.ShellExecution(exec),
+        undefined,
+      );
+      task.group = vscode.TaskGroup.Build;
+      vscode.tasks.executeTask(task);
+    }
+  }
+
   public async executeTaskByName(taskName: string) {
     // Wait for tasks to be generated (promise is created in constructor)
     await this.tasksReadyPromise;
@@ -476,16 +553,16 @@ export class TaskProvider implements vscode.TaskProvider {
       // Pull image first, then stop and remove existing container if it exists, finally create new container
       if (platform === "linux") {
         // Linux
-        exec = `xhost + ; docker pull ${this.image} && (docker ps -a --format '{{.Names}}' | grep -q ${this.containerName} && (docker container stop ${this.containerName} && docker container rm ${this.containerName}) || true) && docker run ${dockerRunOpts} --privileged -e DISPLAY=$DISPLAY -v '/dev/bus/usb:/dev/bus/usb' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' ${this.dockerRunArgs} -t -d --name ${this.containerName} ${this.image}`;
+        exec = `xhost + ; docker pull ${this.image} && (docker ps -a --format '{{.Names}}' | grep -q ${this.containerName} && (docker container stop ${this.containerName} && docker container rm ${this.containerName}) || true) && docker run ${dockerRunOpts} --privileged -e DISPLAY=$DISPLAY -v '/dev/bus/usb:/dev/bus/usb' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' ${this.dockerRunArgs} -v ledger-pip-cache:/pip-cache -e PIP_CACHE_DIR=/pip-cache -t -d --name ${this.containerName} ${this.image}`;
       }
       else if (platform === "darwin") {
         // macOS
-        exec = `xhost + ; docker pull ${this.image} && (docker ps -a --format '{{.Names}}' | grep -q ${this.containerName} && (docker container stop ${this.containerName} && docker container rm ${this.containerName}) || true) && docker run ${dockerRunOpts} --privileged -e DISPLAY='host.docker.internal:0' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' ${this.dockerRunArgs} -t -d --name ${this.containerName} ${this.image}`;
+        exec = `xhost + ; docker pull ${this.image} && (docker ps -a --format '{{.Names}}' | grep -q ${this.containerName} && (docker container stop ${this.containerName} && docker container rm ${this.containerName}) || true) && docker run ${dockerRunOpts} --privileged -e DISPLAY='host.docker.internal:0' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' ${this.dockerRunArgs} -v ledger-pip-cache:/pip-cache -e PIP_CACHE_DIR=/pip-cache -t -d --name ${this.containerName} ${this.image}`;
       }
       else {
         // Assume windows
         const winWorkspacePath = this.workspacePath.substring(1); // Remove first '/' from windows workspace path URI. Otherwise it is not valid.
-        exec = `docker pull ${this.image}; if (docker ps -a --format '{{.Names}}' | Select-String -Quiet ${this.containerName}) { docker container stop ${this.containerName}; docker container rm ${this.containerName} }; docker run ${dockerRunOpts} --privileged -e DISPLAY='host.docker.internal:0' -v '${winWorkspacePath}:/app' ${this.dockerRunArgs} -t -d --name ${this.containerName} ${this.image}`;
+        exec = `docker pull ${this.image}; if (docker ps -a --format '{{.Names}}' | Select-String -Quiet ${this.containerName}) { docker container stop ${this.containerName}; docker container rm ${this.containerName} }; docker run ${dockerRunOpts} --privileged -e DISPLAY='host.docker.internal:0' -v '${winWorkspacePath}:/app' ${this.dockerRunArgs} -v ledger-pip-cache:/pip-cache -e PIP_CACHE_DIR=/pip-cache -t -d --name ${this.containerName} ${this.image}`;
       }
     }
 
@@ -501,16 +578,16 @@ export class TaskProvider implements vscode.TaskProvider {
       // Creates container from existing local image without pulling (removes existing container first if needed)
       if (platform === "linux") {
         // Linux
-        exec = `xhost + ; (docker ps -a --format '{{.Names}}' | grep -q ${this.containerName} && (docker container stop ${this.containerName} && docker container rm ${this.containerName}) || true) && docker run ${dockerRunOpts} --privileged -e DISPLAY=$DISPLAY -v '/dev/bus/usb:/dev/bus/usb' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' ${this.dockerRunArgs} -t -d --name ${this.containerName} ${this.image}`;
+        exec = `xhost + ; (docker ps -a --format '{{.Names}}' | grep -q ${this.containerName} && (docker container stop ${this.containerName} && docker container rm ${this.containerName}) || true) && docker run ${dockerRunOpts} --privileged -e DISPLAY=$DISPLAY -v '/dev/bus/usb:/dev/bus/usb' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' ${this.dockerRunArgs} -v ledger-pip-cache:/pip-cache -e PIP_CACHE_DIR=/pip-cache -t -d --name ${this.containerName} ${this.image}`;
       }
       else if (platform === "darwin") {
         // macOS
-        exec = `xhost + ; (docker ps -a --format '{{.Names}}' | grep -q ${this.containerName} && (docker container stop ${this.containerName} && docker container rm ${this.containerName}) || true) && docker run ${dockerRunOpts} --privileged -e DISPLAY='host.docker.internal:0' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' ${this.dockerRunArgs} -t -d --name ${this.containerName} ${this.image}`;
+        exec = `xhost + ; (docker ps -a --format '{{.Names}}' | grep -q ${this.containerName} && (docker container stop ${this.containerName} && docker container rm ${this.containerName}) || true) && docker run ${dockerRunOpts} --privileged -e DISPLAY='host.docker.internal:0' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '${this.workspacePath}:/app' ${this.dockerRunArgs} -v ledger-pip-cache:/pip-cache -e PIP_CACHE_DIR=/pip-cache -t -d --name ${this.containerName} ${this.image}`;
       }
       else {
         // Assume windows
         const winWorkspacePath = this.workspacePath.substring(1); // Remove first '/' from windows workspace path URI. Otherwise it is not valid.
-        exec = `if (docker ps -a --format '{{.Names}}' | Select-String -Quiet ${this.containerName}) { docker container stop ${this.containerName}; docker container rm ${this.containerName} }; docker run ${dockerRunOpts} --privileged -e DISPLAY='host.docker.internal:0' -v '${winWorkspacePath}:/app' ${this.dockerRunArgs} -t -d --name ${this.containerName} ${this.image}`;
+        exec = `if (docker ps -a --format '{{.Names}}' | Select-String -Quiet ${this.containerName}) { docker container stop ${this.containerName}; docker container rm ${this.containerName} }; docker run ${dockerRunOpts} --privileged -e DISPLAY='host.docker.internal:0' -v '${winWorkspacePath}:/app' ${this.dockerRunArgs} -v ledger-pip-cache:/pip-cache -e PIP_CACHE_DIR=/pip-cache -t -d --name ${this.containerName} ${this.image}`;
       }
     }
 
@@ -858,28 +935,28 @@ export class TaskProvider implements vscode.TaskProvider {
   private functionalTestsExec(): string {
     let [testTarget, execQuotes] = this.getSelectedTests();
     const verboseOpt = getVerboseTests() ? "-s " : "";
-    const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate &&pytest ${testTarget} --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()}${execQuotes}`;
+    const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate &&pytest ${testTarget} --color=yes --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()}${execQuotes}`;
     return exec;
   }
 
   private functionalTestsDisplayExec(): string {
     let [testTarget, execQuotes] = this.getSelectedTests();
     const verboseOpt = getVerboseTests() ? "-s " : "";
-    const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate && pytest ${testTarget} --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()} --display${execQuotes}`;
+    const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate && pytest ${testTarget} --color=yes --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()} --display${execQuotes}`;
     return exec;
   }
 
   private functionalTestsGoldenRunExec(): string {
     let [testTarget, execQuotes] = this.getSelectedTests();
     const verboseOpt = getVerboseTests() ? "-s " : "";
-    const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate && pytest ${testTarget} --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()} --golden_run${execQuotes}`;
+    const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate && pytest ${testTarget} --color=yes --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()} --golden_run${execQuotes}`;
     return exec;
   }
 
   private functionalTestsDisplayOnDeviceExec(): string {
     let [testTarget, execQuotes] = this.getSelectedTests();
     const verboseOpt = getVerboseTests() ? "-s " : "";
-    const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate && pytest ${testTarget} --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()} --display --backend ledgerwallet${execQuotes}`;
+    const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate && pytest ${testTarget} --color=yes --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()} --display --backend ledgerwallet${execQuotes}`;
     return exec;
   }
 
@@ -968,19 +1045,38 @@ export class TaskProvider implements vscode.TaskProvider {
         exec = defineResult[0];
         customFunction = defineResult[1];
         // If the selected target is all and the task behavior is to be executed for all targets,
-        // define the exec for all targets of the app
+        // build one exec per target and run them in parallel (each in its own container).
         if (this.tgtSelector.getSelectedTarget() === specialAllDevice && item.allSelectedBehavior === "executeForEveryTarget") {
-          exec = "";
+          const parts: string[] = [];
+          const labels: string[] = [];
           this.tgtSelector.getTargetsArray().forEach((target) => {
             // Use transient setter: builds per-device exec strings without persisting
             // intermediate device selections to settings (avoids async conf.update races
             // that could corrupt the stored "All" value).
             this.tgtSelector.setSelectedTargetTransient(target);
-            exec += defineExec(item)[0] + " ; ";
+            parts.push(defineExec(item)[0]);
+            labels.push(this.tgtSelector.getSelectedSpeculosModel());
           });
           // Restore in-memory state to "All" — no settings write needed here since the
           // caller already persisted "All" before generateTasks() was invoked.
           this.tgtSelector.setSelectedTargetTransient(specialAllDevice);
+          if (platform === "win32") {
+            // PowerShell has no printf/awk/&/wait; run targets sequentially with Write-Host labels.
+            exec = parts.map((p, i) => `Write-Host "=== [${labels[i]}] ==="; ${p}`).join("; ");
+          }
+          else if (item.parallelWhenAll === false) {
+            exec = parts.map((p, i) => `printf '\\n=== [${labels[i]}] ===\\n' ; ${p}`).join(" ; ");
+          }
+          else {
+            // Parallel: background each target, capture PIDs, aggregate exit codes.
+            // set -o pipefail inside each subshell ensures pytest's exit code survives the awk pipe.
+            const cmds = parts.map((p, i) =>
+              `(set -o pipefail; { ${p.replace(/ -it /g, " -i ")}; } 2>&1 | awk '{print "[${labels[i]}] "$0}')`,
+            );
+            const launch = cmds.map((c, i) => `${c} & pid${i}=$!`).join("; ");
+            const waits = cmds.map((_, i) => `wait $pid${i} || rc=$?`).join("; ");
+            exec = `${launch}; rc=0; ${waits}; exit $rc`;
+          }
           customFunction = undefined;
         }
 

@@ -149,11 +149,11 @@ export class ContainerManager {
   public getContainerStatus(): DevImageStatus {
     try {
       const containerNames = this.taskProvider.getTargetContainerNames();
-      if (containerNames.length === 0) return DevImageStatus.stopped;
+      if (containerNames.length === 0) { return DevImageStatus.stopped; }
 
       let hasSyncing = false;
       for (const containerName of containerNames) {
-        if (!this.checkContainerExists(containerName)) return DevImageStatus.stopped;
+        if (!this.checkContainerExists(containerName)) { return DevImageStatus.stopped; }
         const command = `docker inspect -f "{{ .State.Status }}" ${containerName}`;
         const containerStatus = execSync(command).toString().trim();
         console.log(`Ledger: Container ${containerName} status is ${containerStatus}`);
@@ -174,10 +174,10 @@ export class ContainerManager {
 
   public getContainerStatusFor(containerName: string): "running" | "stopped" | "missing" {
     try {
-      if (!this.checkContainerExists(containerName)) return "missing";
+      if (!this.checkContainerExists(containerName)) { return "missing"; }
       const command = `docker inspect -f "{{ .State.Status }}" ${containerName}`;
       const status = execSync(command, { stdio: "pipe" }).toString().trim();
-      if (status === "running" || status === "starting" || status === "restarting") return "running";
+      if (status === "running" || status === "starting" || status === "restarting") { return "running"; }
       return "stopped";
     }
     catch {
@@ -240,7 +240,7 @@ export class ContainerManager {
 
     if (this.isContainerReady() === false) {
       const containerNames = this.taskProvider.getTargetContainerNames();
-      if (containerNames.length === 0) return;
+      if (containerNames.length === 0) { return; }
 
       const conf = vscode.workspace.getConfiguration("ledgerDevTools");
       const autoUpdate: boolean = conf.get<boolean>("dockerAutoUpdate") || false;

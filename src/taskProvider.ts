@@ -110,7 +110,7 @@ export class TaskProvider implements vscode.TaskProvider {
   // All exec builders use ${this.containerName} and automatically get the per-target name.
   // When "All" is selected outside a per-target loop, falls back to the first target.
   private get containerName(): string {
-    if (!this.baseContainerName) return "";
+    if (!this.baseContainerName) { return ""; }
     const target = this.tgtSelector.getSelectedTarget();
     if (target === specialAllDevice) {
       const firstTarget = this.tgtSelector.getTargetsArray().find(t => t !== specialAllDevice);
@@ -124,7 +124,7 @@ export class TaskProvider implements vscode.TaskProvider {
   // Returns all relevant per-target container names for the current selection.
   // Used by ContainerManager for status checks and container lifecycle management.
   public getTargetContainerNames(): string[] {
-    if (!this.baseContainerName) return [];
+    if (!this.baseContainerName) { return []; }
     if (this.tgtSelector.getSelectedTarget() === specialAllDevice) {
       return this.tgtSelector.getTargetsArray()
         .filter(t => t !== specialAllDevice)
@@ -489,7 +489,7 @@ export class TaskProvider implements vscode.TaskProvider {
   }
 
   public getTargetContainerDetails(): { containerName: string; model: string }[] {
-    if (!this.baseContainerName) return [];
+    if (!this.baseContainerName) { return []; }
     return this.tgtSelector.getTargetsArray()
       .filter(t => t !== specialAllDevice)
       .map((t) => {
@@ -505,10 +505,10 @@ export class TaskProvider implements vscode.TaskProvider {
     const target = this.tgtSelector.getTargetsArray().find(
       t => t !== specialAllDevice && this.tgtSelector.getSpeculosModelForTarget(t) === targetModel,
     );
-    if (!target || !this.currentApp) return;
+    if (!target || !this.currentApp) { return; }
 
     const spec = this.taskSpecs.find(s => s.name === taskName);
-    if (!spec) return;
+    if (!spec) { return; }
 
     const savedTarget = this.tgtSelector.getSelectedTarget();
     this.tgtSelector.setSelectedTargetTransient(target);
@@ -1060,9 +1060,23 @@ export class TaskProvider implements vscode.TaskProvider {
           // Restore in-memory state to "All" — no settings write needed here since the
           // caller already persisted "All" before generateTasks() was invoked.
           this.tgtSelector.setSelectedTargetTransient(specialAllDevice);
-          exec = item.parallelWhenAll === false
-            ? parts.map((p, i) => `printf '\\n=== [${labels[i]}] ===\\n' ; ${p}`).join(" ; ")
-            : parts.map((p, i) => `({ ${p.replace(/ -it /g, " -i ")}; } 2>&1 | awk '{print "[${labels[i]}] "$0}')`).join(" & ") + " & wait";
+          if (platform === "win32") {
+            // PowerShell has no printf/awk/&/wait; run targets sequentially with Write-Host labels.
+            exec = parts.map((p, i) => `Write-Host "=== [${labels[i]}] ==="; ${p}`).join("; ");
+          }
+          else if (item.parallelWhenAll === false) {
+            exec = parts.map((p, i) => `printf '\\n=== [${labels[i]}] ===\\n' ; ${p}`).join(" ; ");
+          }
+          else {
+            // Parallel: background each target, capture PIDs, aggregate exit codes.
+            // set -o pipefail inside each subshell ensures pytest's exit code survives the awk pipe.
+            const cmds = parts.map((p, i) =>
+              `(set -o pipefail; { ${p.replace(/ -it /g, " -i ")}; } 2>&1 | awk '{print "[${labels[i]}] "$0}')`,
+            );
+            const launch = cmds.map((c, i) => `${c} & pid${i}=$!`).join("; ");
+            const waits = cmds.map((_, i) => `wait $pid${i} || rc=$?`).join("; ");
+            exec = `${launch}; rc=0; ${waits}; exit $rc`;
+          }
           customFunction = undefined;
         }
 

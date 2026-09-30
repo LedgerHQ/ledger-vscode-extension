@@ -155,7 +155,7 @@ export function activate(context: vscode.ExtensionContext) {
         // Result arrives via onImageOutdatedEvent.
         containerManager.checkImageOutdated();
         getAndBuildAppTestsDependencies(targetSelector);
-        getAppTestsList(targetSelector, false, webview);
+        getAppTestsList(targetSelector, webview);
       }
     }),
   );
@@ -415,7 +415,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("refreshTests", () => {
-      getAppTestsList(targetSelector, false, webview);
+      getAppTestsList(targetSelector, webview);
     }),
   );
 
@@ -529,7 +529,7 @@ export function activate(context: vscode.ExtensionContext) {
           selected: targetSelector.getSelectedTarget(),
         },
         // Clear tests if the (re-detected) app no longer has functional tests
-        testCases: !currentApp?.functionalTestsDir ? null : undefined,
+        testCases: !currentApp?.standaloneTestsDir ? null : undefined,
       });
       taskProvider.provideTasks();
       containerManager.manageContainer();
@@ -551,8 +551,8 @@ export function activate(context: vscode.ExtensionContext) {
   // Helper functions to avoid duplication
   const refreshTestsIfReady = () => {
     const currentApp = getSelectedApp();
-    if (currentApp?.functionalTestsDir && containerManager.getContainerStatus() === DevImageStatus.running) {
-      getAppTestsList(targetSelector, false, webview);
+    if (currentApp?.standaloneTestsDir && containerManager.getContainerStatus() === DevImageStatus.running) {
+      getAppTestsList(targetSelector, webview);
     }
   };
 
@@ -561,7 +561,7 @@ export function activate(context: vscode.ExtensionContext) {
       return true;
     }
     const currentApp = getSelectedApp();
-    const testsDir = currentApp?.functionalTestsDir;
+    const testsDir = currentApp?.standaloneTestsDir;
     if (testsDir && currentApp?.folderUri) {
       const testsPath = vscode.Uri.joinPath(currentApp.folderUri, testsDir).fsPath;
       return testsPath.startsWith(fsPath);
@@ -629,7 +629,7 @@ export function activate(context: vscode.ExtensionContext) {
     webview.onWebviewReadyEvent(async () => {
       await refreshWebviewFullState();
       if (containerManager.getContainerStatus() === DevImageStatus.running) {
-        getAppTestsList(targetSelector, false, webview);
+        getAppTestsList(targetSelector, webview);
       }
     }),
   );

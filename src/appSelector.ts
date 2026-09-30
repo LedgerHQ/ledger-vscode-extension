@@ -49,8 +49,13 @@ export interface App {
   containerName: string;
   buildDirPath: string;
   language: AppLanguage;
-  // If the manifest has a pytest_directory property, it is parsed here
-  functionalTestsDir?: string;
+  // If the manifest has a pytest.standalone directory property, it is parsed here
+  standaloneTestsDir?: string;
+  // If the manifest has a pytest.swap directory property, it is parsed here
+  swapTestsDir?: string;
+  // If the app has a swap tests directory, the tests list is parsed here
+  swapTestsList?: string[];
+  swapSelectedTests?: string[];
   // If the app has a functional tests directory, the tests list is parsed here
   functionalTestsList?: string[];
   selectedTests?: string[];
@@ -198,6 +203,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
   let appName = "unknown";
   let appLanguage: AppLanguage = "c";
   let testsDir = undefined;
+  let swapTestsDir = undefined;
   let packageName = undefined;
   let compatibleDevices: LedgerDevice[] = ["Nano S", "Nano S Plus", "Nano X", "Stax", "Flex", "Apex p", "Apex m"];
   let testsUseCases = undefined;
@@ -221,7 +227,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
       case "manifest": {
         console.log("Found manifest in " + appFolderName);
         let tomlContent = toml.parse(fileContent);
-        [appLanguage, buildDirPath, compatibleDevices, testsDir, testsUseCases, buildUseCases] = parseManifest(tomlContent);
+        [appLanguage, buildDirPath, compatibleDevices, testsDir, swapTestsDir, testsUseCases, buildUseCases] = parseManifest(tomlContent);
         if (appLanguage === "c") {
           appName = getAppName(folderUri.fsPath);
           vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectBuildMode", true);
@@ -295,7 +301,8 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
       containerName: containerName,
       buildDirPath: buildDirPath,
       language: appLanguage,
-      functionalTestsDir: testsDir,
+      standaloneTestsDir: testsDir,
+      swapTestsDir: swapTestsDir,
       compatibleDevices: compatibleDevices,
       packageName: packageName,
       testsUseCases: testsUseCases,
@@ -419,7 +426,7 @@ export async function showTestsSelectorMenu(targetSelector: TargetSelector) {
 
     qp.onDidTriggerButton((button) => {
       if (button === refreshButton) {
-        getAppTestsList(targetSelector, true);
+        getAppTestsList(targetSelector);
         qp.title = "Refreshing...";
         qp.show();
       }
@@ -708,58 +715,22 @@ function getAppVariants(appdir: string, appName: string, folderUri: vscode.Uri):
   return variants;
 }
 
-// Get pytest tests list
-export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolean = false, webView?: Webview) {
-  let testsList: string[] = [];
-  if (
-    selectedApp
-    && selectedApp.functionalTestsDir
-    && selectedApp.containerName
-  ) {
-    // Check if the functional tests directory actually exists
-    const testsPath = path.join(selectedApp.folderUri.fsPath, selectedApp.functionalTestsDir);
-    if (!fs.existsSync(testsPath)) {
-      console.log(`Ledger: Functional tests directory '${testsPath}' does not exist`);
-      selectedApp.functionalTestsDir = undefined;
-      selectedApp.functionalTestsList = [];
-      selectedApp.selectedTests = [];
-      if (webView) {
-        webView.refresh({ testCases: null });
-      }
-      return;
-    }
+function getTestsListShellScript(targetSelector: TargetSelector, testsDir: string): string {
+  let deviceArg = targetSelector.getEffectiveDeviceArg();
+  let fallbackDeviceArg = targetSelector.getFirstCompatibleSpeculosModel();
+  const varPrefix = process.platform === "win32" ? "\`$" : "$";
+  const quotesAroundBashCommand = process.platform === "win32" ? "\"" : "";
 
-    let lastTests = getSetting("testsList", selectedApp.folderUri) as string[];
-    let lastSelectedTests = getSetting("selectedTests", selectedApp.folderUri) as string[];
-    selectedApp.functionalTestsList = [];
-    selectedApp.selectedTests = [];
-    let deviceArg = targetSelector.getEffectiveDeviceArg();
-    let fallbackDeviceArg = targetSelector.getFirstCompatibleSpeculosModel();
-    let optionsExec: cp.ExecOptions = { cwd: selectedApp!.folderUri.fsPath, windowsHide: true, timeout: 60000 };
-    // If platform is windows, set shell to powershell for cp exec.
-    if (platform === "win32") {
-      let shell: string = "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
-      optionsExec.shell = shell;
-    }
-    // Find the tests list with pytest :
-    // * Get the device option from pytest help (either --model or --device)
-    // * If the device option is found, run pytest with --collect-only and the device option
-    // * If the device option is not found, run pytest with --collect-only
-    let getTestsListCmd = "docker";
-
-    const varPrefix = process.platform === "win32" ? "\`$" : "$";
-    const quotesAroundBashCommand = process.platform === "win32" ? "\"" : "";
-
-    // Note: pip install must run from the app root (not tests dir) to correctly
-    // resolve relative paths in requirements.txt (e.g. './client[tests]').
-    // When 'All' targets is selected:
-    //   - ragger's --device option accepts 'all' natively: one run, all devices,
-    //     tests parametrized as test_foo[nanos], test_foo[nanox], etc.
-    //   - The legacy --model option does not support 'all', so we fall back to
-    //     the first compatible device in that case.
-    const getTestsListShellScript = `${quotesAroundBashCommand}source /opt/venv/bin/activate &&
-      pip install -r ${selectedApp.functionalTestsDir}/requirements.txt > /dev/null 2>&1 &&
-      cd ${selectedApp.functionalTestsDir} &&
+  // Note: pip install must run from the app root (not tests dir) to correctly
+  // resolve relative paths in requirements.txt (e.g. './client[tests]').
+  // When 'All' targets is selected:
+  //   - ragger's --device option accepts 'all' natively: one run, all devices,
+  //     tests parametrized as test_foo[nanos], test_foo[nanox], etc.
+  //   - The legacy --model option does not support 'all', so we fall back to
+  //     the first compatible device in that case.
+  return `${quotesAroundBashCommand}source /opt/venv/bin/activate &&
+      pip install -r ${testsDir}/requirements.txt > /dev/null 2>&1 &&
+      cd ${testsDir} &&
         device_option=${varPrefix}(pytest --help |
             awk '/[C|c]ustom options/,/^$/' |
             grep -E -- '--model|--device'   |
@@ -780,70 +751,144 @@ export function getAppTestsList(targetSelector: TargetSelector, showMenu: boolea
         if [ $? -eq 5 ]; then
             exit 0
         fi${quotesAroundBashCommand}`;
+}
 
-    let getTestsListArgs = [
-      // Resolve UID and GID on the host
-      "exec", ...getDockerUserOpt().split(" "), selectedApp!.containerName, "bash", "-c",
-      getTestsListShellScript,
-    ];
+// Get pytest tests list
+interface TestsListConfig {
+  testsDir: string;
+  settingsListKey: string;
+  clearDir: () => void;
+  setList: (list: string[]) => void;
+  setSelected: (tests: string[]) => void;
+  getLastList: () => string[];
+  getLastSelected: () => string[];
+  refreshWebView: (webView: Webview, result: { list: string[]; selected: string[] } | null) => void;
+}
 
-    // Executing the command with a callback
-    cp.execFile(getTestsListCmd, getTestsListArgs, optionsExec, (error, stdout, stderr) => {
+async function fetchTestsList(targetSelector: TargetSelector, config: TestsListConfig, webView?: Webview): Promise<[string[], string[]]> {
+  const testsPath = path.join(selectedApp!.folderUri.fsPath, config.testsDir);
+  let testsList: string[] = [];
+  let selected: string[] = [];
+  if (!fs.existsSync(testsPath)) {
+    console.log(`Ledger: directory '${testsPath}' does not exist`);
+    config.clearDir();
+    config.setList([]);
+    config.setSelected([]);
+    if (webView) {
+      config.refreshWebView(webView, null);
+    }
+    return [[], []];
+  }
+
+  const lastTests = config.getLastList();
+  const lastSelectedTests = config.getLastSelected();
+  config.setList([]);
+  config.setSelected([]);
+  // let testsList: string[] = [];
+  let optionsExec: cp.ExecOptions = { cwd: selectedApp!.folderUri.fsPath, windowsHide: true, timeout: 60000 };
+  if (platform === "win32") {
+    let shell: string = "C:\\windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
+    optionsExec.shell = shell;
+  }
+
+  // Find the tests list with pytest :
+  // * Get the device option from pytest help (either --model or --device)
+  // * If the device option is found, run pytest with --collect-only and the device option
+  // * If the device option is not found, run pytest with --collect-only
+  const shellScript: string = getTestsListShellScript(targetSelector, config.testsDir);
+  let getTestsListArgs = [
+    // Resolve UID and GID on the host
+    "exec", ...getDockerUserOpt().split(" "), selectedApp!.containerName!, "bash", "-c",
+    shellScript,
+  ];
+
+  return new Promise<[string[], string[]]>((resolve, reject) => {
+    cp.execFile("docker", getTestsListArgs, optionsExec, (error, stdout) => {
       if (error) {
         pushError(`Error while getting tests list: ${error.message}`);
-        // Notify webview even on error to stop the refresh spinner
         if (webView) {
-          webView.refresh({ testCases: null });
+          config.refreshWebView(webView, null);
         }
+        reject(error);
         return;
       }
-      else {
-        stdout.toString().split("\n").forEach((line: string) => {
-          if (line.includes("::")) {
-            let parts = line.split("::");
-            if (parts.length > 0) {
-              let testName = parts[parts.length - 1].split("[")[0];
-              let filePath = parts.slice(0, parts.length - 1).join("::").trim();
-              let fullId = filePath ? `${filePath}::${testName}` : testName;
-              if (testName !== undefined && testName !== "" && !testsList.includes(fullId)) {
-                testsList.push(fullId);
-              }
+
+      stdout.toString().split("\n").forEach((line: string) => {
+        if (line.includes("::")) {
+          let parts = line.split("::");
+          if (parts.length > 0) {
+            let testName = parts[parts.length - 1].split("[")[0];
+            let filePath = parts.slice(0, parts.length - 1).join("::").trim();
+            let fullId = filePath ? `${filePath}::${testName}` : testName;
+            const normTestsDir = config.testsDir.replace(/^\.\//, "").replace(/\/$/, "");
+            if (!fullId.startsWith(normTestsDir + "/")) {
+              fullId = `${normTestsDir}/${fullId}`;
+            }
+            if (testName !== undefined && testName !== "" && !testsList.includes(fullId)) {
+              testsList.push(fullId);
             }
           }
-        });
-        if (testsList.length > 1) {
-          selectedApp!.functionalTestsList = testsList;
-          if ((lastTests && lastTests.length > 0 && JSON.stringify(testsList) !== JSON.stringify(lastTests)) || !lastTests) {
-            updateSetting("testsList", testsList, selectedApp!.folderUri);
-          }
-          else if (lastTests && lastTests.length > 0 && JSON.stringify(testsList) === JSON.stringify(lastTests) && lastSelectedTests && lastSelectedTests.length > 0) {
-            selectedApp!.selectedTests = lastSelectedTests as string[];
-            console.log(`Selected tests from settings: ${selectedApp!.selectedTests}`);
-          }
-
-          if (webView) {
-            webView.refresh({
-              testCases: {
-                list: testsList,
-                selected: selectedApp!.selectedTests,
-              },
-            });
-          }
         }
-        else {
-          // No tests found or only one test - still notify webview
-          if (webView) {
-            webView.refresh({
-              testCases: {
-                list: testsList,
-                selected: [],
-              },
-            });
-          }
+      });
+
+      if (testsList.length > 1) {
+        config.setList(testsList);
+        if ((lastTests && lastTests.length > 0 && JSON.stringify(testsList) !== JSON.stringify(lastTests)) || !lastTests) {
+          updateSetting(config.settingsListKey, testsList, selectedApp!.folderUri);
+        }
+        else if (lastTests && lastTests.length > 0 && JSON.stringify(testsList) === JSON.stringify(lastTests) && lastSelectedTests && lastSelectedTests.length > 0) {
+          selected = lastSelectedTests as string[];
+          config.setSelected(selected);
+          console.log(`Selected tests from settings: ${selected}`);
         }
       }
+      resolve([testsList, selected]);
     });
+  });
+}
+
+export async function getAppTestsList(targetSelector: TargetSelector, webView?: Webview) {
+  let standaloneConfig: TestsListConfig | null = null;
+  let swapConfig: TestsListConfig | null = null;
+
+  if (selectedApp?.standaloneTestsDir && selectedApp?.containerName) {
+    standaloneConfig = {
+      testsDir: selectedApp.standaloneTestsDir,
+      settingsListKey: "testsList",
+      clearDir: () => { selectedApp!.standaloneTestsDir = undefined; },
+      setList: (list) => { selectedApp!.functionalTestsList = list; },
+      setSelected: (tests) => { selectedApp!.selectedTests = tests; },
+      getLastList: () => getSetting("testsList", selectedApp!.folderUri) as string[],
+      getLastSelected: () => getSetting("selectedTests", selectedApp!.folderUri) as string[],
+      refreshWebView: (wv, result) => wv.refresh({ testCases: result }),
+    };
   }
+
+  if (selectedApp?.swapTestsDir && selectedApp?.containerName) {
+    swapConfig = {
+      testsDir: selectedApp.swapTestsDir,
+      settingsListKey: "swapTestsList",
+      clearDir: () => { selectedApp!.swapTestsDir = undefined; },
+      setList: (list) => { selectedApp!.swapTestsList = list; },
+      setSelected: (tests) => { selectedApp!.swapSelectedTests = tests; },
+      getLastList: () => getSetting("swapTestsList", selectedApp!.folderUri) as string[],
+      getLastSelected: () => getSetting("swapSelectedTests", selectedApp!.folderUri) as string[],
+      refreshWebView: (wv, result) => wv.refresh({ testCases: result }),
+    };
+  }
+
+  const noTests: [string[], string[]] = [[], []];
+  const [
+    [standaloneList, standaloneSelected],
+    [swapList, swapSelected],
+  ] = await Promise.all([
+    standaloneConfig ? fetchTestsList(targetSelector, standaloneConfig, webView) : Promise.resolve(noTests),
+    swapConfig ? fetchTestsList(targetSelector, swapConfig, webView) : Promise.resolve(noTests),
+  ]);
+
+  const list = [...standaloneList, ...swapList];
+  const selected = [...standaloneSelected, ...swapSelected];
+  webView?.refresh({ testCases: { list, selected } });
 }
 
 // Type guard function to check if a string is a valid app language
@@ -968,8 +1013,8 @@ export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, 
     optionsExecSync.shell = shell;
   }
   // If the app has a functional tests directory and test use cases defined in the manifest with dependencies, clone the dependencies and build them.
-  if (selectedApp && selectedApp.selectedTestUseCase && selectedApp.functionalTestsDir) {
-    const testDepDirPath = path.posix.join(selectedApp.functionalTestsDir, testDepDir);
+  if (selectedApp && selectedApp.selectedTestUseCase && selectedApp.standaloneTestsDir) {
+    const testDepDirPath = path.posix.join(selectedApp.standaloneTestsDir, testDepDir);
     // Clean the test dependencies folder if it exists and the clean flag is set
     if (clean) {
       let cleanCmd = `docker exec ${getDockerUserOpt()} ${
@@ -1058,7 +1103,7 @@ export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, 
 }
 
 // Parse manifest. Returns app language, build dir path, app name, devices, package name (for rust app), functional tests dir path (if any)
-function parseManifest(tomlContent: any): [AppLanguage, string, LedgerDevice[], string?, TestUseCase[]?, BuildUseCase[]?] {
+function parseManifest(tomlContent: any): [AppLanguage, string, LedgerDevice[], string?, string?, TestUseCase[]?, BuildUseCase[]?] {
   // Parse app language
   const appLanguage = isValidLanguage(getPropertyOrThrow(tomlContent, "app.sdk"));
 
@@ -1069,7 +1114,10 @@ function parseManifest(tomlContent: any): [AppLanguage, string, LedgerDevice[], 
   const compatibleDevices: LedgerDevice[] = manifestDevicesToLedgerDevices(getPropertyOrThrow(tomlContent, "app.devices"));
 
   // Check if pytest functional tests are present (new and legacy manifests)
-  let functionalTestsDir = getProperty(tomlContent, "pytest.standalone.directory") || getProperty(tomlContent, "tests.pytest_directory");
+  let standaloneTestsDir = getProperty(tomlContent, "pytest.standalone.directory") || getProperty(tomlContent, "tests.pytest_directory");
+
+  // Check if pytest swap tests are present (new manifest)
+  let swapTestsDir = getProperty(tomlContent, "pytest.swap.directory");
 
   // Parse test dependencies, if any.
   let testUseCases = parseTestsUsesCasesFromManifest(tomlContent);
@@ -1077,7 +1125,7 @@ function parseManifest(tomlContent: any): [AppLanguage, string, LedgerDevice[], 
   // Parse build use cases, if any.
   let buildUseCases = parseBuildUseCasesFromManifest(tomlContent);
 
-  return [appLanguage, buildDirPath, compatibleDevices, functionalTestsDir, testUseCases, buildUseCases];
+  return [appLanguage, buildDirPath, compatibleDevices, standaloneTestsDir, swapTestsDir, testUseCases, buildUseCases];
 }
 
 // Parse legacy rust manifest and return build dir path, app name and package name

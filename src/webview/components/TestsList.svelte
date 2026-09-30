@@ -48,7 +48,8 @@
     const map = new Map<string, TestCase[]>();
     for (const t of testCases) {
       const parts = t.id.split("::");
-      const file = parts.length > 1 ? parts.slice(0, parts.length - 1).join("::") : "";
+      let file = parts.length > 1 ? parts[0].split("/").pop()! : "";
+      if (t.id.includes("swap")) file = "[swap] " + file; 
       if (!map.has(file)) map.set(file, []);
       map.get(file)!.push(t);
     }

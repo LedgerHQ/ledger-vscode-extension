@@ -49,7 +49,7 @@
     for (const t of testCases) {
       const parts = t.id.split("::");
       let file = parts.length > 1 ? parts[0].split("/").pop()! : "";
-      if (t.id.includes("swap")) file = "[swap] " + file; 
+      if (t.id.includes("swap")) file = "[swap] " + file;
       if (!map.has(file)) map.set(file, []);
       map.get(file)!.push(t);
     }

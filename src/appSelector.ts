@@ -10,6 +10,7 @@ import { TaskProvider } from "./taskProvider";
 import { LedgerDevice, TargetSelector } from "./targetSelector";
 import { pushError, updateSetting, getSetting } from "./extension";
 import { Webview } from "./webview/webviewProvider";
+import { SwapDependency, downloadSwapDependencies } from "./swapDependencies";
 const APP_DETECTION_FILES: string[] = ["Makefile", "ledger_app.toml"];
 const C_APP_DETECTION_STRING: string = "include $(BOLOS_SDK)/Makefile.defines";
 const C_APP_NAME_MAKEFILE_VAR: string = "APPNAME";
@@ -53,6 +54,8 @@ export interface App {
   standaloneTestsDir?: string;
   // If the manifest has a pytest.swap directory property, it is parsed here
   swapTestsDir?: string;
+  // Dependencies of the swap tests (pytest.swap.dependencies in the manifest), downloaded from their latest release
+  swapDependencies?: SwapDependency[];
   // If the app has a swap tests directory, the tests list is parsed here
   swapTestsList?: string[];
   swapSelectedTests?: string[];
@@ -204,6 +207,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
   let appLanguage: AppLanguage = "c";
   let testsDir = undefined;
   let swapTestsDir = undefined;
+  let swapDependencies: SwapDependency[] | undefined = undefined;
   let packageName = undefined;
   let compatibleDevices: LedgerDevice[] = ["Nano S", "Nano S Plus", "Nano X", "Stax", "Flex", "Apex p", "Apex m"];
   let testsUseCases = undefined;
@@ -227,7 +231,8 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
       case "manifest": {
         console.log("Found manifest in " + appFolderName);
         let tomlContent = toml.parse(fileContent);
-        [appLanguage, buildDirPath, compatibleDevices, testsDir, swapTestsDir, testsUseCases, buildUseCases] = parseManifest(tomlContent);
+        [appLanguage, buildDirPath, compatibleDevices, testsDir, swapTestsDir, testsUseCases, buildUseCases, swapDependencies]
+          = parseManifest(tomlContent);
         if (appLanguage === "c") {
           appName = getAppName(folderUri.fsPath);
           vscode.commands.executeCommand("setContext", "ledgerDevTools.showSelectBuildMode", true);
@@ -303,6 +308,7 @@ export function findAppInFolder(folderUri: vscode.Uri): App | undefined {
       language: appLanguage,
       standaloneTestsDir: testsDir,
       swapTestsDir: swapTestsDir,
+      swapDependencies: swapDependencies,
       compatibleDevices: compatibleDevices,
       packageName: packageName,
       testsUseCases: testsUseCases,
@@ -935,8 +941,8 @@ function getPropertyOrThrow(obj: any, path: string): string | any {
   return value;
 }
 
-function parseTestsUsesCasesFromManifest(tomlContent: any): TestUseCase[] | undefined {
-  let dependenciesSection = getProperty(tomlContent, "tests.dependencies");
+function parseTestsUsesCasesFromManifest(tomlContent: any, section: string = "tests.dependencies"): TestUseCase[] | undefined {
+  let dependenciesSection = getProperty(tomlContent, section);
   let testUseCases: TestUseCase[] | undefined = undefined;
   if (dependenciesSection) {
     testUseCases = [];
@@ -1002,7 +1008,21 @@ function parseBuildUseCasesFromManifest(tomlContent: any): BuildUseCase[] | unde
   return buildUseCases;
 }
 
+async function downloadAppSwapDependencies(targetSelector: TargetSelector) {
+  if (!selectedApp?.swapTestsDir || !selectedApp.swapDependencies) {
+    return;
+  }
+  const errors = await downloadSwapDependencies(
+    selectedApp.folderUri.fsPath,
+    selectedApp.swapTestsDir,
+    selectedApp.swapDependencies,
+    targetSelector.getSelectedBuildDirNames(),
+  );
+  errors.forEach(error => pushError(`Swap tests dependency: ${error}`));
+}
+
 export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, clean: boolean = false) {
+  void downloadAppSwapDependencies(targetSelector);
   const testDepDir = ".test_dependencies";
   let optionsExec: cp.ExecOptions = { cwd: selectedApp!.folderUri.fsPath, windowsHide: true };
   let optionsExecSync: cp.ExecSyncOptions = { cwd: selectedApp!.folderUri.fsPath, stdio: "inherit", windowsHide: true };
@@ -1103,7 +1123,7 @@ export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, 
 }
 
 // Parse manifest. Returns app language, build dir path, app name, devices, package name (for rust app), functional tests dir path (if any)
-function parseManifest(tomlContent: any): [AppLanguage, string, LedgerDevice[], string?, string?, TestUseCase[]?, BuildUseCase[]?] {
+function parseManifest(tomlContent: any): [AppLanguage, string, LedgerDevice[], string?, string?, TestUseCase[]?, BuildUseCase[]?, SwapDependency[]?] {
   // Parse app language
   const appLanguage = isValidLanguage(getPropertyOrThrow(tomlContent, "app.sdk"));
 
@@ -1125,7 +1145,10 @@ function parseManifest(tomlContent: any): [AppLanguage, string, LedgerDevice[], 
   // Parse build use cases, if any.
   let buildUseCases = parseBuildUseCasesFromManifest(tomlContent);
 
-  return [appLanguage, buildDirPath, compatibleDevices, standaloneTestsDir, swapTestsDir, testUseCases, buildUseCases];
+  // Parse swap tests dependencies, if any. They are downloaded from releases, the first use case is used.
+  let swapDependencies = parseTestsUsesCasesFromManifest(tomlContent, "pytest.swap.dependencies")?.[0]?.dependencies;
+
+  return [appLanguage, buildDirPath, compatibleDevices, standaloneTestsDir, swapTestsDir, testUseCases, buildUseCases, swapDependencies];
 }
 
 // Parse legacy rust manifest and return build dir path, app name and package name

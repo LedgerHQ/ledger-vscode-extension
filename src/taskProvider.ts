@@ -8,7 +8,7 @@ import * as fg from "fast-glob";
 import { platform } from "node:process";
 import { getDockerUserOpt, getComposeServiceName } from "./containerManager";
 import { TargetSelector, specialAllDevice } from "./targetSelector";
-import { getSelectedApp, getVerboseTests, App, AppLanguage } from "./appSelector";
+import { getSelectedApp, getVerboseTests, downloadAppSwapDependencies, App, AppLanguage } from "./appSelector";
 import type { TaskSpec } from "./types";
 import { Webview } from "./webview/webviewProvider";
 import { debug } from "vscode";
@@ -23,6 +23,8 @@ const udevRulesUrl = "https://raw.githubusercontent.com/LedgerHQ/udev-rules/mast
 let udevRulesDone: boolean = false;
 
 type CustomTaskFunction = () => void;
+
+const TESTS_TASK_NAMES = ["Run Tests", "Tests with Display", "Tests on Device", "Generate Snapshots"];
 
 export interface ChecksList {
   selected: string;
@@ -463,6 +465,10 @@ export class TaskProvider implements vscode.TaskProvider {
     await this.tasksReadyPromise;
     const task = this.getTaskByName(taskName);
     if (task) {
+      if (TESTS_TASK_NAMES.includes(taskName)) {
+        // Only downloads the swap dependencies that are not there yet.
+        await downloadAppSwapDependencies(false);
+      }
       if (task.customFunction) {
         task.customFunction();
       }

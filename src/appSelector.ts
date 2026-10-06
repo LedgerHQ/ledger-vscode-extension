@@ -1043,7 +1043,7 @@ function parseBuildUseCasesFromManifest(tomlContent: any): BuildUseCase[] | unde
   return buildUseCases;
 }
 
-async function downloadAppSwapDependencies() {
+export async function downloadAppSwapDependencies(checkForUpdates: boolean = true) {
   if (!selectedApp?.swapTestsDir || !selectedApp.swapDependencies) {
     return;
   }
@@ -1051,6 +1051,7 @@ async function downloadAppSwapDependencies() {
     selectedApp.folderUri.fsPath,
     selectedApp.swapTestsDir,
     selectedApp.swapDependencies,
+    checkForUpdates,
   );
   errors.forEach(error => pushError(`Swap tests dependency: ${error}`));
 }

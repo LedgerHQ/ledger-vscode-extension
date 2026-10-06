@@ -99,10 +99,12 @@ function extractZip(zip: Uint8Array, destDir: string) {
 }
 
 // Download the swap dependencies binaries of the `test-binaries` releases and extract them. Returns the errors messages, if any.
+// Without `checkForUpdates`, binaries that were already downloaded are kept without contacting GitHub.
 export async function downloadSwapDependencies(
   appRoot: string,
   swapTestsDir: string,
   deps: SwapDependency[],
+  checkForUpdates: boolean = true,
 ): Promise<string[]> {
   const conftestPath = path.join(appRoot, swapTestsDir, "conftest.py");
   const { mainDir, libsDir } = fs.existsSync(conftestPath) ? parseConftestDirs(fs.readFileSync(conftestPath, "utf8")) : {};
@@ -116,6 +118,9 @@ export async function downloadSwapDependencies(
   for (const { repoSlug, asset, destDir } of planDownloads(deps, { mainDir, libsDir })) {
     const destPath = path.join(appRoot, destDir);
     const commitPath = path.join(destPath, ".test-binaries-commit");
+    if (!checkForUpdates && fs.existsSync(commitPath)) {
+      continue;
+    }
     if (!releases.has(repoSlug)) {
       releases.set(repoSlug, getRelease(repoSlug, token));
     }

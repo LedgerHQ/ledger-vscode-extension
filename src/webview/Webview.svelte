@@ -59,6 +59,8 @@
   let testCases = $state<TestCase[]>([]);
   let verboseTests = $state(false);
   let isRefreshing = $state(false);
+  // False until a tests list is received for the selected app
+  let testsLoaded = $state(false);
   let testDependencies = $state("");
   let depsPopoverOpen = $state(false);
   let depsInputValue = $state("");
@@ -333,6 +335,7 @@
           selected: selectedTestCases.includes(testId),
         }));
         isRefreshing = false;
+        testsLoaded = true;
         break;
       case "addApps":
         apps = [];
@@ -340,6 +343,7 @@
         selectedApp = message.selectedApp;
         // Clear tests when app list changes - tests will be refreshed when container is ready
         testCases = [];
+        testsLoaded = false;
         break;
       case "addTargets":
         targets = [];
@@ -622,6 +626,7 @@
                     bind:testCases
                     bind:verboseTests
                     {isRefreshing}
+                    testsPending={!testsLoaded}
                     {refreshTests}
                     {sendSelectedTests}
                   />

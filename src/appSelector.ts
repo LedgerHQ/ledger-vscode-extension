@@ -1043,7 +1043,7 @@ function parseBuildUseCasesFromManifest(tomlContent: any): BuildUseCase[] | unde
   return buildUseCases;
 }
 
-async function downloadAppSwapDependencies(targetSelector: TargetSelector) {
+async function downloadAppSwapDependencies() {
   if (!selectedApp?.swapTestsDir || !selectedApp.swapDependencies) {
     return;
   }
@@ -1051,13 +1051,12 @@ async function downloadAppSwapDependencies(targetSelector: TargetSelector) {
     selectedApp.folderUri.fsPath,
     selectedApp.swapTestsDir,
     selectedApp.swapDependencies,
-    targetSelector.getSelectedBuildDirNames(),
   );
   errors.forEach(error => pushError(`Swap tests dependency: ${error}`));
 }
 
 export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, clean: boolean = false) {
-  void downloadAppSwapDependencies(targetSelector);
+  void downloadAppSwapDependencies();
   const testDepDir = ".test_dependencies";
   let optionsExec: cp.ExecOptions = { cwd: selectedApp!.folderUri.fsPath, windowsHide: true };
   let optionsExecSync: cp.ExecSyncOptions = { cwd: selectedApp!.folderUri.fsPath, stdio: "inherit", windowsHide: true };

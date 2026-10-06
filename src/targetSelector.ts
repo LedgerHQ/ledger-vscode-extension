@@ -238,12 +238,6 @@ export class TargetSelector {
     return this.selectedTargetId;
   }
 
-  // Build directory names (e.g. nanos2, flex) of the selected target, or of all targets if 'All' is selected.
-  public getSelectedBuildDirNames(): string[] {
-    const targets = this.selectedTarget === specialAllDevice ? this.targetsArray : [this.selectedTarget];
-    return targets.map(target => sdkModels[target]);
-  }
-
   public getTargetsArray() {
     return this.targetsArray;
   }

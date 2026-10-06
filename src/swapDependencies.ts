@@ -1,12 +1,13 @@
 import * as cp from "child_process";
 import * as fs from "fs";
 import * as path from "path";
+import { unzipSync } from "fflate";
 
 // Swap tests need the Exchange app (main app) and other coin apps (libraries) as prebuilt binaries.
 // Each dependency repo keeps a rolling pre-release tagged `test-binaries`, rebuilt on every push to
-// its develop branch. It holds one asset per manifest use case and device, named
-// `<use_case>-<device>.elf`. They are downloaded where ragger expects them:
-// `<MAIN_APP_DIR | SIDELOADED_APPS_DIR>/<repo>/build/<device>/bin/app.elf`.
+// its master branch. It holds one zip per manifest use case, named `<use_case>.zip`, with the
+// `build/<device>/bin/app.elf` files of all devices. Each zip is extracted where ragger expects
+// them: `<MAIN_APP_DIR | SIDELOADED_APPS_DIR>/<repo>/`.
 
 const MAIN_APP_REPO = /^app-exchange(-dev)?$/;
 const RELEASE_TAG = "test-binaries";
@@ -24,7 +25,7 @@ export interface ConftestDirs {
 export interface DownloadPlanItem {
   repoSlug: string;
   asset: string;
-  dest: string;
+  destDir: string;
 }
 
 interface ReleaseInfo {
@@ -38,16 +39,12 @@ export function parseConftestDirs(conftest: string): ConftestDirs {
   return { mainDir: read("MAIN_APP_DIR"), libsDir: read("SIDELOADED_APPS_DIR") };
 }
 
-export function planDownloads(deps: SwapDependency[], devices: string[], dirs: { mainDir: string; libsDir: string }): DownloadPlanItem[] {
-  return deps.flatMap((dep) => {
+export function planDownloads(deps: SwapDependency[], dirs: { mainDir: string; libsDir: string }): DownloadPlanItem[] {
+  return deps.map((dep) => {
     const repoSlug = dep.gitRepoUrl.replace(/\.git$/, "").split("/").slice(-2).join("/");
     const repoName = path.posix.basename(repoSlug);
     const baseDir = MAIN_APP_REPO.test(repoName) ? dirs.mainDir : dirs.libsDir;
-    return devices.map(device => ({
-      repoSlug,
-      asset: `${dep.useCase}-${device}.elf`,
-      dest: path.posix.join(baseDir, repoName, "build", device, "bin", "app.elf"),
-    }));
+    return { repoSlug, asset: `${dep.useCase}.zip`, destDir: path.posix.join(baseDir, repoName) };
   });
 }
 
@@ -87,12 +84,25 @@ async function getRelease(repoSlug: string, token: string | undefined): Promise<
   };
 }
 
-// Download the swap dependencies binaries of the `test-binaries` releases. Returns the errors messages, if any.
+function extractZip(zip: Uint8Array, destDir: string) {
+  for (const [name, data] of Object.entries(unzipSync(zip))) {
+    const filePath = path.resolve(destDir, name);
+    if (name.endsWith("/")) {
+      continue;
+    }
+    if (!filePath.startsWith(path.resolve(destDir) + path.sep)) {
+      throw new Error(`unsafe path in zip: ${name}`);
+    }
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, data);
+  }
+}
+
+// Download the swap dependencies binaries of the `test-binaries` releases and extract them. Returns the errors messages, if any.
 export async function downloadSwapDependencies(
   appRoot: string,
   swapTestsDir: string,
   deps: SwapDependency[],
-  devices: string[],
 ): Promise<string[]> {
   const conftestPath = path.join(appRoot, swapTestsDir, "conftest.py");
   const { mainDir, libsDir } = fs.existsSync(conftestPath) ? parseConftestDirs(fs.readFileSync(conftestPath, "utf8")) : {};
@@ -103,15 +113,16 @@ export async function downloadSwapDependencies(
   const errors: string[] = [];
   const token = getGithubToken();
   const releases = new Map<string, Promise<ReleaseInfo>>();
-  for (const { repoSlug, asset, dest } of planDownloads(deps, devices, { mainDir, libsDir })) {
-    const destPath = path.join(appRoot, dest);
-    const commitPath = `${destPath}.commit`;
+  for (const { repoSlug, asset, destDir } of planDownloads(deps, { mainDir, libsDir })) {
+    const destPath = path.join(appRoot, destDir);
+    const commitPath = path.join(destPath, ".test-binaries-commit");
     if (!releases.has(repoSlug)) {
       releases.set(repoSlug, getRelease(repoSlug, token));
     }
     try {
       const { commit, assets } = await releases.get(repoSlug)!;
-      if (fs.existsSync(destPath) && fs.existsSync(commitPath) && fs.readFileSync(commitPath, "utf8") === commit) {
+      const downloaded = `${asset}@${commit}`;
+      if (fs.existsSync(commitPath) && fs.readFileSync(commitPath, "utf8") === downloaded) {
         continue;
       }
       const assetId = assets.get(asset);
@@ -122,13 +133,12 @@ export async function downloadSwapDependencies(
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
       }
-      fs.mkdirSync(path.dirname(destPath), { recursive: true });
-      fs.writeFileSync(destPath, Buffer.from(await res.arrayBuffer()));
-      fs.writeFileSync(commitPath, commit);
+      extractZip(new Uint8Array(await res.arrayBuffer()), destPath);
+      fs.writeFileSync(commitPath, downloaded);
     }
     catch (error) {
-      // Keep a binary downloaded earlier when GitHub cannot be reached.
-      if (!fs.existsSync(destPath)) {
+      // Keep binaries downloaded earlier when GitHub cannot be reached.
+      if (!fs.existsSync(commitPath)) {
         errors.push(`Download of ${asset} failed: ${error instanceof Error ? error.message : error}`);
       }
     }

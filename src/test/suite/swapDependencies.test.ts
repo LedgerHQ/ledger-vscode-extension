@@ -25,28 +25,16 @@ suite("Swap dependencies", () => {
   });
 
   test("planDownloads puts exchange in main and others in libraries", () => {
-    const plan = planDownloads(deps, ["flex"], { mainDir: "m", libsDir: "l" });
+    const plan = planDownloads(deps, { mainDir: "m", libsDir: "l" });
     assert.deepStrictEqual(plan, [
-      {
-        repoSlug: "LedgerHQ/app-exchange",
-        dest: "m/app-exchange/build/flex/bin/app.elf",
-        asset: "dbg_use_test_keys-flex.elf",
-      },
-      {
-        repoSlug: "LedgerHQ/app-ethereum",
-        dest: "l/app-ethereum/build/flex/bin/app.elf",
-        asset: "use_test_keys-flex.elf",
-      },
+      { repoSlug: "LedgerHQ/app-exchange", destDir: "m/app-exchange", asset: "dbg_use_test_keys.zip" },
+      { repoSlug: "LedgerHQ/app-ethereum", destDir: "l/app-ethereum", asset: "use_test_keys.zip" },
     ]);
   });
 
   test("planDownloads treats app-exchange-dev as the main app too", () => {
-    const plan = planDownloads([{ gitRepoUrl: "https://github.com/me/app-exchange-dev", useCase: "u" }], ["flex"], { mainDir: "m", libsDir: "l" });
-    assert.strictEqual(plan[0].dest, "m/app-exchange-dev/build/flex/bin/app.elf");
-  });
-
-  test("planDownloads makes one entry per device", () => {
-    assert.strictEqual(planDownloads(deps, ["flex", "stax"], { mainDir: "m", libsDir: "l" }).length, 4);
+    const plan = planDownloads([{ gitRepoUrl: "https://github.com/me/app-exchange-dev", useCase: "u" }], { mainDir: "m", libsDir: "l" });
+    assert.strictEqual(plan[0].destDir, "m/app-exchange-dev");
   });
 
   test("getGithubToken prefers the GH_TOKEN environment variable", () => {

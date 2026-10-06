@@ -853,7 +853,7 @@ async function fetchTestsList(targetSelector: TargetSelector, config: TestsListC
   });
 }
 
-export async function getAppTestsList(targetSelector: TargetSelector, webView?: Webview) {
+async function fetchAppTestsList(targetSelector: TargetSelector, webView?: Webview) {
   let standaloneConfig: TestsListConfig | null = null;
   let swapConfig: TestsListConfig | null = null;
 
@@ -895,6 +895,34 @@ export async function getAppTestsList(targetSelector: TargetSelector, webView?: 
   const list = [...standaloneList, ...swapList];
   const selected = [...standaloneSelected, ...swapSelected];
   webView?.refresh({ testCases: { list, selected } });
+}
+
+let testsListFetching = false;
+let testsListRerun = false;
+
+// Fetch the tests lists, one fetch at a time. Concurrent fetches compete in the container and the
+// last one to finish wins, even if it failed. A request received during a fetch triggers one more
+// fetch when it ends, so the final result always comes from the latest request.
+export async function getAppTestsList(targetSelector: TargetSelector, webView?: Webview) {
+  if (testsListFetching) {
+    testsListRerun = true;
+    return;
+  }
+  testsListFetching = true;
+  try {
+    do {
+      testsListRerun = false;
+      try {
+        await fetchAppTestsList(targetSelector, webView);
+      }
+      catch {
+        // Already reported to the user by fetchTestsList.
+      }
+    } while (testsListRerun);
+  }
+  finally {
+    testsListFetching = false;
+  }
 }
 
 // Type guard function to check if a string is a valid app language

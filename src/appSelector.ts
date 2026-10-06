@@ -853,7 +853,7 @@ async function fetchTestsList(targetSelector: TargetSelector, config: TestsListC
   });
 }
 
-async function fetchAppTestsList(targetSelector: TargetSelector, webView?: Webview) {
+async function fetchAppTestsList(targetSelector: TargetSelector, webView?: Webview, showLoading: boolean = true) {
   let standaloneConfig: TestsListConfig | null = null;
   let swapConfig: TestsListConfig | null = null;
 
@@ -883,6 +883,10 @@ async function fetchAppTestsList(targetSelector: TargetSelector, webView?: Webvi
     };
   }
 
+  if (showLoading && (standaloneConfig || swapConfig)) {
+    void webView?.refresh({ testsLoading: true });
+  }
+
   const noTests: [string[], string[]] = [[], []];
   const [
     [standaloneList, standaloneSelected],
@@ -910,14 +914,17 @@ export async function getAppTestsList(targetSelector: TargetSelector, webView?: 
   }
   testsListFetching = true;
   try {
+    // A rerun refreshes a list that is already shown: no loading state for it.
+    let firstFetch = true;
     do {
       testsListRerun = false;
       try {
-        await fetchAppTestsList(targetSelector, webView);
+        await fetchAppTestsList(targetSelector, webView, firstFetch);
       }
       catch {
         // Already reported to the user by fetchTestsList.
       }
+      firstFetch = false;
     } while (testsListRerun);
   }
   finally {

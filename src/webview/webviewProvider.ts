@@ -27,6 +27,8 @@ export interface WebviewRefreshOptions {
     list: string[];
     selected?: string[];
   } | null;
+  // true: the tests list is being fetched, the webview shows its refreshing state until testCases arrive
+  testsLoading?: boolean;
   tasks?: {
     list: TaskSpec[];
   } | null;
@@ -130,6 +132,10 @@ export class Webview implements vscode.WebviewViewProvider {
         buildUseCases: options.buildUseCases?.list ?? [],
         selectedBuildUseCase: options.buildUseCases?.selected ?? "",
       });
+    }
+
+    if (options.testsLoading) {
+      this._view.webview.postMessage({ command: "testsLoading" });
     }
 
     if (options.testCases !== undefined) {

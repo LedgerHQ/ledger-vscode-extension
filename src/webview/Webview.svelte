@@ -319,6 +319,9 @@
           }
         });
         break;
+      case "testsLoading":
+        isRefreshing = true;
+        break;
       case "addTestCases":
         const receivedTestCases: string[] = message.testCases;
         const selectedTestCases: string[] =

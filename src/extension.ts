@@ -116,6 +116,10 @@ export function activate(context: vscode.ExtensionContext) {
         list: getChecks().values,
         selected: getChecks().selected,
       };
+      // No tests to wait for: show the empty list instead of the loading state
+      if (!selectedApp.standaloneTestsDir && !selectedApp.swapTestsDir) {
+        options.testCases = null;
+      }
     }
 
     // Use cached docker status and default values,
@@ -365,6 +369,8 @@ export function activate(context: vscode.ExtensionContext) {
           list: getChecks().values,
           selected: getChecks().selected,
         },
+        // No tests to wait for: show the empty list instead of the loading state
+        testCases: !selectedApp.standaloneTestsDir && !selectedApp.swapTestsDir ? null : undefined,
       });
       webview.sendTestDependencies(getAppTestsPrerequisites());
     }),

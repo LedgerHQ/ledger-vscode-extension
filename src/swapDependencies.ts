@@ -116,7 +116,11 @@ export async function downloadSwapDependencies(
   const token = getGithubToken();
   const releases = new Map<string, Promise<ReleaseInfo>>();
   for (const { repoSlug, asset, destDir } of planDownloads(deps, { mainDir, libsDir })) {
-    const destPath = path.join(appRoot, destDir);
+    const destPath = path.resolve(appRoot, destDir);
+    if (!destPath.startsWith(path.resolve(appRoot) + path.sep)) {
+      errors.push(`Download of ${asset} skipped: ${destDir} is outside the app folder`);
+      continue;
+    }
     const commitPath = path.join(destPath, ".test-binaries-commit");
     if (!checkForUpdates && fs.existsSync(commitPath)) {
       continue;

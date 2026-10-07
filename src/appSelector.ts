@@ -878,7 +878,11 @@ async function fetchAppTestsList(targetSelector: TargetSelector, webView?: Webvi
       setList: (list) => { selectedApp!.swapTestsList = list; },
       setSelected: (tests) => { selectedApp!.swapSelectedTests = tests; },
       getLastList: () => getSetting("swapTestsList", selectedApp!.folderUri) as string[],
-      getLastSelected: () => getSetting("swapSelectedTests", selectedApp!.folderUri) as string[],
+      // The webview saves the selection of both lists in the shared `selectedTests` setting.
+      getLastSelected: () => {
+        const swapDir = selectedApp!.swapTestsDir!.replace(/^\.\//, "").replace(/\/$/, "");
+        return ((getSetting("selectedTests", selectedApp!.folderUri) as string[] | undefined) ?? []).filter(t => t.startsWith(swapDir + "/"));
+      },
       refreshWebView: (wv, result) => wv.refresh({ testCases: result }),
     };
   }
@@ -903,6 +907,10 @@ async function fetchAppTestsList(targetSelector: TargetSelector, webView?: Webvi
 
   const list = [...standaloneList, ...swapList];
   const selected = [...standaloneSelected, ...swapSelected];
+  // Keep the restored selection of both lists, the tasks read it from here.
+  if (selected.length > 0 && selectedApp) {
+    selectedApp.selectedTests = selected;
+  }
   webView?.refresh({ testCases: { list, selected } });
 }
 

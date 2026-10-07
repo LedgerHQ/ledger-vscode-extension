@@ -138,7 +138,10 @@ export async function downloadSwapDependencies(
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
       }
-      extractZip(new Uint8Array(await res.arrayBuffer()), destPath);
+      const zip = new Uint8Array(await res.arrayBuffer());
+      // Invalidate the marker first: a failed extraction must not look like a valid download.
+      fs.rmSync(commitPath, { force: true });
+      extractZip(zip, destPath);
       fs.writeFileSync(commitPath, downloaded);
     }
     catch (error) {

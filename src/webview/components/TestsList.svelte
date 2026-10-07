@@ -21,6 +21,8 @@
     testCases: TestCase[];
     verboseTests?: boolean;
     isRefreshing: boolean;
+    // No tests list received yet (container still starting): not the same as "no tests found"
+    testsPending?: boolean;
     refreshTests: () => void;
     sendSelectedTests: (testCases: TestCase[]) => void;
   }
@@ -29,6 +31,7 @@
     testCases = $bindable([]),
     verboseTests = $bindable(false),
     isRefreshing,
+    testsPending = false,
     refreshTests,
     sendSelectedTests,
   }: Props = $props();
@@ -48,7 +51,8 @@
     const map = new Map<string, TestCase[]>();
     for (const t of testCases) {
       const parts = t.id.split("::");
-      const file = parts.length > 1 ? parts.slice(0, parts.length - 1).join("::") : "";
+      let file = parts.length > 1 ? parts[0].split("/").pop()! : "";
+      if (t.id.includes("swap")) file = "[swap] " + file;
       if (!map.has(file)) map.set(file, []);
       map.get(file)!.push(t);
     }
@@ -160,11 +164,19 @@
         <i class="codicon codicon-refresh {isRefreshing ? 'spinning' : ''}"></i>
       </button>
       {#if !isRefreshing}
-        <span
-          transition:fade={{ duration: 150 }}
-          class={testCases.length === 0 ? "test-count-no-tests-error" : "test-count"}
-          >{getSelectedTestCount()}/{testCases.length}</span
-        >
+        {#if testsPending}
+          <span
+            transition:fade={{ duration: 150 }}
+            class="test-count-pending"
+            title="Waiting for the container">-/-</span
+          >
+        {:else}
+          <span
+            transition:fade={{ duration: 150 }}
+            class={testCases.length === 0 ? "test-count-no-tests-error" : "test-count"}
+            >{getSelectedTestCount()}/{testCases.length}</span
+          >
+        {/if}
       {/if}
     </div>
   </div>
@@ -307,6 +319,15 @@
     font-size: 10px;
     background-color: var(--vscode-badge-background);
     color: var(--vscode-badge-foreground);
+    padding: 1px 5px;
+    border-radius: 8px;
+  }
+
+  .test-count-pending {
+    font-size: 10px;
+    background-color: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+    opacity: 0.6;
     padding: 1px 5px;
     border-radius: 8px;
   }

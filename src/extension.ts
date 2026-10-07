@@ -116,6 +116,10 @@ export function activate(context: vscode.ExtensionContext) {
         list: getChecks().values,
         selected: getChecks().selected,
       };
+      // No tests to wait for: show the empty list instead of the loading state
+      if (!selectedApp.standaloneTestsDir && !selectedApp.swapTestsDir) {
+        options.testCases = null;
+      }
     }
 
     // Use cached docker status and default values,
@@ -155,7 +159,7 @@ export function activate(context: vscode.ExtensionContext) {
         // Result arrives via onImageOutdatedEvent.
         containerManager.checkImageOutdated();
         getAndBuildAppTestsDependencies(targetSelector);
-        getAppTestsList(targetSelector, false, webview);
+        getAppTestsList(targetSelector, webview);
       }
     }),
   );
@@ -365,6 +369,8 @@ export function activate(context: vscode.ExtensionContext) {
           list: getChecks().values,
           selected: getChecks().selected,
         },
+        // No tests to wait for: show the empty list instead of the loading state
+        testCases: !selectedApp.standaloneTestsDir && !selectedApp.swapTestsDir ? null : undefined,
       });
       webview.sendTestDependencies(getAppTestsPrerequisites());
     }),
@@ -415,7 +421,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("refreshTests", () => {
-      getAppTestsList(targetSelector, false, webview);
+      getAppTestsList(targetSelector, webview);
     }),
   );
 
@@ -529,7 +535,7 @@ export function activate(context: vscode.ExtensionContext) {
           selected: targetSelector.getSelectedTarget(),
         },
         // Clear tests if the (re-detected) app no longer has functional tests
-        testCases: !currentApp?.functionalTestsDir ? null : undefined,
+        testCases: !currentApp?.standaloneTestsDir && !currentApp?.swapTestsDir ? null : undefined,
       });
       taskProvider.provideTasks();
       containerManager.manageContainer();
@@ -551,8 +557,8 @@ export function activate(context: vscode.ExtensionContext) {
   // Helper functions to avoid duplication
   const refreshTestsIfReady = () => {
     const currentApp = getSelectedApp();
-    if (currentApp?.functionalTestsDir && containerManager.getContainerStatus() === DevImageStatus.running) {
-      getAppTestsList(targetSelector, false, webview);
+    if ((currentApp?.standaloneTestsDir || currentApp?.swapTestsDir) && containerManager.getContainerStatus() === DevImageStatus.running) {
+      getAppTestsList(targetSelector, webview);
     }
   };
 
@@ -561,10 +567,10 @@ export function activate(context: vscode.ExtensionContext) {
       return true;
     }
     const currentApp = getSelectedApp();
-    const testsDir = currentApp?.functionalTestsDir;
-    if (testsDir && currentApp?.folderUri) {
-      const testsPath = vscode.Uri.joinPath(currentApp.folderUri, testsDir).fsPath;
-      return testsPath.startsWith(fsPath);
+    if (currentApp?.folderUri) {
+      return [currentApp.standaloneTestsDir, currentApp.swapTestsDir].some(
+        testsDir => testsDir && vscode.Uri.joinPath(currentApp.folderUri, testsDir).fsPath.startsWith(fsPath),
+      );
     }
     return false;
   };
@@ -629,7 +635,7 @@ export function activate(context: vscode.ExtensionContext) {
     webview.onWebviewReadyEvent(async () => {
       await refreshWebviewFullState();
       if (containerManager.getContainerStatus() === DevImageStatus.running) {
-        getAppTestsList(targetSelector, false, webview);
+        getAppTestsList(targetSelector, webview);
       }
     }),
   );

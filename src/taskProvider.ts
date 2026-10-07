@@ -8,7 +8,7 @@ import * as fg from "fast-glob";
 import { platform } from "node:process";
 import { getDockerUserOpt, getComposeServiceName } from "./containerManager";
 import { TargetSelector, specialAllDevice } from "./targetSelector";
-import { getSelectedApp, getVerboseTests, App, AppLanguage } from "./appSelector";
+import { getSelectedApp, getVerboseTests, downloadAppSwapDependencies, App, AppLanguage } from "./appSelector";
 import type { TaskSpec } from "./types";
 import { Webview } from "./webview/webviewProvider";
 import { debug } from "vscode";
@@ -23,6 +23,8 @@ const udevRulesUrl = "https://raw.githubusercontent.com/LedgerHQ/udev-rules/mast
 let udevRulesDone: boolean = false;
 
 type CustomTaskFunction = () => void;
+
+const TESTS_TASK_NAMES = ["Run Tests", "Tests with Display", "Tests on Device", "Generate Snapshots"];
 
 export interface ChecksList {
   selected: string;
@@ -108,7 +110,8 @@ export class TaskProvider implements vscode.TaskProvider {
   private appFolderUri?: vscode.Uri;
   private appName: string;
   private appLanguage: AppLanguage;
-  private functionalTestsDir?: string;
+  private standaloneTestsDir?: string;
+  private swapTestsDir?: string;
   private packageName?: string;
   private tasks: MyTask[] = [];
   private currentApp?: App;
@@ -333,7 +336,8 @@ export class TaskProvider implements vscode.TaskProvider {
     this.containerName = "";
     this.workspacePath = "";
     this.buildDir = "";
-    this.functionalTestsDir = undefined;
+    this.standaloneTestsDir = undefined;
+    this.swapTestsDir = undefined;
     this.selectedTests = undefined;
     this.packageName = undefined;
     const conf = vscode.workspace.getConfiguration("ledgerDevTools");
@@ -351,9 +355,13 @@ export class TaskProvider implements vscode.TaskProvider {
       else {
         this.additionalReqs = undefined;
       }
-      this.functionalTestsDir = this.currentApp.functionalTestsDir;
+      this.standaloneTestsDir = this.currentApp.standaloneTestsDir;
+      this.swapTestsDir = this.currentApp.swapTestsDir;
 
-      if (this.functionalTestsDir && this.currentApp.functionalTestsList && this.currentApp.functionalTestsList.length > 0) {
+      if (
+        (this.standaloneTestsDir && this.currentApp.functionalTestsList && this.currentApp.functionalTestsList.length > 0)
+        || (this.swapTestsDir && this.currentApp.swapTestsList && this.currentApp.swapTestsList.length > 0)
+      ) {
         this.selectedTests
           = this.currentApp.selectedTests && this.currentApp.selectedTests.length > 0 ? this.currentApp.selectedTests : undefined;
         console.log(`Task provider selected tests after reset: ${this.selectedTests}`);
@@ -460,6 +468,10 @@ export class TaskProvider implements vscode.TaskProvider {
     await this.tasksReadyPromise;
     const task = this.getTaskByName(taskName);
     if (task) {
+      if (TESTS_TASK_NAMES.includes(taskName)) {
+        // Only downloads the swap dependencies that are not there yet.
+        await downloadAppSwapDependencies(false);
+      }
       if (task.customFunction) {
         task.customFunction();
       }
@@ -825,62 +837,65 @@ export class TaskProvider implements vscode.TaskProvider {
     return exec;
   }
 
-  private getSelectedTests(): [string, string] {
+  private getSelectedTests(): [string, string, string] {
     let execQuotes = `"`;
     if (platform === "win32") {
       execQuotes = `\\\"`;
     }
-    let testTarget: string;
-    if (this.selectedTests && this.functionalTestsDir) {
-      const normDir = this.functionalTestsDir.replace(/^\.\//, "").replace(/\/$/, "");
-      const dirComponents = normDir.split("/");
-      testTarget = this.selectedTests.map((t) => {
-        const colonIdx = t.indexOf("::");
-        const filePart = colonIdx >= 0 ? t.substring(0, colonIdx) : t;
-        if (filePart.startsWith(normDir + "/")) {
-          return t;
+
+    const normDir = this.standaloneTestsDir?.replace(/^\.\//, "").replace(/\/$/, "");
+    const swapDir = this.swapTestsDir?.replace(/^\.\//, "").replace(/\/$/, "");
+
+    if (this.selectedTests && (this.standaloneTestsDir || this.swapTestsDir)) {
+      let standaloneTests: string[] = [];
+      let swapTests: string[] = [];
+
+      // Map each selected test to its appropriate path based on the standaloneTestsDir and suffix matching
+      this.selectedTests.map((t) => {
+        const filePart = t.indexOf("::") >= 0 ? t.substring(0, t.indexOf("::")) : t;
+
+        if (normDir && filePart.startsWith(normDir + "/")) {
+          standaloneTests.push(t);
         }
-        for (let i = 1; i < dirComponents.length; i++) {
-          const suffix = dirComponents.slice(i).join("/");
-          if (filePart.startsWith(suffix + "/")) {
-            return `${dirComponents.slice(0, i).join("/")}/${t}`;
-          }
+        else if (swapDir && filePart.startsWith(swapDir + "/")) {
+          swapTests.push(t);
         }
-        return `${normDir}/${t}`;
-      }).join(" ");
+      });
+
+      return [standaloneTests.join(" "), swapTests.join(" "), execQuotes];
     }
-    else {
-      testTarget = this.functionalTestsDir ?? "";
+    return [normDir ?? "", swapDir ?? "", execQuotes];
+  }
+
+  private buildPytestCmd(pytestArgs: string = ""): string {
+    const [standaloneTarget, swapTarget, execQuotes] = this.getSelectedTests();
+    const parts: string[] = [];
+    const verboseOpt = getVerboseTests() ? "-s " : "";
+    const baseArgs = `--tb=short -v ${verboseOpt}${pytestArgs} --device ${this.tgtSelector.getSelectedSpeculosModel()}`;
+    if (standaloneTarget) {
+      parts.push(`pytest ${standaloneTarget} ${baseArgs}`);
     }
-    return [testTarget, execQuotes];
+    if (swapTarget) {
+      parts.push(`pytest ${swapTarget} ${baseArgs}`);
+    }
+    const inner = `source /opt/venv/bin/activate && ${parts.join(" && ")}`;
+    return `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}${inner}${execQuotes}`;
   }
 
   private functionalTestsExec(): string {
-    let [testTarget, execQuotes] = this.getSelectedTests();
-    const verboseOpt = getVerboseTests() ? "-s " : "";
-    const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate &&pytest ${testTarget} --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()}${execQuotes}`;
-    return exec;
+    return this.buildPytestCmd();
   }
 
   private functionalTestsDisplayExec(): string {
-    let [testTarget, execQuotes] = this.getSelectedTests();
-    const verboseOpt = getVerboseTests() ? "-s " : "";
-    const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate && pytest ${testTarget} --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()} --display${execQuotes}`;
-    return exec;
+    return this.buildPytestCmd(`--display`);
   }
 
   private functionalTestsGoldenRunExec(): string {
-    let [testTarget, execQuotes] = this.getSelectedTests();
-    const verboseOpt = getVerboseTests() ? "-s " : "";
-    const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate && pytest ${testTarget} --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()} --golden_run${execQuotes}`;
-    return exec;
+    return this.buildPytestCmd(`--golden_run`);
   }
 
   private functionalTestsDisplayOnDeviceExec(): string {
-    let [testTarget, execQuotes] = this.getSelectedTests();
-    const verboseOpt = getVerboseTests() ? "-s " : "";
-    const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c ${execQuotes}source /opt/venv/bin/activate && pytest ${testTarget} --tb=short -v ${verboseOpt}--device ${this.tgtSelector.getSelectedSpeculosModel()} --display --backend ledgerwallet${execQuotes}`;
-    return exec;
+    return this.buildPytestCmd(`--display --backend ledgerwallet`);
   }
 
   private runGuidelineEnforcer(): string {
@@ -910,7 +925,11 @@ export class TaskProvider implements vscode.TaskProvider {
       addReqsExec = `${this.additionalReqs} &&`;
       console.log(`Ledger: Installing additional dependencies : ${addReqsExec}`);
     }
-    const reqFilePath = this.functionalTestsDir + "/requirements.txt";
+    const reqFilePath = this.standaloneTestsDir + "/requirements.txt";
+    if (this.swapTestsDir) {
+      const swapReqFilePath = this.swapTestsDir + "/requirements.txt";
+      addReqsExec = `${addReqsExec} [ -f ${swapReqFilePath} ] && pip install -r ${swapReqFilePath} &&`;
+    }
     const exec = `docker exec ${getDockerUserOpt()} -it ${this.containerName} bash -c 'source /opt/venv/bin/activate && ${addReqsExec} [ -f ${reqFilePath} ] && pip install -r ${reqFilePath}'`;
     return exec;
   }
@@ -1011,7 +1030,7 @@ export class TaskProvider implements vscode.TaskProvider {
 
         // Check functional tests availability
         if (
-          this.currentApp!.functionalTestsDir === undefined
+          this.currentApp!.standaloneTestsDir === undefined
           && item.group === "Functional Tests"
           && !item.name.includes("emulator")
         ) {

@@ -339,6 +339,7 @@
     "@vscode-elements/elements": "^2.5.1",
     "bits-ui": "^2.18.1",
     "fast-glob": "^3.3.3",
+    "fflate": "^0.8.3",
     "simple-git": "^3.36.0"
   },
   "devDependencies": {
@@ -348,7 +349,7 @@
     "@types/vscode": "^1.103.0",
     "@typescript-eslint/eslint-plugin": "^8.61.1",
     "@typescript-eslint/parser": "^8.61.1",
-    "@vscode/test-electron": "^2.5.2",
+    "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "^3.9.2",
     "copy-webpack-plugin": "^13.0.1",
     "eslint": "^9.39.4",

@@ -808,14 +808,15 @@ async function fetchTestsList(targetSelector: TargetSelector, config: TestsListC
     shellScript,
   ];
 
-  return new Promise<[string[], string[]]>((resolve, reject) => {
+  return new Promise<[string[], string[]]>((resolve) => {
     cp.execFile("docker", getTestsListArgs, optionsExec, (error, stdout) => {
       if (error) {
         pushError(`Error while getting tests list: ${error.message}`);
         if (webView) {
           config.refreshWebView(webView, null);
         }
-        reject(error);
+        // Keep the other list: the merged refresh must still run.
+        resolve([[], []]);
         return;
       }
 

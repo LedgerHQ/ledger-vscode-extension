@@ -887,6 +887,11 @@ async function fetchAppTestsList(targetSelector: TargetSelector, webView?: Webvi
     void webView?.refresh({ testsLoading: true });
   }
 
+  // The swap tests need their binaries to be collected.
+  if (swapConfig) {
+    await downloadAppSwapDependencies(false);
+  }
+
   const noTests: [string[], string[]] = [[], []];
   const [
     [standaloneList, standaloneSelected],
@@ -1043,17 +1048,27 @@ function parseBuildUseCasesFromManifest(tomlContent: any): BuildUseCase[] | unde
   return buildUseCases;
 }
 
-export async function downloadAppSwapDependencies(checkForUpdates: boolean = true) {
+let swapDownload: Promise<void> | undefined;
+
+// A call made during a download waits for that download instead of starting another one.
+export function downloadAppSwapDependencies(checkForUpdates: boolean = true): Promise<void> {
   if (!selectedApp?.swapTestsDir || !selectedApp.swapDependencies) {
-    return;
+    return Promise.resolve();
   }
-  const errors = await downloadSwapDependencies(
-    selectedApp.folderUri.fsPath,
-    selectedApp.swapTestsDir,
-    selectedApp.swapDependencies,
-    checkForUpdates,
-  );
-  errors.forEach(error => pushError(`Swap tests dependency: ${error}`));
+  if (!swapDownload) {
+    const app = selectedApp;
+    swapDownload = downloadSwapDependencies(
+      app.folderUri.fsPath,
+      app.swapTestsDir!,
+      app.swapDependencies!,
+      checkForUpdates,
+    ).then((errors) => {
+      errors.forEach(error => pushError(`Swap tests dependency: ${error}`));
+    }).finally(() => {
+      swapDownload = undefined;
+    });
+  }
+  return swapDownload;
 }
 
 export function getAndBuildAppTestsDependencies(targetSelector: TargetSelector, clean: boolean = false) {

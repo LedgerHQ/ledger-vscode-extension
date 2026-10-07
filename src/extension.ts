@@ -529,7 +529,7 @@ export function activate(context: vscode.ExtensionContext) {
           selected: targetSelector.getSelectedTarget(),
         },
         // Clear tests if the (re-detected) app no longer has functional tests
-        testCases: !currentApp?.standaloneTestsDir ? null : undefined,
+        testCases: !currentApp?.standaloneTestsDir && !currentApp?.swapTestsDir ? null : undefined,
       });
       taskProvider.provideTasks();
       containerManager.manageContainer();
@@ -551,7 +551,7 @@ export function activate(context: vscode.ExtensionContext) {
   // Helper functions to avoid duplication
   const refreshTestsIfReady = () => {
     const currentApp = getSelectedApp();
-    if (currentApp?.standaloneTestsDir && containerManager.getContainerStatus() === DevImageStatus.running) {
+    if ((currentApp?.standaloneTestsDir || currentApp?.swapTestsDir) && containerManager.getContainerStatus() === DevImageStatus.running) {
       getAppTestsList(targetSelector, webview);
     }
   };
@@ -561,10 +561,10 @@ export function activate(context: vscode.ExtensionContext) {
       return true;
     }
     const currentApp = getSelectedApp();
-    const testsDir = currentApp?.standaloneTestsDir;
-    if (testsDir && currentApp?.folderUri) {
-      const testsPath = vscode.Uri.joinPath(currentApp.folderUri, testsDir).fsPath;
-      return testsPath.startsWith(fsPath);
+    if (currentApp?.folderUri) {
+      return [currentApp.standaloneTestsDir, currentApp.swapTestsDir].some(
+        testsDir => testsDir && vscode.Uri.joinPath(currentApp.folderUri, testsDir).fsPath.startsWith(fsPath),
+      );
     }
     return false;
   };

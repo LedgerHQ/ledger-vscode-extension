@@ -358,7 +358,10 @@ export class TaskProvider implements vscode.TaskProvider {
       this.standaloneTestsDir = this.currentApp.standaloneTestsDir;
       this.swapTestsDir = this.currentApp.swapTestsDir;
 
-      if (this.standaloneTestsDir && this.currentApp.functionalTestsList && this.currentApp.functionalTestsList.length > 0) {
+      if (
+        (this.standaloneTestsDir && this.currentApp.functionalTestsList && this.currentApp.functionalTestsList.length > 0)
+        || (this.swapTestsDir && this.currentApp.swapTestsList && this.currentApp.swapTestsList.length > 0)
+      ) {
         this.selectedTests
           = this.currentApp.selectedTests && this.currentApp.selectedTests.length > 0 ? this.currentApp.selectedTests : undefined;
         console.log(`Task provider selected tests after reset: ${this.selectedTests}`);
